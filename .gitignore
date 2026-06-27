@@ -1,0 +1,16 @@
+# deps & build
+node_modules/
+dist/
+*.tsbuildinfo
+
+# secrets / local creds
+.env
+.env.*
+!.env.example
+.dev.vars
+.wrangler/
+
+# editor / OS
+.DS_Store
+.vscode/
+*.log

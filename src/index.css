@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+/* ── Bridza — violet accent over the shared erluxman design language ── */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --color-ink: #ece9f6;
+  --color-ink-dim: #a39db8;
+  --color-ink-faint: #645d7a;
+  --color-base: #0b0a12;
+  --color-surface: #15131f;
+  --color-line: #241f33;
+
+  --color-accent: #a78bfa;
+  --color-accent-soft: #3a2d63;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-base);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.bg-aura {
+  background:
+    radial-gradient(
+      70rem 45rem at 50% -15%,
+      color-mix(in oklab, var(--color-accent) 20%, transparent),
+      transparent 60%
+    ),
+    var(--color-base);
+}
+
+@keyframes float-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-in {
+  animation: float-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
