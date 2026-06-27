@@ -15,10 +15,32 @@
 
   --color-accent: #a78bfa;
   --color-accent-soft: #3a2d63;
+  --color-on-accent: #0b0a12;
 }
 
 html {
   color-scheme: dark;
+}
+
+/* Light theme — overrides the dark tokens above when <html data-theme="light">. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-ink: #1a1726;
+  --color-ink-dim: #5b5470;
+  --color-ink-faint: #948daa;
+  --color-base: #ffffff;
+  --color-surface: #f5f3fb;
+  --color-line: #e6e1f2;
+  --color-accent: #7c5cf0;
+  --color-accent-soft: #ddd4fb;
+  --color-on-accent: #ffffff;
+}
+
+/* Smooth the swap between themes. */
+body {
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 body {
