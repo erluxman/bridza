@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FEATURES } from "../data/content";
+import ThemeToggle from "../components/ThemeToggle";
 
 export default function App() {
   return (
@@ -25,12 +26,15 @@ function Header() {
           Bridza
         </span>
       </a>
-      <a
-        href="https://erluxman.dev"
-        className="text-ink-dim hover:text-ink text-sm transition-colors"
-      >
-        by erluxman ↗
-      </a>
+      <div className="flex items-center gap-3">
+        <a
+          href="https://erluxman.dev"
+          className="text-ink-dim hover:text-ink text-sm transition-colors"
+        >
+          by erluxman ↗
+        </a>
+        <ThemeToggle />
+      </div>
     </header>
   );
 }
@@ -89,7 +93,7 @@ function Waitlist() {
       />
       <button
         type="submit"
-        className="bg-accent rounded-full px-5 py-3 text-sm font-semibold text-[#0b0a12] transition-opacity hover:opacity-90"
+        className="bg-accent text-on-accent rounded-full px-5 py-3 text-sm font-semibold transition-opacity hover:opacity-90"
       >
         Join waitlist
       </button>
