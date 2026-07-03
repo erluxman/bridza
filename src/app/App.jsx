@@ -468,11 +468,9 @@ function TaskDetail({ dir, pipeline, task, tools, runningStages, onBack, onChang
   const automate = async () => {
     if (automating) return;
     // auto-advance = run only the stages not yet done, in order (continue the
-    // pipeline). Model: the stage's LAST explicitly-picked model if any, else
-    // empty = the tool's own default (Bridza never forces a model).
-    const lastModelOf = (sid) => { const rs = (task.tracking[sid] || {}).runs || []; return rs.length ? rs[rs.length - 1].model || "" : ""; };
+    // pipeline). NO model is ever passed — each tool runs with its own default.
     const bodies = stageObjs.filter((def) => (task.tracking[def.id] || {}).status !== "done").map((def) => ({
-      pipeline: pipeline.id, task: task.id, stage: def.id, tool: def.tool || "opencode", model: lastModelOf(def.id),
+      pipeline: pipeline.id, task: task.id, stage: def.id, tool: def.tool || "opencode",
       prompt: [task.title && ("Task: " + task.title), task.context, def.hint].filter(Boolean).join("\n\n") || ("Complete the " + (def.name || def.id) + " stage."),
       system: def.systemPrompt || "", shell: def.shell || [], workingDir: pipeline.workingDir || ".",
       stageName: def.name || def.id, taskTitle: task.title,
@@ -690,19 +688,20 @@ function BlastRadius({ dir, pipeline, task, refreshKey, onOpen }) {
 function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle, onDone, flash, onDiff, resultFor, live }) {
   const runs = track.runs || [];
   const lastPrompt = runs.length ? (runs[runs.length - 1].prompt || "") : "";
-  const lastModel = runs.length ? (runs[runs.length - 1].model || "") : "";
   const [tool, setTool] = useState(def.tool || (tools[0] && tools[0].id) || "claude");
   const [prompt, setPrompt] = useState(lastPrompt);
-  // empty model = the TOOL'S OWN default — Bridza never forces one; the picker
-  // only applies when the user explicitly chooses here (prefilled from last run)
-  const [model, setModel] = useState(lastModel);
+  // empty model = the TOOL'S OWN default. ALWAYS starts empty — a model is only
+  // passed when explicitly picked for THIS run, never remembered from earlier
+  // runs (a sticky model once made every run inherit a bad earlier choice).
+  const [model, setModel] = useState("");
   const [models, setModels] = useState([]);
   const [out, setOut] = useState("");
   const [running, setRunning] = useState(false);
   const [histOpen, setHistOpen] = useState(false);
   const termRef = useRef(null);
-  // autofill the prompt/model with the stage's last run when switching task/stage
-  useEffect(() => { setPrompt(lastPrompt); setModel(lastModel); setOut(""); }, [task.id, def.id]);
+  // autofill the prompt with the stage's last run when switching task/stage
+  // (the model is deliberately NOT carried over — tool default unless picked now)
+  useEffect(() => { setPrompt(lastPrompt); setModel(""); setOut(""); }, [task.id, def.id]);
   useEffect(() => { if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight; }, [out]);
   useEffect(() => {
     let on = true;
