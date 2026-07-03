@@ -323,3 +323,34 @@ describe("web terminal — termRun", () => {
     }
   });
 });
+
+describe("auto-advance resumes — never restarts", () => {
+  it("automateTask skips stages the branch tip already marks done, even if the client sends them", async () => {
+    const { automateTask } = await import("../../../server/bridza-run.js");
+    const wtBase = fs.mkdtempSync(path.join(os.tmpdir(), "bridza-auto-wt-"));
+    dirs.push(wtBase);
+    process.env.BRIDZA_WORKTREE_DIR = wtBase;
+    process.env.BRIDZA_TOOL_OVERRIDE = JSON.stringify({ bin: "sh", args: ["-c", "echo ok"] });
+    try {
+      createPipeline(root, { id: "dev", label: "Dev", stages: [{ id: "spec", name: "Spec" }, { id: "build", name: "Build" }] });
+      createTask(root, { pipeline: "dev", id: "t6", title: "T6" });
+      // complete the FIRST stage beforehand
+      const first = await runStage(root, { pipeline: "dev", task: "t6", stage: "spec", tool: "opencode", prompt: "done already" }, () => {});
+      expect(first.status).toBe("done");
+      // a stale client sends BOTH stages — the server must skip spec and run build
+      const events = [];
+      const bodies = ["spec", "build"].map((stage) => ({ pipeline: "dev", task: "t6", stage, tool: "opencode", prompt: "go", stageName: stage }));
+      const r = await automateTask(root, { stages: bodies }, (e) => events.push(e));
+      expect(r.ok).toBe(true);
+      expect(r.results[0]).toMatchObject({ stage: "spec", status: "done", skipped: true });
+      expect(r.results[1]).toMatchObject({ stage: "build", status: "done" });
+      expect(r.results[1].skipped).toBeUndefined();
+      expect(events.some((e) => e.t === "automate" && e.phase === "skip" && e.stage === "spec")).toBe(true);
+      // spec was NOT re-run: still exactly one run record
+      expect(readTaskMeta(root, "dev", "t6").tracking.spec.runs.length).toBe(1);
+    } finally {
+      delete process.env.BRIDZA_WORKTREE_DIR;
+      delete process.env.BRIDZA_TOOL_OVERRIDE;
+    }
+  });
+});

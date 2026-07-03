@@ -465,6 +465,20 @@ export async function automateTask(root, body, emit) {
   for (let i = 0; i < stages.length; i++) {
     const s = stages[i] || {};
     const st = safeRef(s.stage);
+    // RESUME, never restart: the truth about what's done is the branch tip at
+    // THIS moment, not the client's snapshot (which can be stale — a stage that
+    // just finished, another window, a reopened task). Skip completed stages.
+    try {
+      const wt = ensureTaskWorktree(root, s.pipeline, s.task);
+      if (wt.ok) {
+        const meta = readTaskMeta(wt.worktree, s.pipeline, s.task);
+        if ((((meta.tracking || {})[st]) || {}).status === "done") {
+          emit({ t: "automate", phase: "skip", index: i, count: stages.length, stage: st, name: s.stageName || st });
+          results.push({ stage: st, status: "done", exit: 0, skipped: true, sessionId: null, resultCommit: null });
+          continue;
+        }
+      }
+    } catch (e) { /* can't read → just run the stage normally */ }
     emit({ t: "automate", phase: "stage", index: i, count: stages.length, stage: st, name: s.stageName || st });
     const res = await runStage(root, s, (ev) => { if (ev.t !== "end") emit({ ...ev, _stage: st }); });
     results.push({ stage: st, status: res.status, exit: res.exit, sessionId: res.sessionId || null, resultCommit: res.resultCommit || null });

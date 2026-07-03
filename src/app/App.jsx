@@ -474,23 +474,25 @@ function TaskDetail({ dir, pipeline, task, tools, runningStages, onBack, onChang
   // stage is assembled from the task intent + the stage's own hint/system prompt.
   const automate = async () => {
     if (automating) return;
-    // auto-advance = run only the stages not yet done, in order (continue the
-    // pipeline). NO model is ever passed — each tool runs with its own default.
-    const bodies = stageObjs.filter((def) => (task.tracking[def.id] || {}).status !== "done").map((def) => ({
+    // Send ALL stages in order — the SERVER resumes from the first incomplete
+    // one by re-checking the branch tip per stage (this client snapshot can be
+    // stale). NO model is ever passed — each tool runs with its own default.
+    const bodies = stageObjs.map((def) => ({
       pipeline: pipeline.id, task: task.id, stage: def.id, tool: def.tool || "opencode",
       prompt: [task.title && ("Task: " + task.title), task.context, def.hint].filter(Boolean).join("\n\n") || ("Complete the " + (def.name || def.id) + " stage."),
       system: def.systemPrompt || "", shell: def.shell || [], workingDir: pipeline.workingDir || ".",
       stageName: def.name || def.id, taskTitle: task.title,
     }));
-    if (!bodies.length) { flash("All stages already done — nothing to auto-advance.", 4000); return; }
+    if (!bodies.length) { flash("This task has no stages.", 4000); return; }
     setAutomating(true); setAutoOut("");
     const append = (s) => setAutoOut((o) => (o + s).slice(-16000));
-    flash(`Auto-advancing ${bodies.length} stage(s)…`, 6000);
+    flash("Auto-advancing — resuming from the first incomplete stage…", 6000);
     const end = await api.automate(dir, { stages: bodies }, (e) => {
       if (e.t === "out") append(e.d);
       else if (e.t === "cmd") append("\n$ " + e.cmd + "\n");
       else if (e.t === "session") append(`\n⛁ opencode session ${e.sessionId}\n`);
       else if (e.t === "commit") append(`● ${e.phase} ${(e.sha || "").slice(0, 7)}\n`);
+      else if (e.t === "automate" && e.phase === "skip") append(`↷ ${e.index + 1}/${e.count} · ${e.name} — already done, skipped\n`);
       else if (e.t === "automate" && e.phase === "stage") append(`\n━━ ${e.index + 1}/${e.count} · ${e.name} ━━\n`);
       else if (e.t === "automate" && e.phase === "stage-done") append(`✓ ${e.stage}: ${e.status} (exit ${e.exit})${e.sessionId ? " · " + e.sessionId : ""}\n`);
     });
