@@ -13,7 +13,10 @@
     "lint": "eslint .",
     "preview:local": "vite preview",
     "deploy": "pnpm build && wrangler pages deploy dist --project-name=bridza --branch=main --commit-dirty=true",
-    "deploy:preview": "pnpm build && wrangler pages deploy dist --project-name=bridza --branch=preview --commit-dirty=true"
+    "deploy:preview": "pnpm build && wrangler pages deploy dist --project-name=bridza --branch=preview --commit-dirty=true",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "react": "^19.1.0",
@@ -33,6 +36,8 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.33.1",
     "vite": "^6.3.5",
-    "wrangler": "^4"
+    "wrangler": "^4",
+    "vitest": "^4.1.8",
+    "@playwright/test": "^1.61.1"
   }
 }

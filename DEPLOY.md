@@ -84,3 +84,20 @@ Pick a canonical host (apex vs www) and add a redirect rule for the other.
 ## Daily workflow (after setup)
 - **From the PC:** `pnpm deploy` (prod) or `pnpm deploy:preview`.
 - **From GitHub:** open a PR → preview; merge → production. Fully automated.
+
+---
+
+## app.bridza.erluxman.dev — the app on a subdomain
+
+This repo ships ONE build containing both surfaces; `src/main.tsx` routes by
+hostname (`app.*` → the Bridza app, anything else → the landing; `/app` also
+works, which is what local dev uses). To serve the app at
+**app.bridza.erluxman.dev**, attach it as a second custom domain on the SAME
+Pages project — no extra CI, project, or build:
+
+1. Cloudflare dash → Workers & Pages → **bridza** → **Custom domains** → *Add*.
+2. Enter `app.bridza.erluxman.dev` → Cloudflare creates the DNS record itself.
+
+The deployed app is a static shell: it has no local bridge, so it shows "clone
+and run locally" instructions. The real tool is `pnpm dev` on your machine
+(landing on `localhost:5173`, app on `localhost:5173/app`).
