@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import "./bridza.css";
 import * as api from "./store/client.js";
 import { STARTER_PIPELINES, gateSatisfied, criticalPath } from "./store/bridza.js";
+import { Terminal } from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
+import "@xterm/xterm/css/xterm.css";
 
 const LS = { dir: "bridza-project", recents: "bridza-recents", side: "bridza-side" };
 const readRecents = () => { try { return JSON.parse(localStorage.getItem(LS.recents)) || []; } catch (e) { return []; } };
@@ -1565,76 +1568,66 @@ function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed, onExp
 }
 
 /* ───────────────────────── web terminal (floating drawer) ─────────────────────────
-   A real command line in the app: commands run server-side via the bridge in
-   the task's WORKTREE (the branch checkout — so `flutter test`, `git log`,
-   `opencode run …` hit exactly what the agent produced) or the repo root.
-   Output streams live; ⌃C / Stop aborts the fetch and the bridge kills the
-   process. One command at a time (sh -c), ↑/↓ recalls history. */
+   A REAL shell — your $SHELL (zsh/bash) on a PTY (node-pty), rendered by
+   xterm.js over a WebSocket. Fully interactive: prompt, colors, tab-complete,
+   ⌃C, vim, the lot. cwd = the task's WORKTREE (the branch checkout the agent
+   works in) or the repo root. Closing the drawer kills the shell. */
 function TermDrawer({ dir, pipeline, task, onClose }) {
-  const [lines, setLines] = useState("");
-  const [cmd, setCmd] = useState("");
-  const [running, setRunning] = useState(false);
+  const hostRef = useRef(null);
   const [cwd, setCwd] = useState("");
-  const histRef = useRef([]);
-  const histIdx = useRef(0);
-  const abortRef = useRef(null);
-  const boxRef = useRef(null);
-  const inputRef = useRef(null);
-  useEffect(() => { if (boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight; }, [lines]);
-  useEffect(() => { if (!running && inputRef.current) inputRef.current.focus(); }, [running]);
-  useEffect(() => () => { if (abortRef.current) abortRef.current.abort(); }, []);   // closing the drawer kills a live command
-
-  const append = (s) => setLines((o) => (o + s).slice(-60000));
-  const run = async () => {
-    const c = cmd.trim();
-    if (!c || running) return;
-    histRef.current.push(c);
-    histIdx.current = histRef.current.length;
-    setCmd("");
-    setRunning(true);
-    append(`$ ${c}\n`);
-    const ac = new AbortController();
-    abortRef.current = ac;
-    const end = await api.termRun(dir, { pipeline, task, cmd: c }, (e) => {
-      if (e.t === "out") append(e.d);
-      else if (e.t === "cwd") setCwd(e.dir);
-    }, ac.signal).catch((e) => ({ error: String((e && e.message) || e) }));
-    abortRef.current = null;
-    if (ac.signal.aborted) append("^C\n");
-    else if (end && end.error) append("✖ " + end.error + "\n");
-    else if (end && end.exit !== 0) append(`(exit ${end.exit})\n`);
-    append("\n");
-    setRunning(false);
-  };
-  const stop = () => { if (abortRef.current) abortRef.current.abort(); };
-  const onKey = (e) => {
-    if (e.key === "Enter") run();
-    else if (e.key === "c" && e.ctrlKey) { if (running) { stop(); e.preventDefault(); } }
-    else if (e.key === "ArrowUp") { if (histIdx.current > 0) { histIdx.current--; setCmd(histRef.current[histIdx.current] || ""); e.preventDefault(); } }
-    else if (e.key === "ArrowDown") {
-      if (histIdx.current < histRef.current.length) { histIdx.current++; setCmd(histRef.current[histIdx.current] || ""); e.preventDefault(); }
-    }
-  };
+  const [shell, setShell] = useState("");
+  const [dead, setDead] = useState("");
+  useEffect(() => {
+    setDead("");
+    const term = new Terminal({
+      fontSize: 12.5,
+      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      cursorBlink: true,
+      scrollback: 8000,
+      theme: { background: "#0b0e13", foreground: "#d5dbe3", cursor: "#4f9cf2", cursorAccent: "#0b0e13", selectionBackground: "#2b3b52" },
+    });
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.open(hostRef.current);
+    fit.fit();
+    const q = new URLSearchParams({ dir });
+    if (pipeline && task) { q.set("pipeline", pipeline); q.set("task", task); }
+    const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/bridza/pty?${q}`);
+    ws.onopen = () => {
+      fit.fit();
+      ws.send(JSON.stringify({ t: "resize", cols: term.cols, rows: term.rows }));
+      term.focus();
+    };
+    ws.onmessage = (ev) => {
+      try {
+        const m = JSON.parse(ev.data);
+        if (m.t === "out") term.write(m.d);
+        else if (m.t === "cwd") { setCwd(m.d); setShell(m.shell || ""); }
+        else if (m.t === "err") setDead(m.d);
+        else if (m.t === "exit") setDead(`shell exited (${m.code})`);
+      } catch (e) { /* non-JSON frame */ }
+    };
+    ws.onerror = () => setDead((d) => d || "couldn't reach the PTY bridge — is the dev server running?");
+    ws.onclose = () => setDead((d) => d || "disconnected");
+    const dataSub = term.onData((d) => { if (ws.readyState === 1) ws.send(JSON.stringify({ t: "in", d })); });
+    const ro = new ResizeObserver(() => {
+      fit.fit();
+      if (ws.readyState === 1) ws.send(JSON.stringify({ t: "resize", cols: term.cols, rows: term.rows }));
+    });
+    ro.observe(hostRef.current);
+    return () => { ro.disconnect(); dataSub.dispose(); try { ws.close(); } catch (e) { /* */ } term.dispose(); };
+  }, [dir, pipeline, task]);
   return (
     <div className="term-drawer">
       <div className="term-hd">
-        <span className="side-label" style={{ padding: 0, flex: "none" }}>⌨ Terminal</span>
-        <span className="term-cwd" title={cwd || dir}>{cwd || (task ? "task worktree · created on first command" : dir)}</span>
+        <span className="side-label" style={{ padding: 0, flex: "none" }}>⌨ {shell ? base(shell) : "Terminal"}</span>
+        <span className="term-cwd" title={cwd || dir}>{cwd || (task ? "task worktree" : dir)}</span>
         <div className="row" style={{ flex: "none" }}>
-          {running && <button className="btn ghost sm" onClick={stop} title="Kill the running command (⌃C)">■ Stop</button>}
-          <button className="btn ghost sm" onClick={() => setLines("")} title="Clear scrollback">⌫</button>
-          <button className="btn ghost sm" onClick={onClose}>✕</button>
+          <button className="btn ghost sm" onClick={onClose} title="Close (kills the shell)">✕</button>
         </div>
       </div>
-      <div className="term term-scroll" ref={boxRef}>
-        {lines || `Commands run ${task ? "inside this task's worktree — the branch checkout the agent works in." : "at the repo root."} Try: git status · git log --oneline -5${task ? "" : " · opencode run \"hi\""}`}
-      </div>
-      <div className="term-in">
-        <span className="term-prompt">$</span>
-        <input ref={inputRef} className="term-input" value={cmd} spellCheck={false}
-          placeholder={running ? "running… ⌃C or Stop to kill" : "command · Enter runs · ↑ history"}
-          onChange={(e) => setCmd(e.target.value)} onKeyDown={onKey} />
-      </div>
+      <div className="pty-host" ref={hostRef} />
+      {dead && <div className="pty-dead">{dead} — close and reopen to restart</div>}
     </div>
   );
 }

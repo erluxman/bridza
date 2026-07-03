@@ -400,3 +400,8 @@ textarea.input { resize: vertical; min-height: 64px; }
 .term-input { flex: 1; background: transparent; border: none; outline: none; color: var(--txt); font-family: var(--mono); font-size: 12.5px; }
 .term-input::placeholder { color: var(--txt-3); }
 .btn.on { color: var(--accent); border-color: #4f9cf255; }
+
+/* ---- real PTY (xterm.js) inside the drawer ---- */
+.pty-host { flex: 1; min-height: 0; background: #0b0e13; padding: 6px 4px 6px 10px; }
+.pty-host .xterm { height: 100%; }
+.pty-dead { padding: 7px 12px; font-size: 11.5px; color: var(--warn, #d8a03a); border-top: 1px solid var(--line); background: var(--bg); }

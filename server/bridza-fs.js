@@ -21,7 +21,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { DATA_DIR, CLI_TOOLS } from "../src/app/store/bridza.js";
 import { readProject, createPipeline, savePipeline, createTask, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan } from "./bridza-store.js";
-import { runStage, automateTask, finalizeTask, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, blastRadius, reopenStage, listModels, termRun } from "./bridza-run.js";
+import { runStage, automateTask, finalizeTask, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, blastRadius, reopenStage, listModels, termRun, ensureTaskWorktree } from "./bridza-run.js";
 
 function resolveDir(raw) {
   if (!raw) return null;
@@ -78,6 +78,49 @@ export default function bridzaFs() {
   return {
     name: "bridza-fs",
     configureServer(server) {
+      // ── interactive PTY over WebSocket: a REAL shell (your $SHELL, zsh/bash)
+      // in the browser via xterm.js. cwd = the task's worktree when pipeline+
+      // task are given, else the repo root. node-pty + ws load lazily so plain
+      // builds never touch the native module.
+      let wssP = null;
+      const getWss = () => wssP || (wssP = import("ws").then(({ WebSocketServer }) => new WebSocketServer({ noServer: true })));
+      server.httpServer && server.httpServer.on("upgrade", async (req, socket, head) => {
+        if (!req.url || !req.url.startsWith("/api/bridza/pty")) return;   // vite's HMR upgrade handles the rest
+        try {
+          const wss = await getWss();
+          wss.handleUpgrade(req, socket, head, async (ws) => {
+            const url = new URL(req.url, "http://localhost");
+            const root = repoRoot(url.searchParams.get("dir"));
+            if (!root) return void ws.close(1008, "no project folder");
+            let cwd = root;
+            const pl = url.searchParams.get("pipeline"), tk = url.searchParams.get("task");
+            if (pl && tk) {
+              const wt = ensureTaskWorktree(root, pl, tk);
+              if (wt.ok) cwd = wt.worktree;
+            }
+            let ptyMod;
+            try { ptyMod = await import("node-pty"); }
+            catch (e) { ws.send(JSON.stringify({ t: "err", d: "node-pty isn't installed — run `pnpm install` and reload" })); return void ws.close(); }
+            const shell = process.env.SHELL || "/bin/zsh";
+            let p;
+            try {
+              p = ptyMod.spawn(shell, ["-l"], { name: "xterm-256color", cols: 80, rows: 24, cwd, env: { ...process.env, PWD: cwd } });
+            } catch (e) { ws.send(JSON.stringify({ t: "err", d: "couldn't spawn " + shell + ": " + String((e && e.message) || e) })); return void ws.close(); }
+            ws.send(JSON.stringify({ t: "cwd", d: cwd, shell }));
+            p.onData((d) => { if (ws.readyState === 1) ws.send(JSON.stringify({ t: "out", d })); });
+            p.onExit(({ exitCode }) => { if (ws.readyState === 1) { ws.send(JSON.stringify({ t: "exit", code: exitCode })); ws.close(); } });
+            ws.on("message", (buf) => {
+              try {
+                const m = JSON.parse(String(buf));
+                if (m.t === "in" && typeof m.d === "string") p.write(m.d);
+                else if (m.t === "resize" && m.cols > 1 && m.rows > 1) p.resize(m.cols | 0, m.rows | 0);
+              } catch (e) { /* ignore malformed frames */ }
+            });
+            ws.on("close", () => { try { p.kill(); } catch (e) { /* already gone */ } });
+          });
+        } catch (e) { socket.destroy(); }
+      });
+
       server.middlewares.use(async (req, res, next) => {
         if (!req.url || !req.url.startsWith("/api/bridza/")) return next();
         const url = new URL(req.url, "http://localhost");

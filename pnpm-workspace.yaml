@@ -1,4 +1,5 @@
 allowBuilds:
+  node-pty: true
   esbuild: true
   sharp: false
   workerd: true
