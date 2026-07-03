@@ -28,6 +28,16 @@ function Header() {
       </a>
       <div className="flex items-center gap-3">
         <a
+          href={
+            location.hostname.endsWith("bridza.erluxman.dev")
+              ? "https://app.bridza.erluxman.dev"
+              : "/app"
+          }
+          className="border-accent-soft text-accent bg-surface/60 hover:border-accent rounded-full border px-3 py-1 text-sm font-medium transition-colors"
+        >
+          Open the app
+        </a>
+        <a
           href="https://erluxman.dev"
           className="text-ink-dim hover:text-ink text-sm transition-colors"
         >

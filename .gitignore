@@ -14,3 +14,8 @@ dist/
 .DS_Store
 .vscode/
 *.log
+
+# Bridza app (the /app tool)
+test-results/
+playwright-report/
+*.bridza-tasks/
