@@ -245,7 +245,7 @@ export function toolAvailable(bin) {
 }
 export function resolveTool(toolId) {
   if (process.env.BRIDZA_TOOL_OVERRIDE) {
-    try { const o = JSON.parse(process.env.BRIDZA_TOOL_OVERRIDE); return { id: toolId, bin: o.bin, args: () => o.args }; }
+    try { const o = JSON.parse(process.env.BRIDZA_TOOL_OVERRIDE); return { id: toolId, bin: o.bin, args: () => o.args, stream: o.stream }; }
     catch (e) { /* fall through */ }
   }
   return CLI_TOOLS.find((t) => t.id === toolId) || null;
@@ -370,6 +370,10 @@ export function runStage(root, body, emit) {
 
     // opencode streams one JSON event per line (tool.stream==="json"): surface the
     // assistant text + tool activity, and capture the opencode sessionID for the log.
+    // CRUCIAL: opencode exits 0 even when the run died on a provider error — the
+    // failure only appears as a {type:"error"} event. Capture it so the stage is
+    // marked failed with the real reason instead of silently "done".
+    let toolError = null;
     const onJsonEvent = (ev) => {
       if (!ev || typeof ev !== "object") return;
       if (ev.sessionID && !sessionId) { sessionId = ev.sessionID; emit({ t: "session", tool: toolId, sessionId }); }
@@ -377,6 +381,11 @@ export function runStage(root, body, emit) {
       if (ev.type === "text" && typeof p.text === "string") emit({ t: "out", d: p.text + "\n" });
       else if (ev.type === "tool") emit({ t: "out", d: "· " + (p.tool || p.name || "tool") + (p.state && p.state.status ? " (" + p.state.status + ")" : "") + "\n" });
       else if (ev.type === "step_finish" && p.tokens) emit({ t: "out", d: "· step · " + p.tokens.total + " tokens\n" });
+      else if (ev.type === "error") {
+        const e = ev.error || {};
+        toolError = (e.data && e.data.message) || e.message || e.name || "tool reported an error";
+        emit({ t: "out", d: "✖ " + toolError + "\n" });
+      }
     };
     let jbuf = "";
     const onStdout = (d) => {
@@ -394,7 +403,11 @@ export function runStage(root, body, emit) {
     child.stdout.on("data", onStdout);
     child.stderr.on("data", (d) => emit({ t: "out", d: d.toString() }));
     child.on("error", (e) => resultCommit(1, "failed", "spawn", String(e.message || e)));
-    child.on("close", (code) => code ? resultCommit(code, "failed", "exit", "tool exited with code " + code) : runShell(0));
+    child.on("close", (code) => {
+      if (code) return resultCommit(code, "failed", "exit", "tool exited with code " + code);
+      if (toolError) return resultCommit(1, "failed", "tool-error", toolError);
+      runShell(0);
+    });
   });
 }
 

@@ -240,3 +240,29 @@ describe("failed runs carry their reason", () => {
     }
   });
 });
+
+describe("opencode error events (exit 0) mark the run failed", () => {
+  it("a {type:error} JSON event fails the stage with the provider message", async () => {
+    const wtBase = fs.mkdtempSync(path.join(os.tmpdir(), "bridza-ocerr-wt-"));
+    dirs.push(wtBase);
+    process.env.BRIDZA_WORKTREE_DIR = wtBase;
+    // mimics opencode: emits an error event as JSON, then exits 0
+    const EV = JSON.stringify({ type: "error", sessionID: "ses_test", error: { name: "APIError", data: { message: "Error from provider (DeepSeek): tools[0].function: missing field name" } } });
+    process.env.BRIDZA_TOOL_OVERRIDE = JSON.stringify({ bin: "sh", args: ["-c", "echo '" + EV + "'"], stream: "json" });
+    try {
+      createPipeline(root, { id: "dev", label: "Dev", stages: [{ id: "spec", name: "Spec" }] });
+      createTask(root, { pipeline: "dev", id: "t3", title: "T3" });
+      const end = await runStage(root, { pipeline: "dev", task: "t3", stage: "spec", tool: "opencode", prompt: "go" }, () => {});
+      expect(end.status).toBe("failed");
+      expect(end.errorKind).toBe("tool-error");
+      expect(end.error).toMatch(/DeepSeek/);
+      const run = readTaskMeta(root, "dev", "t3").tracking.spec.runs[0];
+      expect(run.status).toBe("failed");
+      expect(run.error).toMatch(/missing field name/);
+      expect(run.sessionId).toBe("ses_test");
+    } finally {
+      delete process.env.BRIDZA_WORKTREE_DIR;
+      delete process.env.BRIDZA_TOOL_OVERRIDE;
+    }
+  });
+});
