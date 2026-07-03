@@ -7,7 +7,8 @@ import App from "./pages/App.tsx";
 // landing page payload stays unchanged. It answers on:
 //   app.bridza.erluxman.dev  (attach as an extra custom domain on the same
 //                             Cloudflare Pages project — one build, one deploy)
-//   /app                     (local dev convenience: pnpm dev → localhost:5173/app)
+//   app.localhost:5173       (local dev — browsers resolve *.localhost)
+//   /app                     (kept as a fallback path; e2e drives this)
 const Bridza = lazy(() => import("./app/App.jsx"));
 
 const isApp =

@@ -5,7 +5,7 @@ const api = (p, dir) => "/api/bridza" + p + (dir ? (p.includes("?") ? "&" : "?")
 
 // On the deployed (static) site there is no bridge — every call would throw or
 // return HTML. Degrade to a clear "run it locally" message instead of crashing.
-const NO_BRIDGE = { ok: false, available: false, canceled: true, error: "Bridza works on YOUR machine's repos — clone github.com/erluxman/bridza, run `pnpm install && pnpm dev`, then open http://localhost:5173/app" };
+const NO_BRIDGE = { ok: false, available: false, canceled: true, error: "Bridza works on YOUR machine's repos — clone github.com/erluxman/bridza, run `pnpm install && pnpm dev`, then open http://app.localhost:5173" };
 
 async function get(p, dir) {
   try { const r = await fetch(api(p, dir)); return await r.json(); }

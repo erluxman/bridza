@@ -27,12 +27,11 @@ function Header() {
         </span>
       </a>
       <div className="flex items-center gap-3">
+        {/* the app lives on the app. subdomain of wherever the landing is:
+            bridza.erluxman.dev → app.bridza.erluxman.dev,
+            localhost:5173 → app.localhost:5173 (browsers resolve *.localhost) */}
         <a
-          href={
-            location.hostname.endsWith("bridza.erluxman.dev")
-              ? "https://app.bridza.erluxman.dev"
-              : "/app"
-          }
+          href={`//app.${location.host}/`}
           className="border-accent-soft text-accent bg-surface/60 hover:border-accent rounded-full border px-3 py-1 text-sm font-medium transition-colors"
         >
           Open the app

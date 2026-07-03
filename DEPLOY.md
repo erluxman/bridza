@@ -100,4 +100,5 @@ Pages project — no extra CI, project, or build:
 
 The deployed app is a static shell: it has no local bridge, so it shows "clone
 and run locally" instructions. The real tool is `pnpm dev` on your machine
-(landing on `localhost:5173`, app on `localhost:5173/app`).
+(landing on `localhost:5173`, app on `app.localhost:5173` — browsers resolve
+`*.localhost` to loopback, no /etc/hosts needed; `/app` works too).
