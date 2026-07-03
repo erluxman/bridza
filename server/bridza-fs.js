@@ -39,11 +39,18 @@ function repoRoot(dirParam) { return resolveDir(dirParam) || resolveDir(process.
 function pickFolder() {
   if (process.platform !== "darwin") return { canceled: true, error: "picker only on macOS — type a path instead" };
   try {
-    const out = execFileSync("osascript", ["-e",
-      'POSIX path of (choose folder with prompt "Open project folder — Bridza")'],
-      { encoding: "utf8", timeout: 120000 });
+    // route the dialog through System Events and activate it first — a bare
+    // `choose folder` from a background dev-server process opens BEHIND every
+    // window (or is refused with -1713 when the process has no GUI session).
+    const out = execFileSync("osascript",
+      ["-e", 'tell application "System Events"\nactivate\nset f to POSIX path of (choose folder with prompt "Open project folder — Bridza")\nend tell\nf'],
+      { encoding: "utf8", timeout: 120000, stdio: ["ignore", "pipe", "pipe"] });
     return { path: out.trim().replace(/\/$/, "") };
-  } catch (e) { return { canceled: true }; }
+  } catch (e) {
+    const msg = String((e && e.stderr) || (e && e.message) || e);
+    if (msg.includes("-128")) return { canceled: true };   // the user hit Cancel — stay silent
+    return { canceled: true, error: "couldn't open the folder picker (" + (msg.split("\n").find((l) => l.trim()) || "unknown error").trim() + ") — paste the path instead" };
+  }
 }
 
 function revealInFinder(raw) {
