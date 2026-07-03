@@ -233,6 +233,7 @@ describe("failed runs carry their reason", () => {
       const run = meta.tracking.spec.runs[0];
       expect(run.status).toBe("failed");
       expect(run.error).toMatch(/exited with code 3/);
+      expect(run.log).toMatch(/^\$ sh -c /);   // the EXACT command line is the log's first line
       expect(run.log).toMatch(/not authenticated/);
     } finally {
       delete process.env.BRIDZA_WORKTREE_DIR;

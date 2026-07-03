@@ -286,7 +286,11 @@ export function runStage(root, body, emit) {
     // WHY a run failed (persisted into the task metadata on the result commit)
     let outTail = "";
     const rawEmit = emit;
-    emit = (ev) => { if (ev.t === "out" && typeof ev.d === "string") outTail = (outTail + ev.d).slice(-4000); rawEmit(ev); };
+    emit = (ev) => {
+      if (ev.t === "out" && typeof ev.d === "string") outTail = (outTail + ev.d).slice(-4000);
+      else if (ev.t === "cmd" && typeof ev.cmd === "string") outTail = (outTail + "$ " + ev.cmd + "\n").slice(-4000);
+      rawEmit(ev);
+    };
     const end = (obj) => { if (ended) return; ended = true; if (runKey) ACTIVE_RUNS.delete(runKey); emit({ t: "end", ...obj }); resolve(obj); };
     const { pipeline, task, stage, tool: toolId, prompt, system, shell = [], workingDir = ".", stageContext, stageName, taskTitle, wallSeconds } = body || {};
     const model = (body && body.model) || process.env["BRIDZA_" + String(toolId).toUpperCase() + "_MODEL"] || "";
@@ -425,6 +429,16 @@ export function runStage(root, body, emit) {
       }
     };
     const args = tool.args({ prompt, system, model });
+    // show EXACTLY what gets executed (long args abbreviated for readability —
+    // the full prompt text is in <stage>/prompts.md). Also flags when NO model
+    // flag is passed, i.e. the tool's own configured default decides.
+    const shownArgs = args.map((a) => {
+      const s = String(a);
+      const short = s.length > 160 ? s.slice(0, 157) + "…" : s;
+      return /\s|"/.test(short) ? JSON.stringify(short) : short;
+    });
+    emit({ t: "cmd", cmd: [tool.bin, ...shownArgs].join(" ") });
+    if (!model) emit({ t: "out", d: "· model: TOOL DEFAULT (no --model/-m flag — " + toolId + "'s own config decides)\n" });
     const child = spawn(tool.bin, args, { cwd: W, env: childEnv, stdio: ["ignore", "pipe", "pipe"] });
     child.stdout.on("data", onStdout);
     child.stderr.on("data", (d) => emit({ t: "out", d: d.toString() }));
