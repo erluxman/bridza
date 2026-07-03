@@ -15,7 +15,7 @@ const ago = (iso) => {
   return Math.floor(s / 86400) + "d ago";
 };
 // bridza bookkeeping files — hidden from change lists so only the WORK shows
-const BOOKKEEP = /\/metadata\.json$|\/README\.md$|\.gitkeep$|^\.bridza\/(\.gitignore|inbox\.json)$/;
+const BOOKKEEP = /\/metadata\.json$|\/README\.md$|\/prompts\.md$|\.gitkeep$|^\.bridza\/(\.gitignore|inbox\.json)$/;
 const workFiles = (files) => (files || []).filter((f) => !BOOKKEEP.test(f.path));
 
 export default function App() {
@@ -837,7 +837,7 @@ function DiffView({ dir, commit, commits = [], onCommit, branch, working, pipeli
     return () => window.removeEventListener("keydown", onKey);
   }, [idx, commits.length, single]);
   const all = (data && data.files) || [];
-  const meaningful = all.filter((f) => !/\/metadata\.json$|\/README\.md$|\.gitkeep$/.test(f.path));
+  const meaningful = all.filter((f) => !/\/metadata\.json$|\/README\.md$|\/prompts\.md$|\.gitkeep$/.test(f.path));
   const files = meaningful.length ? meaningful : all;
   const file = files[active] || files[0];
   return (

@@ -329,6 +329,15 @@ export function runStage(root, body, emit) {
       track.status = "running";
       track.runs.push({ tool: toolId, model: model || null, prompt: prompt || "", startedAt, status: "running" });
       writeTaskMeta(W, pipeline, task, meta);
+      // EVERY "Run stage" press appends the typed prompt to a human-readable
+      // file next to the stage (not just JSON metadata) — .bridza/pipelines/
+      // <p>/<t>/<stage>/prompts.md — committed with this prompt commit, so the
+      // full prompt history is a plain file you can read/grep/diff.
+      const plog = path.join(W, rel.stage(pipeline, task, sid), "prompts.md");
+      const entry = `## ${startedAt} · run ${track.runs.length} · ${toolId}${model ? " · " + model : ""}\n\n${(prompt && prompt.trim()) || "_(no prompt text — stage defaults)_"}\n\n`;
+      if (!fs.existsSync(plog))
+        fs.writeFileSync(plog, `# Prompt history — ${stageName || sid}\n\nOne entry per "Run stage" press (oldest first). The same text is in each\nrun record in metadata.json and in the prompt commit message.\n\n` + entry);
+      else fs.appendFileSync(plog, entry);
       const pLines = [`bridza(${safeRef(pipeline)}/${safeRef(task)}/${sid}): prompt · ${toolId}`, "", `Stage: ${stageName || sid}`];
       if (taskTitle) pLines.push(`Task: ${taskTitle}`);
       if (model) pLines.push(`Model: ${model}`);

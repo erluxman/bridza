@@ -266,3 +266,26 @@ describe("opencode error events (exit 0) mark the run failed", () => {
     }
   });
 });
+
+describe("every Run press records the prompt to a file", () => {
+  it("appends each run's prompt to <stage>/prompts.md, committed on the branch", async () => {
+    const wtBase = fs.mkdtempSync(path.join(os.tmpdir(), "bridza-plog-wt-"));
+    dirs.push(wtBase);
+    process.env.BRIDZA_WORKTREE_DIR = wtBase;
+    process.env.BRIDZA_TOOL_OVERRIDE = JSON.stringify({ bin: "sh", args: ["-c", "echo done"] });
+    try {
+      createPipeline(root, { id: "dev", label: "Dev", stages: [{ id: "spec", name: "Spec" }] });
+      createTask(root, { pipeline: "dev", id: "t4", title: "T4" });
+      await runStage(root, { pipeline: "dev", task: "t4", stage: "spec", tool: "opencode", prompt: "first prompt text" }, () => {});
+      await runStage(root, { pipeline: "dev", task: "t4", stage: "spec", tool: "opencode", model: "x/y", prompt: "second prompt text" }, () => {});
+      const plog = git(root, ["show", "bridza/dev/t4:.bridza/pipelines/dev/t4/spec/prompts.md"]);
+      expect(plog).toMatch(/# Prompt history — Spec|# Prompt history — spec/);
+      expect(plog).toMatch(/run 1 · opencode\n\nfirst prompt text/);
+      expect(plog).toMatch(/run 2 · opencode · x\/y\n\nsecond prompt text/);
+      expect(plog.indexOf("first prompt text")).toBeLessThan(plog.indexOf("second prompt text"));
+    } finally {
+      delete process.env.BRIDZA_WORKTREE_DIR;
+      delete process.env.BRIDZA_TOOL_OVERRIDE;
+    }
+  });
+});
