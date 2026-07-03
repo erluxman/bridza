@@ -44,21 +44,27 @@ export const fetchTime = (dir, pipeline, task) => get(`/time?pipeline=${encodeUR
 export const saveTime = (dir, pipeline, task, time) => post("/time", dir, { pipeline, task, time });
 
 // Stream an ndjson timeline endpoint: parses each event and calls onEvent for
-// each, resolving with the final {t:"end",…} event.
-async function stream(path, dir, body, onEvent) {
-  const res = await fetch(api(path, dir), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const reader = res.body.getReader();
-  const dec = new TextDecoder();
-  let buf = "", last = null;
+// each, resolving with the final {t:"end",…} event. An optional AbortSignal
+// cancels the request (the bridge kills the child process on disconnect).
+async function stream(path, dir, body, onEvent, signal) {
+  let last = null;
   const handle = (line) => { if (!line.trim()) return; try { const e = JSON.parse(line); if (e.t === "end") last = e; onEvent(e); } catch (err) { /* skip */ } };
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    let nl;
-    while ((nl = buf.indexOf("\n")) >= 0) { handle(buf.slice(0, nl)); buf = buf.slice(nl + 1); }
+  try {
+    const res = await fetch(api(path, dir), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal });
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) { handle(buf.slice(0, nl)); buf = buf.slice(nl + 1); }
+    }
+    handle(buf);
+  } catch (e) {
+    if (!(signal && signal.aborted)) throw e;   // user-initiated stop is not an error
   }
-  handle(buf);
   return last;
 }
 
@@ -68,3 +74,7 @@ export const runStage = (dir, body, onEvent) => stream("/run/stage", dir, body, 
 // Stream the Automate flow — every stage of a task, back-to-back. `body.stages`
 // is an ordered array of run/stage bodies. Resolves with the final automate end.
 export const automate = (dir, body, onEvent) => stream("/automate", dir, body, onEvent);
+
+// Web terminal: stream one shell command run in the task's worktree (when
+// pipeline+task given) or the repo root. Abort the signal to kill the process.
+export const termRun = (dir, body, onEvent, signal) => stream("/term/run", dir, body, onEvent, signal);

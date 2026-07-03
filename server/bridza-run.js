@@ -478,6 +478,40 @@ export async function automateTask(root, body, emit) {
   return { ok: true, results };
 }
 
+// ── web terminal: run a shell command where the work lives ──────────────────
+// Streams a single command's output (NDJSON events like a stage run). cwd is
+// the task's worktree when pipeline+task are given (created on demand — so you
+// can build/test the branch directly), else the repo root. The caller gets a
+// kill handle; the HTTP layer wires it to client disconnect, so closing the
+// panel (or ⌃C in it) stops the process.
+export function termRun(root, { pipeline, task, cmd } = {}, emit) {
+  const c = String(cmd || "").trim();
+  if (!c) { emit({ t: "end", exit: 0 }); return { kill() { }, done: Promise.resolve() }; }
+  let cwd = root;
+  if (pipeline && task) {
+    const wt = ensureTaskWorktree(root, pipeline, task);
+    if (!wt.ok) { emit({ t: "end", exit: 1, error: wt.error }); return { kill() { }, done: Promise.resolve() }; }
+    cwd = wt.worktree;
+  }
+  emit({ t: "cwd", dir: cwd });
+  // detached = own process GROUP, so kill(-pid) reaps the whole tree — killing
+  // just `sh` would orphan whatever it spawned (sleep, builds, opencode…).
+  const child = spawn("sh", ["-c", c], { cwd, env: { ...process.env, PWD: cwd }, stdio: ["ignore", "pipe", "pipe"], detached: true });
+  const done = new Promise((resolve) => {
+    let ended = false;
+    const end = (obj) => { if (ended) return; ended = true; emit({ t: "end", ...obj }); resolve(); };
+    child.stdout.on("data", (d) => emit({ t: "out", d: d.toString() }));
+    child.stderr.on("data", (d) => emit({ t: "out", d: d.toString() }));
+    child.on("error", (e) => end({ exit: 1, error: String((e && e.message) || e) }));
+    child.on("close", (code, signal) => end({ exit: code == null ? 1 : code, signal: signal || undefined }));
+  });
+  const kill = () => {
+    try { process.kill(-child.pid, "SIGTERM"); }
+    catch (e) { try { child.kill("SIGTERM"); } catch (e2) { /* already gone */ } }
+  };
+  return { kill, done };
+}
+
 // ── reopen: roll a task back to a stage so it can be revised ────────────────
 // Resets the given stage AND every later stage to idle (kanban puts the task
 // back in that column; auto-advance re-runs from there). Run history, prompts

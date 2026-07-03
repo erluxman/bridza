@@ -104,7 +104,7 @@ export default function App() {
         ) : flowOpen ? (
           <PipelineFlow dir={dir} pipeline={pipeline} tools={tools} onClose={() => setFlowOpen(false)} onSaved={refresh} flash={flash} {...topbarNav} />
         ) : !task ? (
-          <Board pipeline={pipeline} runningTasks={runningTasks} onOpen={setActiveTask} onNewTask={() => setModal({ type: "task" })} onFlow={() => setFlowOpen(true)} {...topbarNav} />
+          <Board dir={dir} pipeline={pipeline} runningTasks={runningTasks} onOpen={setActiveTask} onNewTask={() => setModal({ type: "task" })} onFlow={() => setFlowOpen(true)} {...topbarNav} />
         ) : (
           <TaskDetail dir={dir} pipeline={pipeline} task={task} tools={tools} runningStages={runningStages} onBack={() => setActiveTask("")} onChange={refresh} flash={flash} {...topbarNav} />
         )}
@@ -348,19 +348,22 @@ function currentStage(t) {
   return (t.stages || []).find((s) => (t.tracking[s] || {}).status !== "done") || DONE_COL;
 }
 
-function Board({ pipeline, runningTasks, onOpen, onNewTask, onFlow, collapsed, onExpandSide }) {
+function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, collapsed, onExpandSide }) {
   const { columns, nameOf } = kanbanColumns(pipeline);
   const byCol = {}; columns.forEach((c) => (byCol[c] = []));
   (pipeline.tasks || []).forEach((t) => { const c = currentStage(t); (byCol[c] || byCol[DONE_COL]).push(t); });
+  const [termOpen, setTermOpen] = useState(false);
   return (
     <>
       <div className="topbar">
         <div className="row"><Hamburger collapsed={collapsed} onExpandSide={onExpandSide} /><h1>{pipeline.label}</h1></div>
         <div className="row">
+          <button className={"btn ghost" + (termOpen ? " on" : "")} onClick={() => setTermOpen((o) => !o)} title="Terminal at the repo root">⌨ Terminal</button>
           <button className="btn ghost" onClick={onFlow}>⚙ Stage flow</button>
           <button className="btn primary" onClick={onNewTask}>＋ New task</button>
         </div>
       </div>
+      {termOpen && <TermDrawer dir={dir} onClose={() => setTermOpen(false)} />}
       {pipeline.tasks.length === 0 ? (
         <div className="content"><p className="muted">No tasks yet. Create one — it gets its own branch <code>bridza/{pipeline.id}/&lt;task&gt;</code>.</p></div>
       ) : (
@@ -400,6 +403,7 @@ function TaskDetail({ dir, pipeline, task, tools, runningStages, onBack, onChang
   const [resolveOpen, setResolveOpen] = useState(false);
   const [automating, setAutomating] = useState(false);
   const [autoOut, setAutoOut] = useState("");
+  const [termOpen, setTermOpen] = useState(false);
   const autoRef = useRef(null);
   const timeRef = useRef({}); const dirtyRef = useRef(false);
 
@@ -502,6 +506,7 @@ function TaskDetail({ dir, pipeline, task, tools, runningStages, onBack, onChang
           <h1 style={{ marginLeft: 6 }}>{task.title}</h1>
         </div>
         <div className="row">
+          <button className={"btn" + (termOpen ? " on" : "")} onClick={() => setTermOpen((o) => !o)} title="Terminal inside this task's worktree — test the branch, or run a CLI tool by hand">⌨ Terminal</button>
           <button className="btn" onClick={openVscode} title="Open this task's branch worktree in a new VS Code window"><span style={{ color: "var(--accent)" }}>⧉</span> Open in VS Code</button>
           <label className="switch" title="Auto-advance: AI runs each remaining stage once the previous one finishes (keeps going in the background)">
             <input type="checkbox" checked={automating} disabled={automating || task.finalized} onChange={(e) => e.target.checked && automate()} />
@@ -510,6 +515,7 @@ function TaskDetail({ dir, pipeline, task, tools, runningStages, onBack, onChang
           <button className="btn" onClick={() => finalize()} disabled={task.finalized}>{task.finalized ? "Finalized" : "Finalize → main"}</button>
         </div>
       </div>
+      {termOpen && <TermDrawer dir={dir} pipeline={pipeline.id} task={task.id} onClose={() => setTermOpen(false)} />}
       <div className="content detail">
         {(automating || autoOut) && (
           <div className="card" style={{ gridColumn: "1 / -1", marginBottom: 12 }}>
@@ -1555,6 +1561,81 @@ function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed, onExp
         )}
       </div>
     </>
+  );
+}
+
+/* ───────────────────────── web terminal (floating drawer) ─────────────────────────
+   A real command line in the app: commands run server-side via the bridge in
+   the task's WORKTREE (the branch checkout — so `flutter test`, `git log`,
+   `opencode run …` hit exactly what the agent produced) or the repo root.
+   Output streams live; ⌃C / Stop aborts the fetch and the bridge kills the
+   process. One command at a time (sh -c), ↑/↓ recalls history. */
+function TermDrawer({ dir, pipeline, task, onClose }) {
+  const [lines, setLines] = useState("");
+  const [cmd, setCmd] = useState("");
+  const [running, setRunning] = useState(false);
+  const [cwd, setCwd] = useState("");
+  const histRef = useRef([]);
+  const histIdx = useRef(0);
+  const abortRef = useRef(null);
+  const boxRef = useRef(null);
+  const inputRef = useRef(null);
+  useEffect(() => { if (boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight; }, [lines]);
+  useEffect(() => { if (!running && inputRef.current) inputRef.current.focus(); }, [running]);
+  useEffect(() => () => { if (abortRef.current) abortRef.current.abort(); }, []);   // closing the drawer kills a live command
+
+  const append = (s) => setLines((o) => (o + s).slice(-60000));
+  const run = async () => {
+    const c = cmd.trim();
+    if (!c || running) return;
+    histRef.current.push(c);
+    histIdx.current = histRef.current.length;
+    setCmd("");
+    setRunning(true);
+    append(`$ ${c}\n`);
+    const ac = new AbortController();
+    abortRef.current = ac;
+    const end = await api.termRun(dir, { pipeline, task, cmd: c }, (e) => {
+      if (e.t === "out") append(e.d);
+      else if (e.t === "cwd") setCwd(e.dir);
+    }, ac.signal).catch((e) => ({ error: String((e && e.message) || e) }));
+    abortRef.current = null;
+    if (ac.signal.aborted) append("^C\n");
+    else if (end && end.error) append("✖ " + end.error + "\n");
+    else if (end && end.exit !== 0) append(`(exit ${end.exit})\n`);
+    append("\n");
+    setRunning(false);
+  };
+  const stop = () => { if (abortRef.current) abortRef.current.abort(); };
+  const onKey = (e) => {
+    if (e.key === "Enter") run();
+    else if (e.key === "c" && e.ctrlKey) { if (running) { stop(); e.preventDefault(); } }
+    else if (e.key === "ArrowUp") { if (histIdx.current > 0) { histIdx.current--; setCmd(histRef.current[histIdx.current] || ""); e.preventDefault(); } }
+    else if (e.key === "ArrowDown") {
+      if (histIdx.current < histRef.current.length) { histIdx.current++; setCmd(histRef.current[histIdx.current] || ""); e.preventDefault(); }
+    }
+  };
+  return (
+    <div className="term-drawer">
+      <div className="term-hd">
+        <span className="side-label" style={{ padding: 0, flex: "none" }}>⌨ Terminal</span>
+        <span className="term-cwd" title={cwd || dir}>{cwd || (task ? "task worktree · created on first command" : dir)}</span>
+        <div className="row" style={{ flex: "none" }}>
+          {running && <button className="btn ghost sm" onClick={stop} title="Kill the running command (⌃C)">■ Stop</button>}
+          <button className="btn ghost sm" onClick={() => setLines("")} title="Clear scrollback">⌫</button>
+          <button className="btn ghost sm" onClick={onClose}>✕</button>
+        </div>
+      </div>
+      <div className="term term-scroll" ref={boxRef}>
+        {lines || `Commands run ${task ? "inside this task's worktree — the branch checkout the agent works in." : "at the repo root."} Try: git status · git log --oneline -5${task ? "" : " · opencode run \"hi\""}`}
+      </div>
+      <div className="term-in">
+        <span className="term-prompt">$</span>
+        <input ref={inputRef} className="term-input" value={cmd} spellCheck={false}
+          placeholder={running ? "running… ⌃C or Stop to kill" : "command · Enter runs · ↑ history"}
+          onChange={(e) => setCmd(e.target.value)} onKeyDown={onKey} />
+      </div>
+    </div>
   );
 }
 

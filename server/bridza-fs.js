@@ -21,7 +21,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { DATA_DIR, CLI_TOOLS } from "../src/app/store/bridza.js";
 import { readProject, createPipeline, savePipeline, createTask, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan } from "./bridza-store.js";
-import { runStage, automateTask, finalizeTask, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, blastRadius, reopenStage, listModels } from "./bridza-run.js";
+import { runStage, automateTask, finalizeTask, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, blastRadius, reopenStage, listModels, termRun } from "./bridza-run.js";
 
 function resolveDir(raw) {
   if (!raw) return null;
@@ -193,6 +193,19 @@ export default function bridzaFs() {
             res.setHeader("Content-Type", "application/x-ndjson");
             res.setHeader("Cache-Control", "no-cache");
             await automateTask(root, body, (obj) => res.write(JSON.stringify(obj) + "\n"));
+            return void res.end();
+          }
+          if (M === "POST" && P === "/api/bridza/term/run") {
+            if (!root) return need();
+            const body = (await json(req)) || {};
+            res.setHeader("Content-Type", "application/x-ndjson");
+            res.setHeader("Cache-Control", "no-cache");
+            const h = termRun(root, body, (obj) => { try { res.write(JSON.stringify(obj) + "\n"); } catch (e) { /* client gone */ } });
+            // ⌃C / closing the panel aborts the fetch. NOTE: req's "close" fires
+            // when the request BODY ends (long before any abort) — the RESPONSE's
+            // "close" is what fires when the connection drops mid-stream.
+            res.on("close", h.kill);
+            await h.done;
             return void res.end();
           }
           res.statusCode = 404;

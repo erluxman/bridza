@@ -290,3 +290,36 @@ describe("every Run press records the prompt to a file", () => {
     }
   });
 });
+
+describe("web terminal — termRun", () => {
+  it("streams output and exit code from the repo root", async () => {
+    const { termRun } = await import("../../../server/bridza-run.js");
+    const events = [];
+    const h = termRun(root, { cmd: "echo one; echo two >&2; exit 4" }, (e) => events.push(e));
+    await h.done;
+    const out = events.filter((e) => e.t === "out").map((e) => e.d).join("");
+    expect(out).toContain("one");
+    expect(out).toContain("two");
+    expect(events.find((e) => e.t === "cwd").dir).toBe(root);
+    expect(events.find((e) => e.t === "end").exit).toBe(4);
+  });
+  it("runs inside the task worktree when pipeline+task are given", async () => {
+    const { termRun } = await import("../../../server/bridza-run.js");
+    const wtBase = fs.mkdtempSync(path.join(os.tmpdir(), "bridza-term-wt-"));
+    dirs.push(wtBase);
+    process.env.BRIDZA_WORKTREE_DIR = wtBase;
+    try {
+      createPipeline(root, { id: "dev", label: "Dev", stages: [{ id: "spec", name: "Spec" }] });
+      createTask(root, { pipeline: "dev", id: "t5", title: "T5" });
+      const events = [];
+      const h = termRun(root, { pipeline: "dev", task: "t5", cmd: "pwd; git branch --show-current" }, (e) => events.push(e));
+      await h.done;
+      const out = events.filter((e) => e.t === "out").map((e) => e.d).join("");
+      expect(events.find((e) => e.t === "cwd").dir).toContain(wtBase);
+      expect(out).toContain("bridza/dev/t5");   // the worktree has the task branch checked out
+      expect(events.find((e) => e.t === "end").exit).toBe(0);
+    } finally {
+      delete process.env.BRIDZA_WORKTREE_DIR;
+    }
+  });
+});
