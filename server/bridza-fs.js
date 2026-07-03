@@ -21,7 +21,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { DATA_DIR, CLI_TOOLS } from "../src/app/store/bridza.js";
 import { readProject, createPipeline, savePipeline, createTask, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan } from "./bridza-store.js";
-import { runStage, automateTask, finalizeTask, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, blastRadius, reopenStage } from "./bridza-run.js";
+import { runStage, automateTask, finalizeTask, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, blastRadius, reopenStage, listModels } from "./bridza-run.js";
 
 function resolveDir(raw) {
   if (!raw) return null;
@@ -123,6 +123,9 @@ export default function bridzaFs() {
           if (M === "POST" && P === "/api/bridza/inbox/discard") {
             if (!root) return need();
             return void res.end(JSON.stringify(discardInbox(root, ((await json(req)) || {}).id)));
+          }
+          if (M === "GET" && P === "/api/bridza/models") {
+            return void res.end(JSON.stringify({ ok: true, models: listModels(url.searchParams.get("tool")) }));
           }
           if (M === "GET" && P === "/api/bridza/plan") {
             if (!root) return need();

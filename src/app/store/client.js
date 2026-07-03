@@ -20,6 +20,7 @@ async function post(p, dir, body) {
 
 export const getState = (dir) => get("/state", dir);
 export const getTools = (dir) => get("/tools", dir);
+export const getModels = (dir, tool) => get(`/models?tool=${encodeURIComponent(tool)}`, dir);
 export const pickFolder = () => post("/pick-folder");
 export const reveal = (p) => post("/reveal", null, { path: p });
 export const createPipeline = (dir, body) => post("/pipeline", dir, body);

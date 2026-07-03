@@ -243,6 +243,23 @@ export function listActiveRuns() { return [...ACTIVE_RUNS.values()]; }
 export function toolAvailable(bin) {
   try { execFileSync("which", [bin], { stdio: "pipe" }); return true; } catch (e) { return false; }
 }
+
+// Models a tool can run, for the per-run model picker. Empty selection always
+// means "the tool's own default" — Bridza never forces a model. Cached for the
+// server's lifetime (opencode's list is ~200 entries and costs ~0.5s).
+const MODEL_CACHE = new Map();
+export function listModels(toolId) {
+  if (MODEL_CACHE.has(toolId)) return MODEL_CACHE.get(toolId);
+  let models = [];
+  try {
+    if (toolId === "opencode")
+      models = execFileSync("opencode", ["models"], { encoding: "utf8", timeout: 20000, stdio: ["ignore", "pipe", "pipe"] })
+        .split("\n").map((s) => s.trim()).filter(Boolean);
+    else if (toolId === "claude") models = ["sonnet", "opus", "haiku"];   // --model aliases; no list command
+  } catch (e) { /* no list → the picker still offers "tool default" + free text */ }
+  MODEL_CACHE.set(toolId, models);
+  return models;
+}
 export function resolveTool(toolId) {
   if (process.env.BRIDZA_TOOL_OVERRIDE) {
     try { const o = JSON.parse(process.env.BRIDZA_TOOL_OVERRIDE); return { id: toolId, bin: o.bin, args: () => o.args, stream: o.stream }; }

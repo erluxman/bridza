@@ -467,9 +467,12 @@ function TaskDetail({ dir, pipeline, task, tools, runningStages, onBack, onChang
   // stage is assembled from the task intent + the stage's own hint/system prompt.
   const automate = async () => {
     if (automating) return;
-    // auto-advance = run only the stages not yet done, in order (continue the pipeline)
+    // auto-advance = run only the stages not yet done, in order (continue the
+    // pipeline). Model: the stage's LAST explicitly-picked model if any, else
+    // empty = the tool's own default (Bridza never forces a model).
+    const lastModelOf = (sid) => { const rs = (task.tracking[sid] || {}).runs || []; return rs.length ? rs[rs.length - 1].model || "" : ""; };
     const bodies = stageObjs.filter((def) => (task.tracking[def.id] || {}).status !== "done").map((def) => ({
-      pipeline: pipeline.id, task: task.id, stage: def.id, tool: def.tool || "opencode",
+      pipeline: pipeline.id, task: task.id, stage: def.id, tool: def.tool || "opencode", model: lastModelOf(def.id),
       prompt: [task.title && ("Task: " + task.title), task.context, def.hint].filter(Boolean).join("\n\n") || ("Complete the " + (def.name || def.id) + " stage."),
       system: def.systemPrompt || "", shell: def.shell || [], workingDir: pipeline.workingDir || ".",
       stageName: def.name || def.id, taskTitle: task.title,
@@ -687,15 +690,25 @@ function BlastRadius({ dir, pipeline, task, refreshKey, onOpen }) {
 function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle, onDone, flash, onDiff, resultFor, live }) {
   const runs = track.runs || [];
   const lastPrompt = runs.length ? (runs[runs.length - 1].prompt || "") : "";
+  const lastModel = runs.length ? (runs[runs.length - 1].model || "") : "";
   const [tool, setTool] = useState(def.tool || (tools[0] && tools[0].id) || "claude");
   const [prompt, setPrompt] = useState(lastPrompt);
+  // empty model = the TOOL'S OWN default — Bridza never forces one; the picker
+  // only applies when the user explicitly chooses here (prefilled from last run)
+  const [model, setModel] = useState(lastModel);
+  const [models, setModels] = useState([]);
   const [out, setOut] = useState("");
   const [running, setRunning] = useState(false);
   const [histOpen, setHistOpen] = useState(false);
   const termRef = useRef(null);
-  // autofill the prompt with the stage's last run when switching task/stage
-  useEffect(() => { setPrompt(lastPrompt); setOut(""); }, [task.id, def.id]);
+  // autofill the prompt/model with the stage's last run when switching task/stage
+  useEffect(() => { setPrompt(lastPrompt); setModel(lastModel); setOut(""); }, [task.id, def.id]);
   useEffect(() => { if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight; }, [out]);
+  useEffect(() => {
+    let on = true;
+    api.getModels(dir, tool).then((r) => { if (on) setModels((r && r.models) || []); });
+    return () => { on = false; };
+  }, [dir, tool]);
 
   // Roll this task back to this stage: it and every later stage return to idle
   // (history, prompts and time are kept), and the task is un-finalized — so a
@@ -711,7 +724,7 @@ function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle
     setOut(""); setRunning(true);
     const append = (s) => setOut((o) => (o + s).slice(-12000));
     const end = await api.runStage(dir, {
-      pipeline: pipeline.id, task: task.id, stage: def.id, tool,
+      pipeline: pipeline.id, task: task.id, stage: def.id, tool, model: model.trim(),
       prompt, system: def.systemPrompt || "", shell: def.shell || [], workingDir: pipeline.workingDir || ".",
       stageName: def.name, taskTitle: task.title, wallSeconds: seconds,
     }, (e) => {
@@ -745,9 +758,16 @@ function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle
       {open && (
         <div className="stage-body">
           <div className="row" style={{ marginBottom: 8 }}>
-            <select className="input" style={{ width: 160 }} value={tool} onChange={(e) => setTool(e.target.value)}>
+            <select className="input" style={{ width: 150 }} value={tool} onChange={(e) => { setTool(e.target.value); setModel(""); }}>
               {tools.map((t) => <option key={t.id} value={t.id} disabled={!t.available}>{t.label}{t.available ? "" : " (n/a)"}{t.stub ? " · stub" : ""}</option>)}
             </select>
+            <input className="input mono model-pick" list={"models-" + def.id} placeholder="model · tool default"
+              title="Leave empty to use the tool's own default model; pick or type to override for this run"
+              value={model} onChange={(e) => setModel(e.target.value)} />
+            <datalist id={"models-" + def.id}>
+              {models.map((m) => <option key={m} value={m} />)}
+            </datalist>
+            {model.trim() && <button className="btn ghost sm" title="Back to the tool's default model" onClick={() => setModel("")}>×</button>}
             <button className="btn primary" onClick={run} disabled={running}>{running ? "Running…" : "▸ Run stage"}</button>
           </div>
           <textarea className="input" placeholder={`What should ${def.name} do? (the stage system prompt is applied automatically)`} value={prompt} onChange={(e) => setPrompt(e.target.value)} />

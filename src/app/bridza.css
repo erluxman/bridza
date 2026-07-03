@@ -385,3 +385,7 @@ textarea.input { resize: vertical; min-height: 64px; }
 .run-log summary { font-size: 11px; color: var(--txt-3); cursor: pointer; }
 .run-log summary:hover { color: var(--txt); }
 .run-log pre { margin: 6px 0 0; max-height: 220px; overflow: auto; font-family: var(--mono); font-size: 11px; line-height: 1.5; background: var(--bg); border: 1px solid var(--line-2); border-radius: 7px; padding: 8px 10px; white-space: pre-wrap; word-break: break-word; color: var(--txt-2); }
+
+/* ---- per-run model picker (empty = the tool's own default) ---- */
+.model-pick { width: 210px; font-size: 12px; }
+.model-pick::placeholder { color: var(--txt-3); font-family: var(--sans); }
