@@ -453,9 +453,14 @@ function TaskDetail({ dir, pipeline, task, tools, runningStages, onBack, onChang
 
   const total = Object.values(stageTime).reduce((a, b) => a + b, 0);
   const done = task.stages.filter((s) => (task.tracking[s] || {}).status === "done").length;
-  // a run records its promptCommit; the result commit it produced is the entry
-  // just newer than it in the timeline (runs are prompt-then-result sequential).
-  const resultFor = (p) => { const i = timeline.findIndex((c) => c.sha === p); return i > 0 ? timeline[i - 1].sha : null; };
+  // the commit carrying a run's changes: new model = the stage's single commit
+  // (newest timeline entry for that stage); old branches recorded a promptCommit
+  // whose immediate successor was the result commit.
+  const resultFor = (r, stageId) => {
+    if (r && r.promptCommit) { const i = timeline.findIndex((c) => c.sha === r.promptCommit); return i > 0 ? timeline[i - 1].sha : null; }
+    const c = timeline.find((x) => x.stage === stageId && (x.kind === "done" || x.kind === "failed"));
+    return c ? c.sha : null;
+  };
 
   const finalize = async (resolveMain, mainCommitMessage) => {
     flash("finalizing… (committing any pending changes)", 8000);   // stays while opencode writes the message
@@ -562,15 +567,17 @@ function TaskDetail({ dir, pipeline, task, tools, runningStages, onBack, onChang
               <div className="timeline">
                 {timeline.map((c) => {
                   const kind = c.kind || (/: prompt/.test(c.subject) ? "prompt" : /: result/.test(c.subject) ? "result" : "");
+                  // visual bucket: done (+old result) = green, failed = red, prompt (old model) = blue
+                  const vis = kind === "failed" ? "failed" : kind === "prompt" ? "prompt" : "result";
                   const files = workFiles(c.files);
                   const churn = files.reduce((a, f) => ({ add: a.add + f.add, del: a.del + f.del }), { add: 0, del: 0 });
                   return (
-                    <div className={"tl click " + kind} key={c.sha} onClick={() => setDiffCommit(c.sha)} title="View file changes">
+                    <div className={"tl click " + vis} key={c.sha} onClick={() => setDiffCommit(c.sha)} title="View file changes">
                       <span className="tl-rail"><i className="tl-dot" /></span>
                       <div className="tl-body">
                         <div className="tl-top">
-                          {c.stage && <span className={"tl-stage " + kind}>{c.stage}</span>}
-                          <span className={"sub " + kind}>{c.subject.replace(/^bridza\([^)]*\):\s*/, "")}</span>
+                          {c.stage && <span className={"tl-stage " + vis}>{c.stage}</span>}
+                          <span className={"sub " + vis}>{c.subject.replace(/^bridza\([^)]*\):\s*/, "")}</span>
                         </div>
                         <div className="tl-meta">
                           <span className="sha">{c.sha.slice(0, 7)}</span>
@@ -720,13 +727,13 @@ function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle
     return () => { on = false; };
   }, [dir, tool]);
 
-  // Roll this task back to this stage: it and every later stage return to idle
-  // (history, prompts and time are kept), and the task is un-finalized — so a
-  // "delivered" task can always be revised from any stage.
+  // Roll the BRANCH back to before this stage: its commit and every later
+  // stage's commit are removed (hard reset) — HEAD moves to the last valid
+  // commit, files included. A "delivered" task can be revised from any stage.
   const reopen = async (e) => {
     e.stopPropagation();
     const r = await api.reopenStage(dir, { pipeline: pipeline.id, task: task.id, stage: def.id });
-    flash(r.ok ? `${def.name} reopened — this and later stages reset (history kept)` : r.error, 4200);
+    flash(r.ok ? `${def.name} reopened — ${r.removed || 0} commit${(r.removed || 0) === 1 ? "" : "s"} rolled back, HEAD is at the last valid stage` : r.error, 4600);
     onDone();
   };
 
@@ -755,7 +762,7 @@ function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle
         <div className="row">
           {seconds > 0 && <span className="muted mono" style={{ fontSize: 11 }}>{fmt(seconds)}{open && <i className="livedot" />}</span>}
           {["done", "failed"].includes(track.status) && !running && !live && (
-            <button className="btn ghost sm" onClick={reopen} title="Revise from this stage — resets this and every later stage to idle (runs, prompts and time are kept)">↺ Revise</button>
+            <button className="btn ghost sm" onClick={reopen} title="Revise from this stage — REMOVES this and every later stage's commit (git reset --hard to the last valid commit)">↺ Revise</button>
           )}
           {(() => {
             // committed metadata can say "running" after a crashed/killed run —
@@ -807,7 +814,7 @@ function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle
                     </details>
                   )}
                   {r.files && r.files.length > 0 && (() => {
-                    const rc = resultFor && resultFor(r.promptCommit);
+                    const rc = resultFor && resultFor(r, def.id);
                     return (
                       <div className="run-files">
                         {r.files.map((f, j) => <code key={j} className={rc ? "ck" : ""} onClick={rc ? () => onDiff(rc) : undefined} title={rc ? "View diff" : ""}>{f}</code>)}

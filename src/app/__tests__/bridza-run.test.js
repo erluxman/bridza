@@ -77,23 +77,22 @@ describe("task branch + worktree", () => {
   });
 });
 
-describe("runStage — the prompt → result timeline", () => {
-  it("commits prompt then result on the task branch, and never touches the user's tree", async () => {
+describe("runStage — one commit per stage", () => {
+  it("commits exactly ONE commit for the stage, and never touches the user's tree", async () => {
     stub(`echo working...; echo brief > ${rel.stageOutputs("marketing", "task-506", "research")}/brief.md; echo done`);
     const { events, end } = await run({});
     expect(events[0].t).toBe("meta");
     expect(events[0].branch).toBe("bridza/marketing/task-506");
     expect(events.some((e) => e.t === "out" && /working/.test(e.d))).toBe(true);
     const commitPhases = events.filter((e) => e.t === "commit").map((e) => e.phase);
-    expect(commitPhases).toEqual(["prompt", "result"]);
+    expect(commitPhases).toEqual(["result"]);
     expect(end).toMatchObject({ exit: 0, status: "done" });
     expect(end.files).toContain(`${rel.stageOutputs("marketing", "task-506", "research")}/brief.md`);
 
-    // two commits ahead of main, in order, by the bridza author
+    // ONE commit ahead of main, by the bridza author, prompt in the body
     const subjects = git(root, ["log", "--format=%an%x1f%s", "main..bridza/marketing/task-506"]).trim().split("\n");
     expect(subjects.map((l) => l.split("\x1f")[1])).toEqual([
-      "bridza(marketing/task-506/research): result · done · exit 0",
-      "bridza(marketing/task-506/research): prompt · claude",
+      "bridza(marketing/task-506/research): done · claude · exit 0",
     ]);
     expect(subjects.every((l) => l.split("\x1f")[0] === "bridza")).toBe(true);
 
@@ -111,7 +110,6 @@ describe("runStage — the prompt → result timeline", () => {
     expect(track.status).toBe("done");
     expect(track.runs).toHaveLength(1);
     expect(track.runs[0]).toMatchObject({ tool: "claude", prompt: "do research", status: "done", exit: 0 });
-    expect(track.runs[0].promptCommit).toMatch(/^[0-9a-f]{40}$/);
   });
 
   it("folds wall-clock time into metadata and writes a browsable task README on the branch", async () => {
@@ -127,35 +125,37 @@ describe("runStage — the prompt → result timeline", () => {
     expect(readme).toContain("5m 0s");                           // wall-clock rendered human-readable (was 300s)
   });
 
-  it("a re-run APPENDS a new prompt/result pair — the timeline only grows", async () => {
+  it("a re-run REPLACES the stage's single commit — files and run history are kept", async () => {
     stub("echo one > a.txt");
     await run({});
     stub("echo two > b.txt");
     await run({});
     const tl = taskTimeline(root, "marketing", "task-506");
-    expect(tl.commits).toHaveLength(4);
-    expect(tl.commits.map((c) => c.subject.split(": ")[1])).toEqual([
-      "result · done · exit 0", "prompt · claude", "result · done · exit 0", "prompt · claude",
-    ]);
-    // branch tip still carries both runs' files
+    expect(tl.commits).toHaveLength(1);   // still ONE commit for the stage
+    expect(tl.commits[0].subject).toBe("bridza(marketing/task-506/research): done · claude · exit 0");
+    // the soft reset kept the first run's files AND both run records + prompts
     const tree = git(root, ["ls-tree", "-r", "--name-only", "bridza/marketing/task-506"]);
     expect(tree).toContain("a.txt");
     expect(tree).toContain("b.txt");
+    const meta = JSON.parse(git(root, ["show", `bridza/marketing/task-506:${rel.taskMeta("marketing", "task-506")}`]));
+    expect(meta.tracking.research.runs).toHaveLength(2);
   });
 
-  it("a failed run still commits a result (status failed) so the timeline is honest", async () => {
+  it("a failed run still commits its stage commit (status failed) so the timeline is honest", async () => {
     stub("echo partial > junk.txt; exit 3");
     const { end } = await run({});
     expect(end).toMatchObject({ exit: 3, status: "failed", errorKind: "exit" });
     const subjects = git(root, ["log", "--format=%s", "main..bridza/marketing/task-506"]).trim().split("\n");
-    expect(subjects[0]).toBe("bridza(marketing/task-506/research): result · failed · exit 3");
+    expect(subjects[0]).toBe("bridza(marketing/task-506/research): failed · claude · exit 3");
     expect(git(root, ["ls-tree", "-r", "--name-only", "bridza/marketing/task-506"])).toContain("junk.txt");
   });
 
   it("cmd.shell gates run in the worktree after the tool; their changes are committed", async () => {
     stub("echo src > main.txt");
     const { events, end } = await run({ stage: "build", shell: ["cat main.txt main.txt > double.txt", "echo checked"] });
-    expect(events.filter((e) => e.t === "cmd").map((e) => e.cmd)).toEqual(["cat main.txt main.txt > double.txt", "echo checked"]);
+    const cmds = events.filter((e) => e.t === "cmd").map((e) => e.cmd);
+    expect(cmds[0]).toMatch(/^sh -c /);   // the tool invocation itself is surfaced first
+    expect(cmds.slice(1)).toEqual(["cat main.txt main.txt > double.txt", "echo checked"]);
     expect(end.exit).toBe(0);
     expect(end.files).toEqual(expect.arrayContaining(["double.txt", "main.txt"]));
   });

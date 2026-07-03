@@ -174,12 +174,12 @@ describe("criticalPath — CPM over AND/OR gates", () => {
   });
 });
 
-describe("reopenStage — revise a task after stages are done", () => {
-  it("resets the stage and later stages to idle, keeps history, un-finalizes", async () => {
+describe("reopenStage — hard rollback: commits after the stage are removed", () => {
+  it("resets HEAD to the last valid commit; the stage and later commits (and their files) are gone", async () => {
     const wtBase = fs.mkdtempSync(path.join(os.tmpdir(), "bridza-plan-wt-"));
     dirs.push(wtBase);
     process.env.BRIDZA_WORKTREE_DIR = wtBase;
-    process.env.BRIDZA_TOOL_OVERRIDE = JSON.stringify({ bin: "sh", args: ["-c", "echo output > out.txt"] });
+    process.env.BRIDZA_TOOL_OVERRIDE = JSON.stringify({ bin: "sh", args: ["-c", "echo output >> out.txt"] });
     try {
       createPipeline(root, { id: "dev", label: "Dev", stages: [{ id: "spec", name: "Spec" }, { id: "build", name: "Build" }] });
       createTask(root, { pipeline: "dev", id: "t1", title: "T1" });
@@ -187,29 +187,32 @@ describe("reopenStage — revise a task after stages are done", () => {
         const end = await runStage(root, { pipeline: "dev", task: "t1", stage, tool: "opencode", prompt: "go" }, () => {});
         expect(end.status).toBe("done");
       }
-      let meta = readTaskMeta(root, "dev", "t1");
-      expect(meta.tracking.spec.status).toBe("done");
-      expect(meta.tracking.build.status).toBe("done");
+      const B = "bridza/dev/t1";
+      expect(git(root, ["log", "--format=%s", "main.." + B]).trim().split("\n")).toHaveLength(2);   // one commit per stage
+      const forkPoint = git(root, ["rev-parse", "main"]).trim();
 
+      // going back to spec removes BOTH stage commits; HEAD = the last valid commit
       const r = reopenStage(root, "dev", "t1", "spec");
       expect(r.ok).toBe(true);
-      expect(r.reset).toEqual(["spec", "build"]);   // cascade: this stage + later ones
-      meta = readTaskMeta(root, "dev", "t1");
-      expect(meta.tracking.spec.status).toBe("idle");
-      expect(meta.tracking.build.status).toBe("idle");
-      expect(meta.finalized).toBe(false);
-      expect(meta.status).toBe("in-progress");
-      expect(meta.tracking.spec.runs.length).toBe(1);   // history kept
-      expect(meta.tracking.spec.runs[0].prompt).toBe("go");
+      expect(r.reset).toEqual(["spec", "build"]);
+      expect(r.removed).toBe(2);
+      expect(r.head).toBe(forkPoint);
+      expect(git(root, ["rev-parse", B]).trim()).toBe(forkPoint);
+      const meta = readTaskMeta(root, "dev", "t1");
+      expect(meta.tracking.spec).toBeUndefined();                                     // rolled back with the commit
+      expect(meta.finalized).toBeFalsy();
+      expect(git(root, ["ls-tree", "-r", "--name-only", B])).not.toContain("out.txt");   // files rolled back too
 
-      // reopening only the LATER stage leaves the earlier one done
+      // reopening only the LATER stage keeps the earlier one intact
       await runStage(root, { pipeline: "dev", task: "t1", stage: "spec", tool: "opencode", prompt: "again" }, () => {});
       await runStage(root, { pipeline: "dev", task: "t1", stage: "build", tool: "opencode", prompt: "again" }, () => {});
       const r2 = reopenStage(root, "dev", "t1", "build");
       expect(r2.reset).toEqual(["build"]);
-      meta = readTaskMeta(root, "dev", "t1");
-      expect(meta.tracking.spec.status).toBe("done");
-      expect(meta.tracking.build.status).toBe("idle");
+      expect(r2.removed).toBe(1);
+      const meta2 = readTaskMeta(root, "dev", "t1");
+      expect(meta2.tracking.spec.status).toBe("done");
+      expect(meta2.tracking.build).toBeUndefined();
+      expect(git(root, ["log", "--format=%s", "main.." + B]).trim().split("\n")).toHaveLength(1);
     } finally {
       delete process.env.BRIDZA_WORKTREE_DIR;
       delete process.env.BRIDZA_TOOL_OVERRIDE;

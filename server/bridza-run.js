@@ -268,6 +268,30 @@ export function resolveTool(toolId) {
   return CLI_TOOLS.find((t) => t.id === toolId) || null;
 }
 
+// ── one-commit-per-stage helpers ────────────────────────────────────────────
+// The task branch is a clean sequence: [base] → spec → build → review, ONE
+// commit per stage. These find "the last commit that is still valid" when a
+// stage (re)runs or is reopened: the newest commit that belongs to an EARLIER
+// stage (or isn't a stage commit at all — the fork point / task scaffold).
+
+const stageOfSubject = (s) => { const m = String(s || "").match(/^bridza\([^)]*\/([^/)]+)\):/); return m ? m[1] : null; };
+export const stageOrderOf = (meta) => [...new Set([...(meta.stages || []), ...Object.keys(meta.tracking || {})])];
+
+export function lastValidCommitBefore(W, order, sid) {
+  const idx = order.indexOf(sid);
+  if (idx < 0) return null;
+  let log;
+  try { log = git(W, ["log", "--format=%H%x1f%s"]).trim(); } catch (e) { return null; }
+  for (const line of log ? log.split("\n") : []) {
+    const [sha, subject] = line.split("\x1f");
+    const st = stageOfSubject(subject);
+    const sIdx = st ? order.indexOf(st) : -1;
+    if (st && sIdx >= idx) continue;   // this stage's commit or a later stage's → to be dropped
+    return sha;                        // earlier stage / non-stage commit — still valid
+  }
+  return null;
+}
+
 // Run one stage. Emits NDJSON-shaped events through `emit` and resolves with
 // the final end event (never rejects). The timeline:
 //   1. PROMPT commit — the run record (prompt, tool, model, startedAt) is
@@ -308,13 +332,21 @@ export function runStage(root, body, emit) {
     const W = wt.worktree;
     emit({ t: "meta", branch: wt.branch, worktree: W, pipeline: safeRef(pipeline), task: safeRef(task), stage: safeRef(stage) });
 
-    // ---- 1. prompt commit ----------------------------------------------------
+    // ---- 1. prepare the run (NO commit yet — one commit per stage, at the end)
     const startedAt = nowISO();
     const startMs = Date.now();
     const sid = safeRef(stage);
-    let promptSha = null;
     let sessionId = null; // opencode session id, captured from the run's JSON events
     try {
+      // ONE COMMIT PER STAGE: a re-run collapses the stage's previous commit
+      // with a SOFT reset — history shrinks back to the last valid commit, but
+      // the working tree (previous outputs, run records, prompts.md) is kept,
+      // so iterative prompts like "fix the file you wrote" still work. The
+      // final commit below then REPLACES the stage's commit.
+      const preMeta = readTaskMeta(W, pipeline, task);
+      const target = lastValidCommitBefore(W, stageOrderOf(preMeta), sid);
+      if (target && git(W, ["rev-parse", "HEAD"]).trim() !== target) git(W, ["reset", "--soft", target]);
+
       // stage scaffold: context.md (NL) + outputs/ (.gitkeep so the empty dir
       // is real on first run; the agent fills it)
       fs.mkdirSync(path.join(W, rel.stageOutputs(pipeline, task, sid)), { recursive: true });
@@ -334,24 +366,16 @@ export function runStage(root, body, emit) {
       track.runs.push({ tool: toolId, model: model || null, prompt: prompt || "", startedAt, status: "running" });
       writeTaskMeta(W, pipeline, task, meta);
       // EVERY "Run stage" press appends the typed prompt to a human-readable
-      // file next to the stage (not just JSON metadata) — .bridza/pipelines/
-      // <p>/<t>/<stage>/prompts.md — committed with this prompt commit, so the
-      // full prompt history is a plain file you can read/grep/diff.
+      // file next to the stage — .bridza/pipelines/<p>/<t>/<stage>/prompts.md —
+      // carried by the stage's single commit, readable/greppable/diffable.
       const plog = path.join(W, rel.stage(pipeline, task, sid), "prompts.md");
       const entry = `## ${startedAt} · run ${track.runs.length} · ${toolId}${model ? " · " + model : ""}\n\n${(prompt && prompt.trim()) || "_(no prompt text — stage defaults)_"}\n\n`;
       if (!fs.existsSync(plog))
-        fs.writeFileSync(plog, `# Prompt history — ${stageName || sid}\n\nOne entry per "Run stage" press (oldest first). The same text is in each\nrun record in metadata.json and in the prompt commit message.\n\n` + entry);
+        fs.writeFileSync(plog, `# Prompt history — ${stageName || sid}\n\nOne entry per "Run stage" press (oldest first). The same text is in each\nrun record in metadata.json and in the stage's commit message.\n\n` + entry);
       else fs.appendFileSync(plog, entry);
-      const pLines = [`bridza(${safeRef(pipeline)}/${safeRef(task)}/${sid}): prompt · ${toolId}`, "", `Stage: ${stageName || sid}`];
-      if (taskTitle) pLines.push(`Task: ${taskTitle}`);
-      if (model) pLines.push(`Model: ${model}`);
-      if (prompt && prompt.trim()) pLines.push("", "Prompt:", prompt.trim());
-      const c = commitWorktree(W, pLines.join("\n"));
-      promptSha = c.sha || null;
-      if (c.committed) emit({ t: "commit", phase: "prompt", sha: c.sha });
-    } catch (e) { return end({ exit: 1, errorKind: "git", error: "prompt commit failed: " + firstLine(e) }); }
+    } catch (e) { return end({ exit: 1, errorKind: "git", error: "run setup failed: " + firstLine(e) }); }
 
-    // ---- 2 + 3. run, then result commit -------------------------------------
+    // ---- 2. run, then the stage's ONE commit ---------------------------------
     const resultCommit = (exit, status, errorKind, error) => {
       try {
         // stage first so the changed-files list (minus scaffolding) can be
@@ -359,8 +383,8 @@ export function runStage(root, body, emit) {
         git(W, ["add", "-A"]);
         const metaRel = rel.taskMeta(pipeline, task);
         const staged = git(W, ["diff", "--cached", "--name-only"]).trim();
-        // the agent's output files — exclude bookkeeping (metadata, readme, gitkeep)
-        const files = staged ? staged.split("\n").filter((f) => !f.endsWith(".gitkeep") && f !== metaRel && !f.endsWith("/README.md")) : [];
+        // the agent's output files — exclude bookkeeping (metadata, readme, gitkeep, prompts)
+        const files = staged ? staged.split("\n").filter((f) => !f.endsWith(".gitkeep") && f !== metaRel && !f.endsWith("/README.md") && !f.endsWith("/prompts.md")) : [];
         const meta = readTaskMeta(W, pipeline, task);
         const track = meta.tracking[sid] || (meta.tracking[sid] = { status, seconds: 0, runs: [] });
         track.status = status;
@@ -369,20 +393,24 @@ export function runStage(root, body, emit) {
         // metadata reflects what the app shows, not just the agent's runtime).
         track.seconds = Math.max((track.seconds || 0) + Math.round((Date.now() - startMs) / 1000), Math.floor(Number(wallSeconds) || 0));
         const r = track.runs[track.runs.length - 1] || {};
-        Object.assign(r, { finishedAt: nowISO(), exit, status, promptCommit: promptSha, files, sessionId, error: error || null, log: outTail.trim() || null });
+        Object.assign(r, { finishedAt: nowISO(), exit, status, files, sessionId, error: error || null, log: outTail.trim() || null });
         writeTaskMeta(W, pipeline, task, meta);
         try { fs.writeFileSync(path.join(W, rel.task(pipeline, task), "README.md"), renderTaskReadme(meta)); } catch (e) { /* readme is best-effort */ }
         const rLines = [
-          `bridza(${safeRef(pipeline)}/${safeRef(task)}/${sid}): result · ${status} · exit ${exit}`,
+          `bridza(${safeRef(pipeline)}/${safeRef(task)}/${sid}): ${status} · ${toolId} · exit ${exit}`,
           "", `Stage: ${stageName || sid}`, `Tool: ${toolId}${model ? " · " + model : ""}`,
         ];
         if (sessionId) rLines.push(`opencode-session: ${sessionId}`);
-        rLines.push(files.length ? `Files (${files.length}): ${files.slice(0, 12).join(", ")}${files.length > 12 ? ", …" : ""}` : "No file changes");
+        if (prompt && prompt.trim()) rLines.push("", "Prompt:", prompt.trim().slice(0, 2000));
+        rLines.push("", files.length ? `Files (${files.length}): ${files.slice(0, 12).join(", ")}${files.length > 12 ? ", …" : ""}` : "No file changes");
         if (error) rLines.push("", "Error: " + error);
         const c = commitWorktree(W, rLines.join("\n"));
+        // record the stage's commit on the run record (needs a second metadata
+        // write + amend so the sha lives inside the commit it names — skip the
+        // amend dance; the UI resolves diffs from the timeline instead)
         if (c.committed) emit({ t: "commit", phase: "result", sha: c.sha });
-        end({ exit, status, errorKind, error, branch: wt.branch, promptCommit: promptSha, resultCommit: c.sha || null, files, sessionId });
-      } catch (e) { end({ exit: exit || 1, status: "failed", errorKind: "git", error: "result commit failed: " + firstLine(e), branch: wt.branch }); }
+        end({ exit, status, errorKind, error, branch: wt.branch, resultCommit: c.sha || null, files, sessionId });
+      } catch (e) { end({ exit: exit || 1, status: "failed", errorKind: "git", error: "stage commit failed: " + firstLine(e), branch: wt.branch }); }
     };
 
     const childEnv = { ...process.env, PWD: W };
@@ -526,11 +554,13 @@ export function termRun(root, { pipeline, task, cmd } = {}, emit) {
   return { kill, done };
 }
 
-// ── reopen: roll a task back to a stage so it can be revised ────────────────
-// Resets the given stage AND every later stage to idle (kanban puts the task
-// back in that column; auto-advance re-runs from there). Run history, prompts
-// and time are all KEPT — only the status rolls back. Un-finalizes the task so
-// the revision can be finalized again. Works after every stage is done.
+// ── reopen: roll the task branch BACK to before a stage ─────────────────────
+// Going back to a stage removes that stage's commit and every later one: the
+// branch is HARD-reset to the last still-valid commit, so HEAD, the metadata
+// and the files all match the moment before the stage first ran. The dropped
+// stages' outputs, run records and prompts go with their commits — that's the
+// point of the rollback. Works after every stage is done (un-finalized state
+// is what the older commit already carries).
 export function reopenStage(root, pipeline, task, stage) {
   const bad = validRef(pipeline, "pipeline") || validRef(task, "task") || validRef(stage, "stage");
   if (bad) return { ok: false, error: bad };
@@ -539,19 +569,15 @@ export function reopenStage(root, pipeline, task, stage) {
   const W = wt.worktree;
   const sid = safeRef(stage);
   const meta = readTaskMeta(W, pipeline, task);
-  const stages = [...new Set([...(meta.stages || []), ...Object.keys(meta.tracking || {})])];
-  if (!stages.includes(sid)) return { ok: false, error: "unknown stage " + sid };
-  const reset = stages.slice(stages.indexOf(sid));
-  for (const s of reset) {
-    const tr = meta.tracking[s];
-    if (tr && tr.status && tr.status !== "idle") tr.status = "idle";
-  }
-  meta.status = "in-progress";
-  meta.finalized = false;
-  writeTaskMeta(W, pipeline, task, meta);
-  try { fs.writeFileSync(path.join(W, rel.task(pipeline, task), "README.md"), renderTaskReadme(meta)); } catch (e) { /* best-effort */ }
-  const c = commitWorktree(W, `bridza(${safeRef(pipeline)}/${safeRef(task)}/${sid}): reopen · ${reset.join(", ")} reset for revision`);
-  return { ok: true, branch: wt.branch, reset, committed: c.committed, sha: c.sha || null };
+  const order = stageOrderOf(meta);
+  if (!order.includes(sid)) return { ok: false, error: "unknown stage " + sid };
+  const target = lastValidCommitBefore(W, order, sid);
+  if (!target) return { ok: false, error: "no valid commit to roll back to" };
+  const head = git(W, ["rev-parse", "HEAD"]).trim();
+  const removed = head === target ? 0 : parseInt(git(W, ["rev-list", "--count", target + ".." + head]).trim(), 10) || 0;
+  if (removed) git(W, ["reset", "--hard", target]);
+  const reset = order.slice(order.indexOf(sid));
+  return { ok: true, branch: wt.branch, reset, removed, head: target };
 }
 
 // ── finalize: merge the task branch into main ───────────────────────────────
@@ -861,7 +887,9 @@ export function taskTimeline(root, pipeline, task) {
       files.push({ path: m[3], add: a, del: d, binary: m[1] === "-" });
       add += a; del += d;
     }
-    const sm = subject.match(/^bridza\(([^/)]+)\/([^/)]+)\/([^)]+)\):\s*(prompt|result)/);
+    // new model: one commit per stage, subject "…): done|failed · tool · exit N"
+    // (old branches may still carry prompt/result pairs — parse those too)
+    const sm = subject.match(/^bridza\(([^/)]+)\/([^/)]+)\/([^)]+)\):\s*(prompt|result|done|failed)/);
     commits.push({ sha, author, subject, date, stage: sm ? sm[3] : null, kind: sm ? sm[4] : null, files, add, del });
   }
   return { ok: true, branch, commits };
