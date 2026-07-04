@@ -18,12 +18,19 @@ export { DATA_DIR, taskBranchName };
 
 const firstLine = (e) => String((e && e.message) || e).split("\n")[0];
 const nowISO = () => new Date().toISOString();
+// Kill a spawned tool and everything under it: the whole process group (the
+// child is spawned detached = its own group), falling back to the child alone.
+const killTree = (c) => {
+  try { process.kill(-c.pid, "SIGTERM"); } catch (e) { try { c.kill("SIGTERM"); } catch (e2) { /* gone */ } }
+};
 
 // ── git plumbing ────────────────────────────────────────────────────────────
 
 export function git(root, args, opts = {}) {
-  // stdio pipe keeps expected failures (rev-parse probes) off the console
-  return execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 32 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"], ...opts });
+  // stdio pipe keeps expected failures (rev-parse probes) off the console.
+  // timeout: every call here runs SYNCHRONOUSLY on the server's event loop —
+  // one OS-level-hung git child would wedge every request, forever.
+  return execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 32 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"], timeout: 15000, ...opts });
 }
 export function isGitRepo(root) { try { git(root, ["rev-parse", "--git-dir"]); return true; } catch (e) { return false; } }
 export function hasCommits(root) { try { git(root, ["rev-parse", "--verify", "HEAD"]); return true; } catch (e) { return false; } }
@@ -234,9 +241,60 @@ function commitWorktree(wt, message) {
 // ── live run registry ───────────────────────────────────────────────────────
 // The in-process truth of what is running RIGHT NOW. Committed metadata can say
 // "running" forever after a crashed run; this registry can't — entries exist
-// only while runStage is actually executing in this server process.
+// only while runStage is actually executing in this server process. Each entry
+// keeps a kill handle so the user can stop a run from the app.
 const ACTIVE_RUNS = new Map();
-export function listActiveRuns() { return [...ACTIVE_RUNS.values()]; }
+export function listActiveRuns() {
+  return [...ACTIVE_RUNS.values()].map(({ kill, ...r }) => r);
+}
+
+// Stop the live run(s) of a task (optionally one stage). SIGTERM the tool's
+// process; runStage's close handler then records the run as "stopped" and
+// commits the result, so the timeline shows the stop — not a phantom crash.
+export function stopRuns(pipeline, task, stage) {
+  const p = safeRef(pipeline), t = safeRef(task), s = stage ? safeRef(stage) : null;
+  let stopped = 0;
+  for (const r of ACTIVE_RUNS.values()) {
+    if (r.pipeline !== p || r.task !== t || (s && r.stage !== s)) continue;
+    if (typeof r.kill === "function") { try { r.kill(); stopped++; } catch (e) { /* already gone */ } }
+  }
+  return { ok: stopped > 0, stopped, error: stopped ? undefined : "no live run for that task" };
+}
+
+// ── focused context: linked tickets injected into the stage prompt ──────────
+// plan.json carries links: { "<pipeline>/<task>": ["<pipeline>/<task>", …] } —
+// the tickets the user attached to a task as context. Each linked ticket's
+// title + context.md is folded into the prompt so it shapes the work directly.
+function readTaskField(root, pipeline, task, relPath) {
+  const branch = taskBranchName(pipeline, task);
+  if (branchExists(root, branch)) {
+    try { return git(root, ["show", branch + ":" + relPath]); } catch (e) { /* fall through */ }
+  }
+  try { return fs.readFileSync(path.join(root, relPath), "utf8"); } catch (e) { return ""; }
+}
+export function focusedContext(root, pipeline, task) {
+  let plan;
+  try { plan = JSON.parse(fs.readFileSync(path.join(root, rel.plan()), "utf8")); } catch (e) { return ""; }
+  const links = (plan && plan.links && plan.links[safeRef(pipeline) + "/" + safeRef(task)]) || [];
+  if (!Array.isArray(links) || !links.length) return "";
+  let refs = {};
+  try { refs = JSON.parse(fs.readFileSync(path.join(root, DATA_DIR, "refs.json"), "utf8")).refs || {}; } catch (e) { /* none yet */ }
+  const blocks = [];
+  for (const key of links.slice(0, 8)) {
+    const [lp, lt] = String(key).split("/");
+    if (!lp || !lt) continue;
+    let title = lt, ref = refs[key] ? "#" + refs[key] + " " : "";
+    try {
+      const m = JSON.parse(readTaskField(root, lp, lt, rel.taskMeta(lp, lt)) || "{}");
+      if (m.title) title = m.title;
+      if (!ref && m.ref) ref = "#" + m.ref + " ";
+    } catch (e) { /* no metadata — use the id */ }
+    const ctx = (readTaskField(root, lp, lt, rel.taskContext(lp, lt)) || "").trim();
+    blocks.push(`### ${ref}${title} (${key})\n${ctx || "(no written context)"}`);
+  }
+  if (!blocks.length) return "";
+  return "## Focused context — linked tickets (weigh these heavily in this work)\n\n" + blocks.join("\n\n");
+}
 
 // ── CLI tool detection + the stage runner ───────────────────────────────────
 
@@ -323,7 +381,11 @@ export function runStage(root, body, emit) {
     const bad = validRef(pipeline, "pipeline") || validRef(task, "task") || validRef(stage, "stage");
     if (bad) return end({ exit: 1, errorKind: "bad-ref", error: bad });
     runKey = safeRef(pipeline) + "/" + safeRef(task) + "/" + safeRef(stage) + "#" + Date.now();
-    ACTIVE_RUNS.set(runKey, { pipeline: safeRef(pipeline), task: safeRef(task), stage: safeRef(stage), tool: toolId, startedAt: nowISO() });
+    const runEntry = { pipeline: safeRef(pipeline), task: safeRef(task), stage: safeRef(stage), tool: toolId, startedAt: nowISO(), kill: null };
+    ACTIVE_RUNS.set(runKey, runEntry);
+    // set true when the user stops the run — the close handler records
+    // "stopped" instead of "failed" so the timeline tells the real story
+    let stopRequested = false;
 
     let wt;
     try { wt = ensureTaskWorktree(root, pipeline, task, { workingDir }); }
@@ -376,7 +438,12 @@ export function runStage(root, body, emit) {
     } catch (e) { return end({ exit: 1, errorKind: "git", error: "run setup failed: " + firstLine(e) }); }
 
     // ---- 2. run, then the stage's ONE commit ---------------------------------
+    // one commit per run: 'exit' (stop path) and 'close' can BOTH fire — the
+    // second call must not write a second stage commit.
+    let resultDone = false;
     const resultCommit = (exit, status, errorKind, error) => {
+      if (resultDone || ended) return;
+      resultDone = true;
       try {
         // stage first so the changed-files list (minus scaffolding) can be
         // recorded INTO the metadata that this same commit will carry.
@@ -397,9 +464,11 @@ export function runStage(root, body, emit) {
         writeTaskMeta(W, pipeline, task, meta);
         try { fs.writeFileSync(path.join(W, rel.task(pipeline, task), "README.md"), renderTaskReadme(meta)); } catch (e) { /* readme is best-effort */ }
         const rLines = [
-          `bridza(${safeRef(pipeline)}/${safeRef(task)}/${sid}): ${status} · ${toolId} · exit ${exit}`,
+          `bridza(${safeRef(pipeline)}/${safeRef(task)}/${sid}): ${status} · ${toolId} · exit ${exit}`
+            + (files.length ? ` · ${files.length} file${files.length === 1 ? "" : "s"}` : ""),
           "", `Stage: ${stageName || sid}`, `Tool: ${toolId}${model ? " · " + model : ""}`,
         ];
+        if (taskTitle) rLines.splice(3, 0, `Task: ${taskTitle}`);
         if (sessionId) rLines.push(`opencode-session: ${sessionId}`);
         if (prompt && prompt.trim()) rLines.push("", "Prompt:", prompt.trim().slice(0, 2000));
         rLines.push("", files.length ? `Files (${files.length}): ${files.slice(0, 12).join(", ")}${files.length > 12 ? ", …" : ""}` : "No file changes");
@@ -419,11 +488,16 @@ export function runStage(root, body, emit) {
       const cmd = String(shell[i] || "").trim();
       if (!cmd) return runShell(i + 1);
       emit({ t: "cmd", cmd });
-      const c = spawn("sh", ["-c", cmd], { cwd: W, env: childEnv, stdio: ["ignore", "pipe", "pipe"] });
+      const c = spawn("sh", ["-c", cmd], { cwd: W, env: childEnv, stdio: ["ignore", "pipe", "pipe"], detached: true });
+      runEntry.kill = () => { stopRequested = true; killTree(c); };
       c.stdout.on("data", (d) => emit({ t: "out", d: d.toString() }));
       c.stderr.on("data", (d) => emit({ t: "out", d: d.toString() }));
       c.on("error", (e) => resultCommit(1, "failed", "shell", "shell `" + cmd + "` failed: " + firstLine(e)));
-      c.on("close", (code) => code ? resultCommit(code, "failed", "shell", "shell `" + cmd + "` exited with code " + code) : runShell(i + 1));
+      // on a user stop, act on 'exit' — grandchildren may hold the stdio pipes
+      // open long after the tool itself died, and 'close' waits for them.
+      c.on("exit", () => { if (stopRequested) resultCommit(1, "stopped", "stopped", "stopped by user"); });
+      c.on("close", (code) => stopRequested ? resultCommit(code || 1, "stopped", "stopped", "stopped by user")
+        : code ? resultCommit(code, "failed", "shell", "shell `" + cmd + "` exited with code " + code) : runShell(i + 1));
     };
 
     // opencode streams one JSON event per line (tool.stream==="json"): surface the
@@ -456,7 +530,11 @@ export function runStage(root, body, emit) {
         try { onJsonEvent(JSON.parse(line)); } catch (e) { emit({ t: "out", d: line + "\n" }); }
       }
     };
-    const args = tool.args({ prompt, system, model });
+    // focused context (linked tickets) rides along in the prompt — the linked
+    // tasks' intent plays a bigger role in shaping this stage's work.
+    const focus = focusedContext(root, pipeline, task);
+    const fullPrompt = focus ? String(prompt || "") + "\n\n" + focus : prompt;
+    const args = tool.args({ prompt: fullPrompt, system, model });
     // show EXACTLY what gets executed (long args abbreviated for readability —
     // the full prompt text is in <stage>/prompts.md). Also flags when NO model
     // flag is passed, i.e. the tool's own configured default decides.
@@ -467,11 +545,15 @@ export function runStage(root, body, emit) {
     });
     emit({ t: "cmd", cmd: [tool.bin, ...shownArgs].join(" ") });
     if (!model) emit({ t: "out", d: "· model: TOOL DEFAULT (no --model/-m flag — " + toolId + "'s own config decides)\n" });
-    const child = spawn(tool.bin, args, { cwd: W, env: childEnv, stdio: ["ignore", "pipe", "pipe"] });
+    // detached → own process group, so a stop kills the tool AND its children
+    const child = spawn(tool.bin, args, { cwd: W, env: childEnv, stdio: ["ignore", "pipe", "pipe"], detached: true });
+    runEntry.kill = () => { stopRequested = true; killTree(child); };
     child.stdout.on("data", onStdout);
     child.stderr.on("data", (d) => emit({ t: "out", d: d.toString() }));
     child.on("error", (e) => resultCommit(1, "failed", "spawn", String(e.message || e)));
+    child.on("exit", () => { if (stopRequested) resultCommit(1, "stopped", "stopped", "stopped by user"); });
     child.on("close", (code) => {
+      if (stopRequested) return resultCommit(code || 1, "stopped", "stopped", "stopped by user");
       if (code) return resultCommit(code, "failed", "exit", "tool exited with code " + code);
       if (toolError) return resultCommit(1, "failed", "tool-error", toolError);
       runShell(0);
@@ -658,7 +740,16 @@ export function finalizeTask(root, pipeline, task, { style = "merge", into, reso
       git(root, ["worktree", "add", mwt, target]);
       cleanup = () => { try { git(root, ["worktree", "remove", "--force", mwt]); } catch (e) { /* */ } };
     }
-    const msg = `bridza: finalize ${safeRef(pipeline)}/${safeRef(task)}`;
+    // a descriptive merge subject: who this task IS (#ref + title), not just ids
+    const key = safeRef(pipeline) + "/" + safeRef(task);
+    let title = "", refNum = null;
+    try { const m = JSON.parse(git(root, ["show", branch + ":" + rel.taskMeta(pipeline, task)])); if (m.title && m.title !== safeRef(task)) title = m.title; } catch (e) { /* no metadata */ }
+    try { refNum = (JSON.parse(fs.readFileSync(path.join(root, DATA_DIR, "refs.json"), "utf8")).refs || {})[key] || null; } catch (e) { /* no refs yet */ }
+    const msg = [
+      `bridza: finalize ${key}${refNum ? ` · #${refNum}` : ""}${title ? ` "${title.slice(0, 50)}"` : ""} → ${target}`,
+      "",
+      `Merges task branch ${branch} into ${target} (${style}).`,
+    ].join("\n");
     if (style === "squash") {
       git(mwt, ["merge", "--squash", branch]);
       if (git(mwt, ["diff", "--cached", "--name-only"]).trim())

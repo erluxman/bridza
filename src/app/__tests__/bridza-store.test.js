@@ -50,7 +50,7 @@ describe("create pipeline + task", () => {
     expect(proj.pipelines.map((p) => p.id)).toEqual(["marketing"]);
     expect(proj.pipelines[0].stages.map((s) => s.id)).toEqual(["research", "planning", "spec"]);
     // committed only the pipeline's own file, nothing else
-    expect(git(root, ["log", "-1", "--format=%s", "main"]).trim()).toBe("bridza: add pipeline marketing");
+    expect(git(root, ["log", "-1", "--format=%s", "main"]).trim()).toMatch(/^bridza: add pipeline "Marketing" \(marketing\) · 3 stages$/);
   });
 
   it("creates a task with the pipeline's stage set and its own branch", () => {
@@ -107,7 +107,7 @@ describe("edit pipeline stage flow", () => {
     expect(p.stages[0]).toMatchObject({ id: "research", systemPrompt: "Dig deep.", auto: true });
     expect(p.stages[0].outputs[0]).toMatchObject({ name: "findings.md", type: "doc" });
     expect(p.stages[2].id).toMatch(/^stage-/);            // generated id for the new stage
-    expect(git(root, ["log", "-1", "--format=%s", "main"]).trim()).toBe("bridza: edit pipeline marketing stage flow");
+    expect(git(root, ["log", "-1", "--format=%s", "main"]).trim()).toMatch(/^bridza: edit pipeline .*\(marketing\) stage flow · \d+ stages$/);
   });
 
   it("rejects saving a pipeline that doesn't exist", () => {

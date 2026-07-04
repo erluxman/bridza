@@ -410,3 +410,16 @@ textarea.input { resize: vertical; min-height: 64px; }
 .tl.failed .tl-dot { background: var(--danger); }
 .tl .sub.failed { color: var(--danger); }
 .tl-stage.failed { color: var(--danger); border-color: #e0625f44; }
+
+/* ---- stopped runs, task #refs, task terminal view, relations ---- */
+.tag.stopped { color: var(--warn, #d8a03a); border-color: #d8a03a55; }
+.btn.danger { color: var(--danger); border-color: #e0625f66; }
+.btn.danger:hover { background: #e0625f1a; }
+.tref { color: var(--txt-3); font-family: var(--mono); font-size: 0.86em; font-weight: 600; margin-right: 6px; }
+.term.full { max-height: none; min-height: 70vh; }
+.dep-name.click { cursor: pointer; }
+.dep-name.click:hover { color: var(--txt); text-decoration: underline; }
+
+/* full-height terminal view: the PTY replaces the stage list (the small
+   floating drawer was unusable for real work) */
+.term-drawer.full { position: static; width: auto; height: calc(100vh - 128px); box-shadow: none; z-index: auto; }

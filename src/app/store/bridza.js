@@ -177,16 +177,38 @@ export const STARTER_PIPELINES = [
   },
   {
     id: "dev", label: "Dev", workingDir: ".",
+    // The stage POOL. Templates below pick subsets of it, so one pipeline
+    // serves several kinds of work (bugfix, design, feature, dissection).
     stages: [
       { id: "spec", name: "Spec", tool: "claude", gate: "reviewed",
         systemPrompt: "You are a senior engineer. Write spec.md + acceptance.md from the task intent only.",
         outputs: [{ name: "spec.md" }, { name: "acceptance.md" }] },
+      { id: "design", name: "Design", tool: "claude", gate: "design approved",
+        systemPrompt: "You are a product designer. From the task intent (and spec.md if present), define the UX and visual design: screens, states, layout rules, component inventory. Write design.md. Do NOT write application code.",
+        outputs: [{ name: "design.md" }] },
+      { id: "repro", name: "Reproduce", tool: "claude", gate: "bug reproduced",
+        systemPrompt: "You are a debugger. Reproduce the reported bug: find the failing path, capture exact steps/inputs and the observed vs expected behavior, and identify the root cause. Write repro.md. Do NOT fix anything yet.",
+        outputs: [{ name: "repro.md", note: "steps + root cause" }] },
+      { id: "fix", name: "Fix", tool: "claude", gate: "bug gone, tests pass",
+        systemPrompt: "You are an implementer. Read repro.md and fix the root cause with the smallest correct change. Add a regression test where feasible.",
+        outputs: [{ name: "diff" }] },
       { id: "build", name: "Build", tool: "claude", gate: "tests pass", shell: [],
         systemPrompt: "You are an implementer. Implement strictly to the spec; keep the change minimal.",
         outputs: [{ name: "diff" }] },
       { id: "review", name: "Review", tool: "claude", gate: "approved",
         systemPrompt: "You are a reviewer. Check the implementation against acceptance.md.",
         outputs: [{ name: "review.md" }] },
+      { id: "dissect", name: "Dissect", tool: "claude", gate: "sub-tasks reviewed",
+        systemPrompt: "You are a tech lead. Split the feature described in the task intent into small, independently-deliverable sub-tasks. FIRST read .bridza/.metadata/creation-guide.md and follow it exactly: for each sub-task create .bridza/pipelines/<this pipeline>/<sub-task-id>/metadata.json (type: \"subtask\") and context.md with its own clear intent and acceptance criteria, and wire ordering dependencies into .bridza/plan.json (merge, never overwrite). Your output is TASKS, not code or docs.",
+        outputs: [{ name: ".bridza/pipelines/", type: "issue", note: "one sub-task per sub-feature" }] },
+    ],
+    // Task templates: what kind of work item is being created decides which
+    // stages the task gets.
+    templates: [
+      { id: "feature", label: "Feature implement", description: "Spec → Build → Review", stages: ["spec", "build", "review"] },
+      { id: "bugfix", label: "Bugfix", description: "Reproduce → Fix → Review", stages: ["repro", "fix", "review"] },
+      { id: "design", label: "Design", description: "Spec → Design", stages: ["spec", "design"] },
+      { id: "dissection", label: "Feature dissection", description: "Splits a feature into sub-tasks (creates tasks, not files)", stages: ["dissect"] },
     ],
   },
 ];

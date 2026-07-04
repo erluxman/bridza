@@ -20,8 +20,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { DATA_DIR, CLI_TOOLS } from "../src/app/store/bridza.js";
-import { readProject, createPipeline, savePipeline, createTask, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan } from "./bridza-store.js";
-import { runStage, automateTask, finalizeTask, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, blastRadius, reopenStage, listModels, termRun, ensureTaskWorktree } from "./bridza-run.js";
+import { readProject, createPipeline, savePipeline, createTask, deleteTask, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan, assignRefs } from "./bridza-store.js";
+import { runStage, automateTask, finalizeTask, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, listModels, termRun, ensureTaskWorktree } from "./bridza-run.js";
 
 function resolveDir(raw) {
   if (!raw) return null;
@@ -131,7 +131,15 @@ export default function bridzaFs() {
         try {
           if (M === "GET" && P === "/api/bridza/state") {
             if (!root) return void res.end(JSON.stringify({ available: false }));
-            return void res.end(JSON.stringify({ available: true, repo: root, dataDir: path.join(root, DATA_DIR), running: listActiveRuns(), ...readProject(root) }));
+            const proj = readProject(root);
+            // self-heal #refs: tasks that arrived without a number (older
+            // projects, agent-created tasks on branches) get one now.
+            const missing = proj.pipelines.flatMap((p) => p.tasks.filter((t) => !t.ref).map((t) => ({ t, key: p.id + "/" + t.id })));
+            if (missing.length) {
+              const refs = assignRefs(root, missing.map((m) => m.key));
+              missing.forEach((m) => { m.t.ref = refs[m.key] || null; });
+            }
+            return void res.end(JSON.stringify({ available: true, repo: root, dataDir: path.join(root, DATA_DIR), running: listActiveRuns(), ...proj }));
           }
           if (M === "POST" && P === "/api/bridza/pick-folder") return void res.end(JSON.stringify(pickFolder()));
           if (M === "POST" && P === "/api/bridza/reveal") return void res.end(JSON.stringify(revealInFinder((await json(req) || {}).path)));
@@ -150,6 +158,14 @@ export default function bridzaFs() {
           if (M === "POST" && P === "/api/bridza/task") {
             if (!root) return need();
             return void res.end(JSON.stringify(createTask(root, (await json(req)) || {})));
+          }
+          if (M === "POST" && P === "/api/bridza/task/delete") {
+            if (!root) return need();
+            return void res.end(JSON.stringify(deleteTask(root, (await json(req)) || {})));
+          }
+          if (M === "POST" && P === "/api/bridza/run/stop") {
+            const b = (await json(req)) || {};
+            return void res.end(JSON.stringify(stopRuns(b.pipeline, b.task, b.stage)));
           }
           if (M === "POST" && P === "/api/bridza/context") {
             if (!root) return need();

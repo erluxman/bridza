@@ -92,7 +92,7 @@ describe("runStage — one commit per stage", () => {
     // ONE commit ahead of main, by the bridza author, prompt in the body
     const subjects = git(root, ["log", "--format=%an%x1f%s", "main..bridza/marketing/task-506"]).trim().split("\n");
     expect(subjects.map((l) => l.split("\x1f")[1])).toEqual([
-      "bridza(marketing/task-506/research): done · claude · exit 0",
+      "bridza(marketing/task-506/research): done · claude · exit 0 · 1 file",
     ]);
     expect(subjects.every((l) => l.split("\x1f")[0] === "bridza")).toBe(true);
 
@@ -132,7 +132,7 @@ describe("runStage — one commit per stage", () => {
     await run({});
     const tl = taskTimeline(root, "marketing", "task-506");
     expect(tl.commits).toHaveLength(1);   // still ONE commit for the stage
-    expect(tl.commits[0].subject).toBe("bridza(marketing/task-506/research): done · claude · exit 0");
+    expect(tl.commits[0].subject).toBe("bridza(marketing/task-506/research): done · claude · exit 0 · 2 files");
     // the soft reset kept the first run's files AND both run records + prompts
     const tree = git(root, ["ls-tree", "-r", "--name-only", "bridza/marketing/task-506"]);
     expect(tree).toContain("a.txt");
@@ -146,7 +146,7 @@ describe("runStage — one commit per stage", () => {
     const { end } = await run({});
     expect(end).toMatchObject({ exit: 3, status: "failed", errorKind: "exit" });
     const subjects = git(root, ["log", "--format=%s", "main..bridza/marketing/task-506"]).trim().split("\n");
-    expect(subjects[0]).toBe("bridza(marketing/task-506/research): failed · claude · exit 3");
+    expect(subjects[0]).toBe("bridza(marketing/task-506/research): failed · claude · exit 3 · 1 file");
     expect(git(root, ["ls-tree", "-r", "--name-only", "bridza/marketing/task-506"])).toContain("junk.txt");
   });
 
@@ -254,7 +254,7 @@ describe("finalize → merge into main", () => {
     expect(r.ok).toBe(true);
     expect(r.target).toBe("main");
     // main now carries the task's output, as a single squash commit
-    expect(git(root, ["log", "-1", "--format=%s", "main"]).trim()).toBe("bridza: finalize marketing/task-506");
+    expect(git(root, ["log", "-1", "--format=%s", "main"]).trim()).toBe("bridza: finalize marketing/task-506 → main");
     expect(fs.existsSync(path.join(root, ".bridza", "pipelines", "marketing", "task-506", "research", "outputs", "brief.md"))).toBe(true);
     expect(currentBranch(root)).toBe("main");
   });
@@ -309,7 +309,7 @@ describe("finalize → merge into main", () => {
     await run({});
     const r = finalizeTask(root, "marketing", "task-506", { style: "merge" });
     expect(r.ok).toBe(true);
-    expect(git(root, ["log", "-1", "--format=%s", "main"]).trim()).toBe("bridza: finalize marketing/task-506");
+    expect(git(root, ["log", "-1", "--format=%s", "main"]).trim()).toBe("bridza: finalize marketing/task-506 → main");
     // the task branch's own commits are reachable from main (true merge, not squash)
     expect(git(root, ["branch", "--contains", taskBranchName("marketing", "task-506"), "--list", "main"]).trim()).toContain("main");
   });
