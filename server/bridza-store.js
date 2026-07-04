@@ -6,7 +6,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { DATA_DIR, rel, safeRef } from "../src/app/store/bridza.js";
+import { DATA_DIR, rel, safeRef, pipelineFlows, flattenFlows } from "../src/app/store/bridza.js";
 import { git, isGitRepo, branchExists, ensureTaskBranch, taskBranchName, removeTaskWorktree, stopRuns } from "./bridza-run.js";
 
 const BIDENT = ["-c", "user.name=bridza", "-c", "user.email=bridza@local"];
@@ -273,14 +273,18 @@ export function readProject(root) {
   const pids = [...new Set([...listDirs(pipelinesRoot), ...scan.found.keys()])];
   const pipelines = pids.map((pid) => {
     const def = readPipelineDef(root, pid);
+    const flows = pipelineFlows(def);
+    // the id→def lookup tasks resolve against: every flow's stages, plus any
+    // legacy pool stages not in a flow (first occurrence of an id wins)
+    const allStages = flattenFlows([...flows, { stages: def.stages || [] }]);
     const tids = [...new Set([...listDirs(path.join(pipelinesRoot, pid)), ...(scan.found.get(pid) || [])])]
       .filter((tid) => !tombstones.has(pid + "/" + tid));
     const tasks = tids.map((tid) => {
       const meta = readTaskMetaFromAnyBranch(root, scan, pid, tid);
-      const defStages = (def.stages || []).map((s) => s.id);
-      // template tasks keep their own (subset) flow; otherwise show the FULL
-      // pipeline flow — upcoming steps are visible even before they run.
-      const stages = meta.template && (meta.stages || []).length
+      const defStages = allStages.map((s) => s.id);
+      // flow/template tasks keep their own (subset) stage list; otherwise show
+      // the FULL pipeline — upcoming steps are visible even before they run.
+      const stages = (meta.flow || meta.template) && (meta.stages || []).length
         ? meta.stages
         : [...new Set([...(meta.stages || []), ...defStages])];
       const tr = meta.tracking || {};
@@ -288,14 +292,14 @@ export function readProject(root) {
       return {
         id: meta.id || tid, pipeline: pid, title: meta.title || tid,
         ref: refs[pid + "/" + tid] || meta.ref || null,
-        type: meta.type || "", template: meta.template || "",
+        type: meta.type || "", template: meta.template || "", flow: meta.flow || meta.template || "",
         status: meta.status || "in-progress", finalized: !!meta.finalized,
         stages, tracking: tr, branch: taskBranchName(pid, tid),
         progress: stages.length ? Math.round((done / stages.length) * 100) : 0,
         live: !!meta._live, onBranch: meta._onBranch || null,
       };
     });
-    return { id: def.id || pid, label: def.label || pid, workingDir: def.workingDir || ".", stages: def.stages || [], templates: def.templates || [], tasks };
+    return { id: def.id || pid, label: def.label || pid, workingDir: def.workingDir || ".", stages: allStages, flows, templates: def.templates || [], archived: !!def.archived, tasks };
   });
   return { initialized: pipelines.length > 0, business, pipelines, inbox: readInbox(root) };
 }
@@ -308,19 +312,23 @@ const normTemplates = (templates) => (Array.isArray(templates) ? templates : [])
   .filter((t) => t && t.id)
   .map((t) => ({ id: safeRef(t.id), label: t.label || t.id, description: String(t.description || ""), stages: (Array.isArray(t.stages) ? t.stages : []).map(safeRef) }));
 
-export function createPipeline(root, { id, label, workingDir = ".", stages = [], templates = [] }) {
+export function createPipeline(root, { id, label, workingDir = ".", stages = [], flows = [], templates = [] }) {
   if (!id) return { ok: false, error: "pipeline id required" };
   const pid = safeRef(id);
   const metaPath = rel.pipelineMeta(pid);
   if (fs.existsSync(path.join(root, metaPath))) return { ok: false, error: "pipeline already exists" };
   ensureDataDir(root);   // materialise .bridza/.metadata now, committed below
   const tpls = normTemplates(templates);
-  writeJSON(path.join(root, metaPath), { v: 1, id: pid, label: label || id, workingDir, stages, templates: tpls });
-  const flow = (stages || []).map((s) => s.name || s.id).join(" → ");
+  // whatever form the caller speaks (flows / stage list / template subsets),
+  // the pipeline is stored in the flows form + the flattened stage union
+  const fl = pipelineFlows({ id: pid, label: label || id, stages, flows, templates: tpls })
+    .map((f, fi) => ({ id: safeRef(f.id || "flow-" + (fi + 1)), name: f.name, stages: (f.stages || []).map(normStageDef) }));
+  const allStages = flattenFlows(fl);
+  writeJSON(path.join(root, metaPath), { v: 1, id: pid, label: label || id, workingDir, flows: fl, stages: allStages, templates: tpls });
   const msg = [
-    `bridza: add pipeline "${label || id}" (${pid}) · ${stages.length} stage${stages.length === 1 ? "" : "s"}`,
+    `bridza: add pipeline "${label || id}" (${pid}) · ${allStages.length} stage${allStages.length === 1 ? "" : "s"}`,
     "",
-    `Stage flow: ${flow || "(none)"}`,
+    ...fl.map((f) => `Flow "${f.name}": ${f.stages.map((s) => s.name || s.id).join(" → ") || "(none)"}`),
     `Working dir: ${workingDir}`,
     ...(tpls.length ? [`Templates: ${tpls.map((t) => t.label).join(", ")}`] : []),
   ].join("\n");
@@ -328,54 +336,91 @@ export function createPipeline(root, { id, label, workingDir = ".", stages = [],
   return { ok: true, id: pid, committed: commit.committed };
 }
 
-// Edit a pipeline's stage flow (the stage definitions: name, system prompt,
+const normStageDef = (s, i) => ({
+  id: safeRef(s.id || "stage-" + (i + 1)),
+  name: s.name || s.id || "Stage " + (i + 1),
+  hint: s.hint || "",
+  tool: s.tool || "claude",
+  systemPrompt: s.systemPrompt || "",
+  outputs: Array.isArray(s.outputs) ? s.outputs.map((o) => ({ name: o.name || "", type: o.type || "doc", note: o.note || "" })) : [],
+  specs: Array.isArray(s.specs) ? s.specs.map((v) => ({ key: String((v && v.key) || "").trim(), value: String((v && v.value) || "") })).filter((v) => v.key) : [],
+  shell: Array.isArray(s.shell) ? s.shell.filter((c) => String(c).trim()) : [],
+  gate: s.gate || "",
+  auto: !!s.auto,
+  judge: !!s.judge,
+});
+
+// Edit a pipeline's stage flows (the stage definitions: name, system prompt,
 // outputs, gate, tool, shell, auto). Stage ids are kept stable on rename so
 // existing tasks (keyed by stage id) stay valid; only NEW tasks pick up the new
-// flow. Commits just the pipeline's metadata.json.
-export function savePipeline(root, { id, label, workingDir, stages, templates }) {
+// flows. `flows` is the multi-flow form; a bare `stages` array (older clients)
+// still works as a single unnamed flow. `stages` is always re-derived as the
+// flattened id→def union. Commits just the pipeline's metadata.json.
+export function savePipeline(root, { id, label, workingDir, stages, flows, templates }) {
   if (!id) return { ok: false, error: "pipeline id required" };
   const pid = safeRef(id);
   const metaPath = rel.pipelineMeta(pid);
   if (!fs.existsSync(path.join(root, metaPath))) return { ok: false, error: "pipeline not found" };
   const cur = readPipelineDef(root, pid);
+  const nextFlows = Array.isArray(flows) && flows.length
+    ? flows.map((f, fi) => ({
+        id: safeRef(f.id || "flow-" + (fi + 1)),
+        name: f.name || label || cur.label || pid,
+        stages: (Array.isArray(f.stages) ? f.stages : []).map(normStageDef),
+      }))
+    : Array.isArray(stages) ? [{ id: "main", name: label || cur.label || pid, stages: stages.map(normStageDef) }]
+      : pipelineFlows(cur);
   const next = {
     ...cur, id: pid,
     label: label != null ? label : cur.label,
     workingDir: workingDir != null ? workingDir : (cur.workingDir || "."),
-    stages: Array.isArray(stages) ? stages.map((s, i) => ({
-      id: safeRef(s.id || "stage-" + (i + 1)),
-      name: s.name || s.id || "Stage " + (i + 1),
-      hint: s.hint || "",
-      tool: s.tool || "claude",
-      systemPrompt: s.systemPrompt || "",
-      outputs: Array.isArray(s.outputs) ? s.outputs.map((o) => ({ name: o.name || "", type: o.type || "doc", note: o.note || "" })) : [],
-      shell: Array.isArray(s.shell) ? s.shell.filter((c) => String(c).trim()) : [],
-      gate: s.gate || "",
-      auto: !!s.auto,
-    })) : cur.stages,
+    flows: nextFlows,
+    stages: flattenFlows(nextFlows),
     templates: templates != null ? normTemplates(templates) : (cur.templates || []),
   };
   writeJSON(path.join(root, metaPath), next);
   const msg = [
-    `bridza: edit pipeline "${next.label || pid}" (${pid}) stage flow · ${next.stages.length} stage${next.stages.length === 1 ? "" : "s"}`,
+    `bridza: edit pipeline "${next.label || pid}" (${pid}) stage flows · ${next.flows.length} flow${next.flows.length === 1 ? "" : "s"}, ${next.stages.length} stage${next.stages.length === 1 ? "" : "s"}`,
     "",
-    `Stage flow: ${next.stages.map((s) => s.name || s.id).join(" → ") || "(none)"}`,
+    ...next.flows.map((f) => `Flow "${f.name}": ${f.stages.map((s) => s.name || s.id).join(" → ") || "(none)"}`),
     ...(next.templates.length ? [`Templates: ${next.templates.map((t) => t.label).join(", ")}`] : []),
   ].join("\n");
   const commit = commitPaths(root, [metaPath], msg);
   return { ok: true, id: pid, committed: commit.committed, pipeline: next };
 }
 
-export function createTask(root, { pipeline, id, title = "", type = "", outputMode = "docs", stages, template = "" }) {
+// Archive / unarchive a pipeline: it disappears from the main sidebar list but
+// ALL its data (.bridza dir, tasks, branches, history) stays — nothing is
+// deleted. Just a flag in the pipeline's metadata, committed like any edit.
+export function archivePipeline(root, { id, archived = true }) {
+  if (!id) return { ok: false, error: "pipeline id required" };
+  const pid = safeRef(id);
+  const metaPath = rel.pipelineMeta(pid);
+  if (!fs.existsSync(path.join(root, metaPath))) return { ok: false, error: "pipeline not found" };
+  const def = readPipelineDef(root, pid);
+  def.archived = !!archived;
+  writeJSON(path.join(root, metaPath), def);
+  const commit = commitPaths(root, [metaPath], `bridza: ${archived ? "archive" : "unarchive"} pipeline "${def.label || pid}" (${pid})\n\nData is kept — only hidden from the pipeline list.`);
+  return { ok: true, id: pid, archived: !!archived, committed: commit.committed };
+}
+
+export function createTask(root, { pipeline, id, title = "", type = "", outputMode = "docs", stages, flow = "", template = "" }) {
   const bad = !pipeline ? "pipeline required" : !id ? "task id required" : null;
   if (bad) return { ok: false, error: bad };
   const pid = safeRef(pipeline), tid = safeRef(id);
   const def = readPipelineDef(root, pid);
-  // stage flow: explicit stages > the chosen template's subset > the pipeline flow
+  const flows = pipelineFlows(def);
+  // Every task belongs to ONE flow. When the pipeline has several, the choice
+  // is mandatory (the client enforces it; template is the legacy alias).
+  const chosen = flows.find((f) => f.id === safeRef(flow || template)) || (flows.length === 1 ? flows[0] : null);
+  if (!chosen && flows.length > 1 && !(stages && stages.length)) {
+    return { ok: false, error: "this pipeline has " + flows.length + " stage flows — pick one: " + flows.map((f) => f.id).join(", ") };
+  }
   const tpl = template ? (def.templates || []).find((t) => t.id === safeRef(template)) : null;
+  // stage list: explicit stages > the chosen flow > the flattened pipeline pool
   const stageIds = stages && stages.length ? stages.map(safeRef)
-    : tpl && tpl.stages.length ? tpl.stages
-      : (def.stages || []).map((s) => s.id);
+    : chosen ? chosen.stages.map((s) => s.id)
+      : flattenFlows(flows).map((s) => s.id);
   const metaPath = rel.taskMeta(pid, tid), ctxPath = rel.taskContext(pid, tid);
   if (fs.existsSync(path.join(root, metaPath))) return { ok: false, error: "task already exists" };
   ensureDataDir(root);   // self-heal the .bridza/README.md map + .gitignore for older projects
@@ -387,7 +432,7 @@ export function createTask(root, { pipeline, id, title = "", type = "", outputMo
   }
   const ref = assignRefs(root, [pid + "/" + tid])[pid + "/" + tid];
   writeJSON(path.join(root, metaPath), {
-    v: 1, id: tid, pipeline: pid, title: title || tid, ref, type: type || (tpl ? tpl.id : ""), template: tpl ? tpl.id : "", outputMode,
+    v: 1, id: tid, pipeline: pid, title: title || tid, ref, type: type || (tpl ? tpl.id : ""), flow: chosen ? chosen.id : "", template: tpl ? tpl.id : "", outputMode,
     branch: taskBranchName(pid, tid), stages: stageIds, routing: {},
     status: "in-progress", finalized: false, tracking: {},
   });
@@ -397,6 +442,7 @@ export function createTask(root, { pipeline, id, title = "", type = "", outputMo
     "",
     `Branch: ${taskBranchName(pid, tid)}`,
     `Stages: ${stageIds.join(" → ")}`,
+    ...(chosen ? [`Flow: ${chosen.name}`] : []),
     ...(tpl ? [`Template: ${tpl.label || tpl.id}`] : []),
     ...(type && (!tpl || type !== tpl.id) ? [`Type: ${type}`] : []),
   ].join("\n");

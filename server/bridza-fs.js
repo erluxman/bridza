@@ -20,7 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { DATA_DIR, CLI_TOOLS } from "../src/app/store/bridza.js";
-import { readProject, createPipeline, savePipeline, createTask, deleteTask, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan, assignRefs } from "./bridza-store.js";
+import { readProject, createPipeline, savePipeline, archivePipeline, createTask, deleteTask, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan, assignRefs } from "./bridza-store.js";
 import { runStage, automateTask, finalizeTask, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, listModels, termRun, ensureTaskWorktree } from "./bridza-run.js";
 
 function resolveDir(raw) {
@@ -37,20 +37,39 @@ function resolveDir(raw) {
 function repoRoot(dirParam) { return resolveDir(dirParam) || resolveDir(process.env.BRIDZA_REPO); }
 
 function pickFolder() {
-  if (process.platform !== "darwin") return { canceled: true, error: "picker only on macOS — type a path instead" };
-  try {
-    // route the dialog through System Events and activate it first — a bare
-    // `choose folder` from a background dev-server process opens BEHIND every
-    // window (or is refused with -1713 when the process has no GUI session).
-    const out = execFileSync("osascript",
-      ["-e", 'tell application "System Events"\nactivate\nset f to POSIX path of (choose folder with prompt "Open project folder — Bridza")\nend tell\nf'],
-      { encoding: "utf8", timeout: 120000, stdio: ["ignore", "pipe", "pipe"] });
-    return { path: out.trim().replace(/\/$/, "") };
-  } catch (e) {
-    const msg = String((e && e.stderr) || (e && e.message) || e);
-    if (msg.includes("-128")) return { canceled: true };   // the user hit Cancel — stay silent
-    return { canceled: true, error: "couldn't open the folder picker (" + (msg.split("\n").find((l) => l.trim()) || "unknown error").trim() + ") — paste the path instead" };
+  if (process.platform === "darwin") {
+    try {
+      // route the dialog through System Events and activate it first — a bare
+      // `choose folder` from a background dev-server process opens BEHIND every
+      // window (or is refused with -1713 when the process has no GUI session).
+      const out = execFileSync("osascript",
+        ["-e", 'tell application "System Events"\nactivate\nset f to POSIX path of (choose folder with prompt "Open project folder — Bridza")\nend tell\nf'],
+        { encoding: "utf8", timeout: 120000, stdio: ["ignore", "pipe", "pipe"] });
+      return { path: out.trim().replace(/\/$/, "") };
+    } catch (e) {
+      const msg = String((e && e.stderr) || (e && e.message) || e);
+      if (msg.includes("-128")) return { canceled: true };   // the user hit Cancel — stay silent
+      return { canceled: true, error: "couldn't open the folder picker (" + (msg.split("\n").find((l) => l.trim()) || "unknown error").trim() + ") — paste the path instead" };
+    }
   }
+  if (process.platform === "linux") {
+    // zenity (GTK) or kdialog (Qt) — both exit 1 on Cancel, ENOENT when absent.
+    const pickers = [
+      ["zenity", ["--file-selection", "--directory", "--title", "Open project folder — Bridza"]],
+      ["kdialog", ["--getexistingdirectory", process.env.HOME || ".", "--title", "Open project folder — Bridza"]],
+    ];
+    for (const [bin, args] of pickers) {
+      try {
+        const out = execFileSync(bin, args, { encoding: "utf8", timeout: 120000, stdio: ["ignore", "pipe", "pipe"] });
+        return { path: out.trim().replace(/\/$/, "") };
+      } catch (e) {
+        if (e && e.code === "ENOENT") continue;              // not installed — try the next one
+        return { canceled: true };                            // nonzero exit = the user hit Cancel
+      }
+    }
+    return { canceled: true, error: "no folder picker found (install zenity or kdialog) — paste the path instead" };
+  }
+  return { canceled: true, error: "no native picker on this platform — type a path instead" };
 }
 
 function revealInFinder(raw) {
@@ -154,6 +173,10 @@ export default function bridzaFs() {
           if (M === "POST" && P === "/api/bridza/pipeline/save") {
             if (!root) return need();
             return void res.end(JSON.stringify(savePipeline(root, (await json(req)) || {})));
+          }
+          if (M === "POST" && P === "/api/bridza/pipeline/archive") {
+            if (!root) return need();
+            return void res.end(JSON.stringify(archivePipeline(root, (await json(req)) || {})));
           }
           if (M === "POST" && P === "/api/bridza/task") {
             if (!root) return need();
