@@ -21,7 +21,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { DATA_DIR, CLI_TOOLS } from "../src/app/store/bridza.js";
 import { readProject, createPipeline, savePipeline, archivePipeline, createTask, deleteTask, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan, assignRefs } from "./bridza-store.js";
-import { runStage, automateTask, finalizeTask, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, listModels, termRun, ensureTaskWorktree } from "./bridza-run.js";
+import { runStage, automateTask, finalizeTask, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, listModels, termRun, ensureTaskWorktree, recommendPipelines } from "./bridza-run.js";
 
 function resolveDir(raw) {
   if (!raw) return null;
@@ -159,6 +159,12 @@ export default function bridzaFs() {
               missing.forEach((m) => { m.t.ref = refs[m.key] || null; });
             }
             return void res.end(JSON.stringify({ available: true, repo: root, dataDir: path.join(root, DATA_DIR), running: listActiveRuns(), ...proj }));
+          }
+          if (M === "POST" && P === "/api/bridza/recommend-pipelines") {
+            const b = (await json(req)) || {};
+            const desc = String(b.description || "").trim().slice(0, 5000);
+            if (!desc) return void res.end(JSON.stringify({ ok: false, error: "description is required" }));
+            return void res.end(JSON.stringify({ ok: true, recommendations: recommendPipelines(desc) }));
           }
           if (M === "POST" && P === "/api/bridza/pick-folder") return void res.end(JSON.stringify(pickFolder()));
           if (M === "POST" && P === "/api/bridza/reveal") return void res.end(JSON.stringify(revealInFinder((await json(req) || {}).path)));

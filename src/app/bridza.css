@@ -220,6 +220,13 @@ textarea.input { resize: vertical; min-height: 64px; }
 .flow-name { flex: 1; font-size: 14px; font-weight: 650; background: var(--bg-2); border: 1px solid transparent; border-radius: 7px; padding: 5px 10px; color: var(--txt); }
 .flow-name:hover { border-color: var(--line); } .flow-name:focus { outline: none; border-color: var(--accent); background: var(--bg); }
 .pipe.archived { opacity: .55; }
+.pipe-strip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 18px; border-bottom: 1px solid var(--line); background: var(--bg-2); }
+.pipe-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line-2); background: var(--bg); color: var(--txt); border-radius: 999px; padding: 4px 12px; font-size: 12.5px; cursor: pointer; }
+.pipe-chip:hover { border-color: var(--accent); }
+.pipe-chip.src { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.pipe-pct { font-size: 10.5px; color: var(--txt-3); font-family: var(--mono); }
+.pipe-edge { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--txt-2); background: var(--bg-3); border: 1px solid var(--line-2); border-radius: 6px; padding: 2px 4px 2px 8px; }
+.pn-est { font-size: 10px; font-family: var(--mono); fill: var(--txt-3); }
 .pipe.arch-tog { color: var(--txt-3); font-size: 12.5px; margin-top: 6px; }
 .flow-term { align-self: center; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 999px; padding: 6px 16px; font-size: 12.5px; font-weight: 600; color: var(--txt-2); }
 .flow-term.done { color: var(--accent-2); border-color: #1f9d6b55; }

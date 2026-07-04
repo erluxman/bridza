@@ -119,6 +119,10 @@ export function pipelineFlows(def) {
       id: f.id || "flow-" + (i + 1),
       name: f.name || def.label || def.id || "Flow " + (i + 1),
       stages: Array.isArray(f.stages) ? f.stages : [],
+      // handoff: where a DELIVERED task of this flow continues — e.g. product
+      // spec work hands off to engineering. The follow-on task is plan-gated
+      // on this one, so you can't jump ahead before the source flow is done.
+      next: f.next && f.next.pipeline && f.next.flow ? { pipeline: f.next.pipeline, flow: f.next.flow } : null,
     }));
   }
   const pool = def.stages || [];
@@ -259,27 +263,6 @@ export function withSpecs(prompt, specs) {
   return (prompt ? prompt + "\n\n" : "") + "Stage specs — treat each as a hard requirement:\n" + lines.join("\n");
 }
 
-// The prompt handed to the CLI tool. The stage contract IS the prompt: task
-// identity, this stage's goal, the artifacts it must produce, attached files,
-// and the user's own prompt text. The system prompt (from the pipeline's stage
-// definition) rides separately via the tool's system-prompt channel.
-export function buildStagePrompt({ task, stage, outputsRel = "", outputs = [], inputs = [], files = [], userPrompt = "" }) {
-  const lines = [
-    `Task ${task.ref || task.id} — ${task.title || ""}`.trim(),
-    `Stage: ${stage.name}${stage.hint ? " (" + stage.hint + ")" : ""}`,
-  ];
-  if (inputs.length) lines.push("Inputs from the previous stage: " + inputs.map((a) => a.name).join(", "));
-  if (outputs.length) lines.push("Produce these outputs: " + outputs.map((a) => a.name + (a.note ? " — " + a.note : "")).join("; "));
-  if (outputsRel) lines.push("Write your output files into: " + outputsRel);
-  if (files.length) lines.push("Files to consider: " + files.join(", "));
-  // Headless runs auto-reject permission prompts, so an agent that wanders
-  // outside its worktree dies silently — tell it where it is and to stay put.
-  lines.push("You are in an isolated git worktree for this task. Work ONLY inside the current working directory; never read or write outside it.");
-  lines.push("");
-  lines.push(userPrompt.trim() || "Complete this stage. Work only from the inputs above; keep the change minimal and reviewable.");
-  return lines.join("\n");
-}
-
 // Starter pipeline templates offered when a project has no pipelines yet.
 // A pipeline is a business CATEGORY; inside it live several stage flows sized
 // by urgency/scope/type. Stage ids are unique across all flows of a category
@@ -294,7 +277,7 @@ export const STARTER_PIPELINES = [
       // requirements precede design precede code.
       { id: "full-sdlc", name: "Full product SDLC", stages: [
         { id: "vision", name: "Vision", tool: "opencode", gate: "vision approved",
-          systemPrompt: "You are a product strategist. Using ONLY the task intent, write the product vision: the problem, the SPECIFIC target users, their jobs-to-be-done, the value proposition, and measurable success criteria. Write it to docs/vision.md. Do NOT write requirements, designs, or any code yet.",
+          systemPrompt: "You are a product strategist. Using ONLY the task intent, write the product vision: the problem, the SPECIFIC target users, their jobs-to-be-done, the value proposition, and measurable success criteria. Use Amazon's Working Backwards method — open with the future press release and FAQ, then the details. Write it to docs/vision.md. Do NOT write requirements, designs, or any code yet.",
           outputs: [{ name: "docs/vision.md", note: "problem, users, value, success metrics" }],
           specs: [{ key: "potential-userbase", value: "" }, { key: "target-age", value: "" }] },
         { id: "requirements", name: "Requirements", tool: "opencode", gate: "requirements signed off",
@@ -305,9 +288,10 @@ export const STARTER_PIPELINES = [
           systemPrompt: "You are a product designer and software architect. Read docs/vision.md and docs/requirements.md. Define the UX (screen list, navigation, layout rules for every required form factor), the data model, and the app architecture (folder structure, state management, key libraries) for the stack in the specs — or the repo's existing stack if none is specified. Prefer the platform's native capabilities over extra dependencies. Write docs/design.md and docs/architecture.md. Do NOT write application code yet.",
           outputs: [{ name: "docs/design.md" }, { name: "docs/architecture.md" }],
           specs: [{ key: "framework", value: "" }] },
-        { id: "planning", name: "Sprint Planning", tool: "opencode", gate: "backlog ready",
-          systemPrompt: "You are an agile lead. Read the docs/ design and requirements. Break the work into a prioritized product backlog and a first-sprint plan of concrete, small tasks mapped to user stories. Write docs/backlog.md and docs/sprint-plan.md. Do NOT write code.",
-          outputs: [{ name: "docs/backlog.md" }, { name: "docs/sprint-plan.md" }] },
+        { id: "planning", name: "Sprint Planning", tool: "opencode", gate: "plan board populated",
+          systemPrompt: "You are an agile lead. Read the docs/ design and requirements. Break the work into a prioritized backlog of concrete, small tasks mapped to user stories (each INVEST: independent, valuable, small, testable). Your PRIMARY output is the PLAN BOARD, not documents: FIRST read .bridza/.metadata/creation-guide.md and follow it exactly — create each task under .bridza/pipelines/ with metadata.json + context.md, wire the AND/OR dependency network into .bridza/plan.json deps (only real ordering; independent tasks get none; deps may cross pipelines), estimate every task in hours under est, and group them into milestones (a milestone may span pipelines). Then summarize in docs/backlog.md and docs/sprint-plan.md. The user will review and rearrange the board afterwards. Do NOT write code.",
+          outputs: [{ name: ".bridza/pipelines/", type: "issue", note: "tasks + deps + estimates + milestones on the plan board" }, { name: "docs/backlog.md" }, { name: "docs/sprint-plan.md" }],
+          shell: ["node -e \"const f=require('fs');const p=f.existsSync('.bridza/plan.json')?JSON.parse(f.readFileSync('.bridza/plan.json','utf8')):{};if(!Object.keys(p.deps||{}).length&&!(p.milestones||[]).length){console.error('MANDATORY: plan board is empty - this stage must create tasks + deps/est/milestones per .bridza/.metadata/creation-guide.md');process.exit(1)}\""] },
         { id: "implementation", name: "Implementation", tool: "opencode", gate: "builds & runs", judge: true,
           systemPrompt: "You are a senior engineer. Read ALL docs/. Scaffold the project only if it isn't already, using the stack from docs/architecture.md. Implement the features from docs/sprint-plan.md following docs/architecture.md. Work lazily-well: reuse what the codebase already has before writing new code, prefer the standard library and platform features over new dependencies, no speculative abstractions — the smallest change that satisfies the plan. Run the project's build/lint and fix problems. Implement only what the plan calls for.",
           outputs: [{ name: "src/", note: "the implemented app" }] },
@@ -326,7 +310,7 @@ export const STARTER_PIPELINES = [
           systemPrompt: "You are an implementer. Implement strictly to the spec; the shortest working diff wins. Reuse what the codebase already has, prefer the standard library over new dependencies, no abstractions with a single caller.",
           outputs: [{ name: "diff" }] },
         { id: "review", name: "Review", tool: "claude", gate: "approved",
-          systemPrompt: "You are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, abstractions with one caller — name what to delete.",
+          systemPrompt: "You are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, abstractions with one caller — name what to delete. Write review.md.",
           outputs: [{ name: "review.md" }] },
       ] },
       { id: "bugfix", name: "Bugfix", stages: [
@@ -337,7 +321,7 @@ export const STARTER_PIPELINES = [
           systemPrompt: "You are an implementer. Read repro.md and fix the root cause with the smallest correct change — check every caller of the code you touch and fix at the shared path, not per call site. Add a regression test where feasible.",
           outputs: [{ name: "diff" }] },
         { id: "fix-review", name: "Review", tool: "claude", gate: "approved",
-          systemPrompt: "You are a reviewer. Verify the fix addresses the root cause in repro.md, check for regressions in sibling callers, and confirm the regression test fails without the fix.",
+          systemPrompt: "You are a reviewer. Verify the fix addresses the root cause in repro.md, check for regressions in sibling callers, and confirm the regression test fails without the fix. Write review.md.",
           outputs: [{ name: "review.md" }] },
       ] },
       { id: "ui-design", name: "UI design", stages: [
@@ -350,7 +334,7 @@ export const STARTER_PIPELINES = [
       ] },
       { id: "dissection", name: "Feature dissection", stages: [
         { id: "dissect", name: "Dissect", tool: "claude", gate: "sub-tasks reviewed",
-          systemPrompt: "You are a tech lead. Split the feature described in the task intent into small, independently-deliverable sub-tasks. FIRST read .bridza/.metadata/creation-guide.md and follow it exactly: for each sub-task create .bridza/pipelines/<this pipeline>/<sub-task-id>/metadata.json (type: \"subtask\") and context.md with its own clear intent and acceptance criteria, and wire ordering dependencies into .bridza/plan.json (merge, never overwrite). Your output is TASKS, not code or docs.",
+          systemPrompt: "You are a tech lead. Split the feature described in the task intent into small, independently-deliverable sub-tasks that each satisfy INVEST (Independent, Negotiable, Valuable, Estimable, Small, Testable) — vertical slices, not horizontal layers. FIRST read .bridza/.metadata/creation-guide.md and follow it exactly: for each sub-task create .bridza/pipelines/<this pipeline>/<sub-task-id>/metadata.json (type: \"subtask\") and context.md with its own clear intent and acceptance criteria, wire ordering dependencies (AND/OR) into .bridza/plan.json deps, estimate each sub-task in hours under est, and if they form a coherent deliverable group them into one milestone (merge plan.json, never overwrite). Your output is the PLAN BOARD, not code or docs.",
           outputs: [{ name: ".bridza/pipelines/", type: "issue", note: "one sub-task per sub-feature" }] },
       ] },
     ],
@@ -358,16 +342,44 @@ export const STARTER_PIPELINES = [
   {
     id: "product", label: "Product", workingDir: ".",
     flows: [
-      { id: "feedback-roadmap", name: "Feedback → Roadmap", stages: [
+      { id: "feedback-roadmap", name: "Feedback → Roadmap", next: { pipeline: "engineering", flow: "feature" }, stages: [
         { id: "fb-synthesize", name: "Synthesize feedback", tool: "claude", gate: "themes agreed",
-          systemPrompt: "You are a product researcher. Synthesize the feedback named in the task intent (tickets, reviews, interviews) into themes with frequency and severity. Write themes.md.",
+          systemPrompt: "You are a product researcher. Synthesize the feedback named in the task intent (tickets, reviews, interviews) into themes with frequency and severity. Frame each theme as a job-to-be-done (what progress the user was trying to make), not a feature request. Write themes.md.",
           outputs: [{ name: "themes.md" }] },
         { id: "fb-prioritize", name: "Prioritize", tool: "claude", gate: "priorities approved", judge: true,
-          systemPrompt: "You are a product manager. Score themes.md by impact vs effort, pick what makes the cut and what explicitly does not, with reasoning. Write priorities.md.",
+          systemPrompt: "You are a product manager. Score themes.md with RICE (Reach, Impact, Confidence, Effort) and map them on an opportunity solution tree (Teresa Torres, Continuous Discovery Habits): outcome → opportunities → candidate solutions. Pick what makes the cut and what explicitly does not, with reasoning. Write priorities.md.",
           outputs: [{ name: "priorities.md" }] },
         { id: "fb-roadmap", name: "Roadmap update", tool: "claude", gate: "roadmap published",
-          systemPrompt: "You are a product lead. Turn priorities.md into the roadmap update: now/next/later, owners, and the public changelog note. Write roadmap.md.",
+          systemPrompt: "You are a product lead. Turn priorities.md into the roadmap update: now/next/later, owners, and the public changelog note. State each item as an OUTCOME to move, not output to ship (Marty Cagan, Inspired). Write roadmap.md.",
           outputs: [{ name: "roadmap.md" }] },
+      ] },
+      // specs + user research done → hand off to engineering, which is
+      // plan-gated on this task (no jumping to code before the spec lands)
+      { id: "product-spec", name: "Product Spec & Planning", next: { pipeline: "engineering", flow: "dissection" }, stages: [
+        { id: "ps-concept", name: "Ideation & Concept", tool: "opencode", gate: "concept approved",
+          systemPrompt: "You are a product strategist. From the task intent define the product concept: the problem statement, the specific target users, their jobs-to-be-done, value proposition, and measurable success criteria. Use stage specs as hard constraints. Write docs/concept.md and docs/value-proposition.md. Do NOT write requirements, designs, or code.",
+          outputs: [{ name: "docs/concept.md", note: "problem, users, value, success metrics" }, { name: "docs/value-proposition.md" }],
+          specs: [{ key: "potential-userbase", value: "" }, { key: "target-age", value: "" }, { key: "monetization", value: "" }] },
+        { id: "ps-requirements", name: "User Research & Requirements", tool: "opencode", gate: "requirements signed off",
+          systemPrompt: "You are a product manager and UX researcher. Read docs/concept.md and docs/value-proposition.md. Define user personas, their goals and pain points (interview questions must follow The Mom Test — past behavior and specifics, never pitches or hypotheticals), user journeys for the happy path and key edge cases, and detailed product requirements with user stories and acceptance criteria (Given/When/Then). Cover functional AND non-functional needs. Honor every stage spec as a hard constraint. Write docs/personas.md, docs/requirements.md, and docs/user-stories.md. Do NOT design UI or write code.",
+          outputs: [{ name: "docs/personas.md" }, { name: "docs/requirements.md" }, { name: "docs/user-stories.md" }],
+          specs: [{ key: "user-expertise", value: "" }, { key: "accessibility", value: "" }, { key: "compliance", value: "" }] },
+        { id: "ps-ux", name: "UX Design & Mockups", tool: "opencode", gate: "design approved",
+          systemPrompt: "You are a product designer. Read docs/concept.md and docs/requirements.md. Design the user experience: screen-by-screen navigation, user flows for every key scenario, wireframe descriptions (layout, components, interaction per screen), and a design direction (typography, spacing, color principles). Honor every stage spec as a hard constraint. Write docs/ux-flows.md, docs/wireframes.md, and docs/design-direction.md. Do NOT write code.",
+          outputs: [{ name: "docs/ux-flows.md" }, { name: "docs/wireframes.md" }, { name: "docs/design-direction.md" }],
+          specs: [{ key: "form-factors", value: "" }, { key: "branding", value: "" }] },
+        { id: "ps-architecture", name: "System Design & Architecture", tool: "opencode", gate: "design approved",
+          systemPrompt: "You are a software architect. Read ALL docs/ from previous stages. Define the system architecture: high-level component diagram (text-based), module boundaries and responsibilities, data model (entities, relationships, key fields), API surface, and technology choices with rationale. Prefer the repo's existing stack; use stage specs otherwise. Prefer platform-native capabilities over extra dependencies. Write docs/architecture.md, docs/data-model.md, and docs/system-design.md. Do NOT write code.",
+          outputs: [{ name: "docs/architecture.md" }, { name: "docs/data-model.md" }, { name: "docs/system-design.md" }],
+          specs: [{ key: "framework", value: "" }, { key: "backend", value: "" }, { key: "data-store", value: "" }] },
+        { id: "ps-breakdown", name: "Task Breakdown & Milestones", tool: "opencode", gate: "plan board populated", judge: true,
+          systemPrompt: "You are an agile lead and technical program manager. Read ALL docs/ from previous stages. Break the product into concrete, actionable work items — feature tasks, UI design tasks, and research/spike tasks. Your PRIMARY output is the PLAN BOARD: FIRST read .bridza/.metadata/creation-guide.md and follow it exactly — create each task under .bridza/pipelines/ (in the pipeline where that work belongs, not necessarily this one) with metadata.json + context.md, wire the AND/OR dependency network into .bridza/plan.json deps (only real ordering; independent tasks get none; deps may cross pipelines), estimate every task in HOURS under est, and group them into milestones (MVP, phase 1, …) — a milestone may span several pipelines; add pipeDeps edges only where a whole pipeline truly waits on another. Then summarize in docs/feature-list.md, docs/milestones.md, and docs/backlog.md. The user will review and rearrange the board afterwards. Do NOT write code.",
+          outputs: [{ name: ".bridza/pipelines/", type: "issue", note: "tasks + deps + estimates + milestones on the plan board" }, { name: "docs/feature-list.md" }, { name: "docs/milestones.md" }, { name: "docs/backlog.md" }],
+          shell: ["node -e \"const f=require('fs');const p=f.existsSync('.bridza/plan.json')?JSON.parse(f.readFileSync('.bridza/plan.json','utf8')):{};if(!Object.keys(p.deps||{}).length&&!(p.milestones||[]).length){console.error('MANDATORY: plan board is empty - this stage must create tasks + deps/est/milestones per .bridza/.metadata/creation-guide.md');process.exit(1)}\""] },
+        { id: "ps-spec-pdf", name: "Product Specification Document", tool: "opencode", gate: "spec published",
+          systemPrompt: "You are a technical writer. Read ALL docs/ from previous stages. Produce a comprehensive product specification as a LaTeX document. Include: 1) Executive summary and vision, 2) Target audience and personas, 3) Feature list and requirements, 4) UX flows and design direction, 5) System architecture and data model, 6) Milestones and task breakdown. Write the LaTeX source to docs/product-spec/spec.tex. If pdflatex is available, compile it to docs/product-spec/spec.pdf; otherwise output a note that the .tex is ready to compile. After this stage the team has everything needed to start implementation.",
+          outputs: [{ name: "docs/product-spec/spec.tex", note: "LaTeX source" }, { name: "docs/product-spec/spec.pdf", note: "compiled PDF (if pdflatex available)" }],
+          shell: ["mkdir -p docs/product-spec", "cd docs/product-spec && pdflatex -interaction=nonstopmode spec.tex 2>&1 || true", "cd docs/product-spec && pdflatex -interaction=nonstopmode spec.tex 2>&1 || echo 'pdflatex had issues — spec.tex is ready for manual compilation in docs/product-spec/'"] },
       ] },
     ],
   },
@@ -376,11 +388,11 @@ export const STARTER_PIPELINES = [
     flows: [
       { id: "brand-identity", name: "Brand identity", stages: [
         { id: "brand-positioning", name: "Positioning", tool: "claude", gate: "positioning agreed",
-          systemPrompt: "You are a brand strategist. From the task intent define the positioning: audience, category, differentiation, personality, and the one-line promise. Write positioning.md.",
+          systemPrompt: "You are a brand strategist. From the task intent define the positioning using April Dunford's Obviously Awesome method: competitive alternatives, unique attributes, value (and proof), best-fit customers, and the market category to frame it in — then the personality and one-line promise. Write positioning.md.",
           outputs: [{ name: "positioning.md" }],
           specs: [{ key: "target-age", value: "" }, { key: "branding", value: "" }] },
         { id: "brand-voice", name: "Voice & messaging", tool: "claude", gate: "voice approved",
-          systemPrompt: "You are a brand writer. From positioning.md define the voice (tone, do/don't, vocabulary) and the messaging hierarchy (tagline, elevator pitch, proof points). Write voice.md.",
+          systemPrompt: "You are a brand writer. From positioning.md define the voice (tone, do/don't, vocabulary) and the messaging hierarchy (tagline, elevator pitch, proof points) as a StoryBrand BrandScript: the CUSTOMER is the hero, the brand is the guide with a plan. Write voice.md.",
           outputs: [{ name: "voice.md" }] },
         { id: "brand-visual", name: "Visual brief", tool: "claude", gate: "brief approved", judge: true,
           systemPrompt: "You are an art director. From positioning.md and voice.md write the visual identity brief: color direction, typography, imagery style, logo requirements. Write visual-brief.md.",
@@ -432,7 +444,7 @@ export const STARTER_PIPELINES = [
           systemPrompt: "You are a content editor. From the task intent write the article outline: angle, audience, key points, sources to cite. Write outline.md.",
           outputs: [{ name: "outline.md" }] },
         { id: "blog-draft", name: "Draft", tool: "claude", gate: "draft reviewed", judge: true,
-          systemPrompt: "You are a writer. Write the article per outline.md — clear, concrete, no filler. Write draft.md.",
+          systemPrompt: "You are a writer. Write the article per outline.md — clear, concrete, no filler (Ann Handley, Everybody Writes: useful × inspired × empathetic; ruthless second draft). Write draft.md.",
           outputs: [{ name: "draft.md" }] },
         { id: "blog-edit", name: "Edit & publish", tool: "claude", gate: "published",
           systemPrompt: "You are an editor. Tighten draft.md, add meta title/description and internal links, and produce the final. Write final.md.",
@@ -445,13 +457,13 @@ export const STARTER_PIPELINES = [
     flows: [
       { id: "campaign-brief", name: "Campaign brief", stages: [
         { id: "research", name: "Research", tool: "claude", gate: "reviewed",
-          systemPrompt: "You are a market researcher. Produce a crisp brief from the task intent only.",
+          systemPrompt: "You are a market researcher. Produce a crisp brief from the task intent only. Frame channel thinking with the Bullseye framework (Traction, Weinberg & Mares): list plausible traction channels before anchoring on the obvious one. Write brief.md.",
           outputs: [{ name: "brief.md", note: "problem + audience" }] },
         { id: "planning", name: "Planning", tool: "claude", gate: "reviewed",
-          systemPrompt: "You are a campaign planner. Turn the brief into a concrete plan.",
+          systemPrompt: "You are a campaign planner. Turn the brief into a concrete plan: rank channels into Bullseye rings (outer = possible, middle = probable, inner = the 1–3 to test now) with a cheap test per inner-ring channel. Write plan.md.",
           outputs: [{ name: "plan.md" }] },
         { id: "spec", name: "Spec", tool: "claude", gate: "reviewed", judge: true,
-          systemPrompt: "You are a copy/spec writer. Produce the final deliverable spec from the plan.",
+          systemPrompt: "You are a copy/spec writer. Produce the final deliverable spec from the plan. Write spec.md.",
           outputs: [{ name: "spec.md" }] },
       ] },
       { id: "social-campaign", name: "Social campaign", stages: [
@@ -476,7 +488,7 @@ export const STARTER_PIPELINES = [
           systemPrompt: "You are a social editor. Turn the task intent into a one-post brief: platform, audience, message, CTA. Write brief.md.",
           outputs: [{ name: "brief.md" }], specs: [{ key: "platforms", value: "" }] },
         { id: "post", name: "Copy & visual", tool: "claude", gate: "approved", judge: true,
-          systemPrompt: "You are a copywriter. From brief.md write the post copy (with variants), hashtags, and the visual brief. Write post.md.",
+          systemPrompt: "You are a copywriter. From brief.md write the post copy (with variants — one AIDA-shaped, one PAS-shaped: Problem, Agitate, Solve), hashtags, and the visual brief. Write post.md.",
           outputs: [{ name: "post.md" }] },
       ] },
       { id: "fire-drill", name: "Community fire drill", stages: [
@@ -492,7 +504,7 @@ export const STARTER_PIPELINES = [
       ] },
       { id: "site-audit", name: "SEO site audit", stages: [
         { id: "crawl", name: "Crawl audit", tool: "claude", gate: "findings reviewed",
-          systemPrompt: "You are a technical SEO. Audit the site named in the task intent: indexing, speed, structure, schema, internal linking. Write audit.md with prioritized findings.",
+          systemPrompt: "You are a technical SEO. Audit the site named in the task intent against Google Search Central guidelines: indexing, speed (Core Web Vitals), structure, schema, internal linking, and E-E-A-T signals (experience, expertise, authoritativeness, trust — trust weighs most). Write audit.md with prioritized findings.",
           outputs: [{ name: "audit.md" }], specs: [{ key: "target-locale", value: "" }, { key: "primary-market", value: "" }] },
         { id: "techfix", name: "Technical fixes", tool: "claude", gate: "fixes specced",
           systemPrompt: "You are an SEO engineer. Turn audit.md findings into concrete fix specs with effort estimates. Write fixes.md.",
@@ -506,13 +518,13 @@ export const STARTER_PIPELINES = [
       ] },
       { id: "keyword-sprint", name: "Keyword sprint", stages: [
         { id: "keywords", name: "Keyword research", tool: "claude", gate: "keywords chosen",
-          systemPrompt: "You are a keyword researcher. For the topic in the task intent, cluster keywords by intent and pick the primary + secondaries. Write keywords.md.",
+          systemPrompt: "You are a keyword researcher. For the topic in the task intent, cluster keywords by SEARCH INTENT (informational / commercial / transactional / navigational, per Ahrefs & Moz practice) and pick the primary + secondaries you can plausibly win. Write keywords.md.",
           outputs: [{ name: "keywords.md" }] },
         { id: "kw-brief", name: "Content brief", tool: "claude", gate: "brief approved",
           systemPrompt: "You are a content editor. From keywords.md write the article brief: outline, entities to cover, internal links, meta. Write brief.md.",
           outputs: [{ name: "brief.md" }] },
         { id: "draft", name: "Draft", tool: "claude", gate: "draft reviewed", judge: true,
-          systemPrompt: "You are a writer. Write the article per brief.md. Write draft.md.",
+          systemPrompt: "You are a writer. Write the article per brief.md — people-first per Google's helpful-content guidance: first-hand specifics, original perspective, no filler; it must be worth reading even if search engines didn't exist. Write draft.md.",
           outputs: [{ name: "draft.md" }] },
         { id: "onpage", name: "On-page optimization", tool: "claude", gate: "published",
           systemPrompt: "You are an on-page SEO. Final pass on draft.md: title/meta, headings, schema, links, image alts. Write final.md and checklist.md.",
@@ -536,13 +548,13 @@ export const STARTER_PIPELINES = [
     flows: [
       { id: "outbound", name: "Outbound campaign", stages: [
         { id: "icp", name: "ICP research", tool: "claude", gate: "ICP agreed",
-          systemPrompt: "You are a sales researcher. Define the ideal customer profile for the offer in the task intent: firmographics, pain points, buying triggers. Write icp.md.",
+          systemPrompt: "You are a sales researcher. Define the ideal customer profile for the offer in the task intent per Predictable Revenue (Aaron Ross): firmographics, pain points, buying triggers, and the niche where you win most often — narrow beats broad. Write icp.md.",
           outputs: [{ name: "icp.md" }], specs: [{ key: "deal-size", value: "" }, { key: "sales-region", value: "" }] },
         { id: "prospects", name: "Prospect criteria", tool: "claude", gate: "list criteria approved",
           systemPrompt: "You are a prospecting specialist. From icp.md produce the list-building playbook: sources, filters, disqualifiers, and a scoring rubric. Write prospecting.md.",
           outputs: [{ name: "prospecting.md" }] },
         { id: "sequence", name: "Sequence copy", tool: "claude", gate: "sequence approved", judge: true,
-          systemPrompt: "You are a sales copywriter. Write the outreach sequence: emails, LinkedIn touches, call scripts, objection handling. Write sequence.md.",
+          systemPrompt: "You are a sales copywriter. Write the outreach sequence: emails, LinkedIn touches, call scripts, objection handling. Discovery questions follow SPIN (Situation, Problem, Implication, Need-payoff); every touch earns the next one — no pitch before pain. Write sequence.md.",
           outputs: [{ name: "sequence.md" }] },
         { id: "launchplan", name: "Launch plan", tool: "claude", gate: "launched",
           systemPrompt: "You are a sales ops lead. Produce the rollout plan: volumes, cadence, tracking fields, and review checkpoints. Write launch.md.",
@@ -550,7 +562,7 @@ export const STARTER_PIPELINES = [
       ] },
       { id: "enterprise", name: "Enterprise deal", stages: [
         { id: "discovery", name: "Discovery brief", tool: "claude", gate: "discovery done",
-          systemPrompt: "You are an enterprise AE. From the task intent compile the account brief: stakeholders, needs, decision process, competition, risks. Write discovery.md.",
+          systemPrompt: "You are an enterprise AE. From the task intent compile the account brief structured as MEDDPICC: Metrics, Economic buyer, Decision criteria, Decision process, Paper process, Identified pain, Champion, Competition — flag every unknown as a risk. Write discovery.md.",
           outputs: [{ name: "discovery.md" }] },
         { id: "solution", name: "Solution map", tool: "claude", gate: "solution fits",
           systemPrompt: "You are a solutions consultant. Map their needs to the offering; note gaps and required proof points. Write solution-map.md.",
@@ -559,7 +571,7 @@ export const STARTER_PIPELINES = [
           systemPrompt: "You are a proposal writer. Draft the proposal: scope, pricing structure, timeline, terms, and the executive summary. Write proposal.md.",
           outputs: [{ name: "proposal.md" }] },
         { id: "negotiation", name: "Negotiation prep", tool: "claude", gate: "closed",
-          systemPrompt: "You are a deal desk advisor. Prepare the negotiation: concessions ladder, walk-away points, and close plan. Write negotiation.md.",
+          systemPrompt: "You are a deal desk advisor. Prepare the negotiation: BATNA and walk-away points (Getting to Yes), concessions ladder, calibrated questions and labels for each likely objection (Never Split the Difference, Voss), and the close plan. Write negotiation.md.",
           outputs: [{ name: "negotiation.md" }] },
       ] },
       { id: "inbound", name: "Inbound lead", stages: [
@@ -567,7 +579,7 @@ export const STARTER_PIPELINES = [
           systemPrompt: "You are an SDR. From the lead info in the task intent, qualify it (fit, urgency, budget signals) and draft the first response. Write qualify.md.",
           outputs: [{ name: "qualify.md" }] },
         { id: "demo", name: "Demo prep", tool: "claude", gate: "demo done", judge: true,
-          systemPrompt: "You are an AE. Prepare the demo: agenda tailored to their pain points, story arc, and likely questions. Write demo-prep.md.",
+          systemPrompt: "You are an AE. Prepare the demo per Great Demo! (Peter Cohan): do the last thing first — open with the end result they care about, then peel back how. Agenda tailored to their pain points, story arc, likely questions. Write demo-prep.md.",
           outputs: [{ name: "demo-prep.md" }] },
         { id: "follow", name: "Follow-up", tool: "claude", gate: "next step booked",
           systemPrompt: "You are an AE. Write the follow-up email, recap, and mutual action plan. Write follow-up.md.",
@@ -591,7 +603,7 @@ export const STARTER_PIPELINES = [
       ] },
       { id: "kb-article", name: "KB article", stages: [
         { id: "kb-draft", name: "Draft", tool: "claude", gate: "draft reviewed", judge: true,
-          systemPrompt: "You are a technical writer. Write the knowledge-base article for the topic in the task intent: symptoms, cause, step-by-step resolution, prevention. Write article.md.",
+          systemPrompt: "You are a technical writer. Write the knowledge-base article for the topic in the task intent: symptoms, cause, step-by-step resolution, prevention. Follow KCS practice (capture in the workflow, structure for reuse) and pick the right Diátaxis type (how-to vs reference vs explanation). Write article.md.",
           outputs: [{ name: "article.md" }] },
         { id: "kb-review", name: "Review & publish", tool: "claude", gate: "published",
           systemPrompt: "You are a support lead. Review article.md for accuracy and tone, add related-article links and search keywords. Write final.md.",
@@ -610,7 +622,7 @@ export const STARTER_PIPELINES = [
           systemPrompt: "You are a process analyst. Map the end-to-end flow: nodes, routes, lead times, buffers. Write flow-map.md.",
           outputs: [{ name: "flow-map.md" }] },
         { id: "bottlenecks", name: "Bottleneck analysis", tool: "claude", gate: "bottlenecks agreed",
-          systemPrompt: "You are an operations researcher. From flow-map.md find bottlenecks, single points of failure, and cost concentrations. Write bottlenecks.md.",
+          systemPrompt: "You are an operations researcher. From flow-map.md find bottlenecks, single points of failure, and cost concentrations. Apply the Theory of Constraints (Goldratt, The Goal): identify THE constraint, then how to exploit and subordinate to it before proposing new capacity. Write bottlenecks.md.",
           outputs: [{ name: "bottlenecks.md" }] },
         { id: "optimize", name: "Optimization plan", tool: "claude", gate: "plan approved", judge: true,
           systemPrompt: "You are a supply chain consultant. Write the optimization plan: initiatives, savings estimates, risks, sequencing. Write optimization.md.",
@@ -621,7 +633,7 @@ export const STARTER_PIPELINES = [
           systemPrompt: "You are a cost analyst. Summarize spend by category/supplier for the scope in the task intent. Write spend.md.",
           outputs: [{ name: "spend.md" }] },
         { id: "quickwins", name: "Quick wins", tool: "claude", gate: "wins picked", judge: true,
-          systemPrompt: "You are a procurement advisor. From spend.md list quick-win savings (renegotiation, consolidation, substitution) with effort/impact. Write quick-wins.md.",
+          systemPrompt: "You are a procurement advisor. From spend.md list quick-win savings (renegotiation, consolidation, substitution) with effort/impact, positioning each supplier on the Kraljic matrix (leverage / strategic / non-critical / bottleneck) to pick the right tactic. Write quick-wins.md.",
           outputs: [{ name: "quick-wins.md" }] },
         { id: "actions", name: "Action list", tool: "claude", gate: "actions owned",
           systemPrompt: "You are a program manager. Turn quick-wins.md into an owned, dated action list. Write actions.md.",
@@ -643,15 +655,15 @@ export const STARTER_PIPELINES = [
   {
     id: "strategy", label: "Strategy & Research", workingDir: ".",
     flows: [
-      { id: "deep-research", name: "PMF deep research", stages: [
+      { id: "deep-research", name: "PMF deep research", next: { pipeline: "product", flow: "product-spec" }, stages: [
         { id: "landscape", name: "Market landscape", tool: "claude", gate: "landscape reviewed",
-          systemPrompt: "You are a market researcher. Map the market for the product in the task intent: segments, competitors, substitutes, trends, sizing. Write landscape.md.",
+          systemPrompt: "You are a market researcher. Map the market for the product in the task intent: segments, competitors, substitutes, trends, and sizing (TAM/SAM/SOM), with a Porter Five Forces read on the category. Write landscape.md.",
           outputs: [{ name: "landscape.md" }], specs: [{ key: "potential-userbase", value: "" }, { key: "target-age", value: "" }] },
         { id: "interviews", name: "Interview plan", tool: "claude", gate: "plan approved",
-          systemPrompt: "You are a UX researcher. Design the customer interview study: screener, guide, target n per segment. Write interview-plan.md.",
+          systemPrompt: "You are a UX researcher. Design the customer interview study: screener, guide, target n per segment. Every question must pass The Mom Test (Fitzpatrick): ask about their life and past behavior, never about your idea; no hypotheticals, no pitching. Write interview-plan.md.",
           outputs: [{ name: "interview-plan.md" }] },
         { id: "survey", name: "Survey design", tool: "claude", gate: "survey ready",
-          systemPrompt: "You are a quantitative researcher. Design the PMF survey (incl. the Ellis test) and its analysis plan. Write survey.md.",
+          systemPrompt: "You are a quantitative researcher. Design the PMF survey and its analysis plan: the Sean Ellis test (\"how disappointed if you could no longer use it?\" — ≥40% 'very disappointed' signals PMF), segmented per the Superhuman PMF engine (Rahul Vohra, First Round Review) so you know WHO to double down on. Write survey.md.",
           outputs: [{ name: "survey.md" }] },
         { id: "synthesis", name: "Synthesis", tool: "claude", gate: "synthesis reviewed", judge: true,
           systemPrompt: "You are a research lead. Synthesize all findings into themes, segment verdicts, and open risks. Write synthesis.md.",
@@ -676,10 +688,10 @@ export const STARTER_PIPELINES = [
           systemPrompt: "You are a candid advisor. Review the signals in the task intent (retention, growth, feedback) and state what they actually say. Write signals.md.",
           outputs: [{ name: "signals.md" }] },
         { id: "options", name: "Options analysis", tool: "claude", gate: "options scored", judge: true,
-          systemPrompt: "You are a strategist. Lay out the realistic options (persevere, zoom-in pivot, segment pivot, kill) with costs and evidence needed. Write options.md.",
+          systemPrompt: "You are a strategist. Lay out the realistic options using the Lean Startup pivot taxonomy (Ries: zoom-in, zoom-out, customer-segment, customer-need, platform, channel — plus persevere and kill) with costs and evidence needed for each. Write options.md.",
           outputs: [{ name: "options.md" }] },
         { id: "recommend", name: "Recommendation", tool: "claude", gate: "decision made",
-          systemPrompt: "You are the deciding voice. Write the recommendation memo with the reasoning and the 30-day plan. Write recommendation.md.",
+          systemPrompt: "You are the deciding voice. Write the recommendation memo as a strategy kernel (Rumelt, Good Strategy Bad Strategy): diagnosis, guiding policy, coherent actions — then the 30-day plan. No goals dressed up as strategy. Write recommendation.md.",
           outputs: [{ name: "recommendation.md" }] },
       ] },
       { id: "competitive", name: "Competitive teardown", stages: [
@@ -700,13 +712,13 @@ export const STARTER_PIPELINES = [
     flows: [
       { id: "hire-role", name: "Hire a role", stages: [
         { id: "hire-spec", name: "Role spec", tool: "claude", gate: "role approved",
-          systemPrompt: "You are a hiring manager. From the task intent write the role spec: mission, outcomes for the first year, must-have vs nice-to-have skills, level, and comp band placeholder. Write role.md and the public job description jd.md.",
+          systemPrompt: "You are a hiring manager. From the task intent write the role SCORECARD per Who (Smart & Street): mission, 3–8 measurable outcomes for the first year, and competencies — not a duties list. Then must-have vs nice-to-have skills, level, comp band placeholder. Write role.md and the public job description jd.md.",
           outputs: [{ name: "role.md" }, { name: "jd.md" }] },
         { id: "hire-sourcing", name: "Sourcing plan", tool: "claude", gate: "pipeline filling",
           systemPrompt: "You are a recruiter. From role.md write the sourcing plan: channels, search strings, outreach templates, and the screening rubric. Write sourcing.md.",
           outputs: [{ name: "sourcing.md" }] },
         { id: "hire-interviews", name: "Interview kit", tool: "claude", gate: "loop calibrated", judge: true,
-          systemPrompt: "You are a talent lead. Design the interview loop: stages, per-stage questions mapped to the role.md outcomes, scoring rubric, and debrief format. Write interview-kit.md.",
+          systemPrompt: "You are a talent lead. Design a STRUCTURED interview loop (Google re:Work: same questions, anchored rubric, independent scores before debrief): stages per Who's A-method (screen → focused → reference), per-stage questions mapped to the role.md outcomes, scoring rubric, debrief format. Write interview-kit.md.",
           outputs: [{ name: "interview-kit.md" }] },
         { id: "hire-offer", name: "Offer & onboarding", tool: "claude", gate: "offer accepted",
           systemPrompt: "You are a people ops lead. Draft the offer structure and the 30/60/90-day onboarding plan tied to the role.md outcomes. Write offer.md and onboarding.md.",
@@ -722,10 +734,10 @@ export const STARTER_PIPELINES = [
           systemPrompt: "You are a fundraising advisor. From the task intent write the raise narrative: why now, traction, market, ask, and use of funds. Write narrative.md.",
           outputs: [{ name: "narrative.md" }] },
         { id: "fund-deck", name: "Deck outline", tool: "claude", gate: "deck approved", judge: true,
-          systemPrompt: "You are a pitch consultant. Turn narrative.md into a slide-by-slide deck outline with the key numbers and chart briefs per slide. Write deck-outline.md.",
+          systemPrompt: "You are a pitch consultant. Turn narrative.md into a slide-by-slide deck outline following the Sequoia pitch template arc (purpose, problem, solution, why now, market size, competition, product, business model, team, financials/ask) with key numbers and chart briefs per slide. Write deck-outline.md.",
           outputs: [{ name: "deck-outline.md" }] },
         { id: "fund-dataroom", name: "Data room checklist", tool: "claude", gate: "data room ready",
-          systemPrompt: "You are a diligence advisor. Write the data-room checklist: financials, legal, metrics, team docs — what exists, what's missing, who owns each. Write dataroom.md.",
+          systemPrompt: "You are a diligence advisor. Write the data-room checklist per standard VC diligence (Venture Deals, Feld & Mendelson): financials, cap table, legal/IP, key contracts, metrics, team docs — what exists, what's missing, who owns each. Write dataroom.md.",
           outputs: [{ name: "dataroom.md" }] },
       ] },
     ],

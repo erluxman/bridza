@@ -6,7 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { ensureDataDir, readProject, createPipeline, savePipeline, archivePipeline, createTask, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox } from "../../../server/bridza-store.js";
+import { ensureDataDir, readProject, readPlan, savePlan, createPipeline, savePipeline, archivePipeline, createTask, deleteTask, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox } from "../../../server/bridza-store.js";
 import { runStage, git } from "../../../server/bridza-run.js";
 import { STARTER_PIPELINES, rel, judgeStageId, pipelineFlows, exportFlow, parseFlowFile, exportPipeline, parsePipelineFile } from "../store/bridza.js";
 
@@ -235,6 +235,170 @@ describe("multiple stage flows per pipeline", () => {
     expect(archivePipeline(root, { id: "marketing", archived: false }).archived).toBe(false);
     expect(readProject(root).pipelines[0].archived).toBe(false);
     expect(archivePipeline(root, { id: "ghost" }).error).toMatch(/not found/);
+  });
+
+  it("flow handoffs (next) persist, and dependsOn gates the follow-on task at run time", async () => {
+    // product-ish flow hands off to an engineering-ish flow
+    createPipeline(root, { id: "prod", label: "Prod", flows: [
+      { id: "spec-flow", name: "Spec", next: { pipeline: "eng", flow: "build-flow" }, stages: [{ id: "spec1", name: "Spec", outputs: [{ name: "spec.md" }] }] },
+    ] });
+    createPipeline(root, { id: "eng", label: "Eng", flows: [
+      { id: "build-flow", name: "Build", stages: [{ id: "build1", name: "Build", outputs: [{ name: "out.md" }] }] },
+    ] });
+    const prod = readProject(root).pipelines.find((p) => p.id === "prod");
+    expect(prod.flows[0].next).toEqual({ pipeline: "eng", flow: "build-flow" });
+
+    createTask(root, { pipeline: "prod", id: "t-spec", title: "Spec it", flow: "spec-flow" });
+    createTask(root, { pipeline: "eng", id: "t-build", title: "Build it", flow: "build-flow", dependsOn: "prod/t-spec" });
+    expect(readPlan(root).deps["eng/t-build"]).toEqual({ all: ["prod/t-spec"], any: [] });
+
+    // the gated task refuses to run while upstream is not done
+    process.env.BRIDZA_TOOL_OVERRIDE = JSON.stringify({ bin: "sh", args: ["-c", "echo ok"] });
+    const blocked = await runStage(root, { tool: "claude", pipeline: "eng", task: "t-build", stage: "build1", prompt: "go" }, () => {});
+    expect(blocked.status).toBe("blocked");
+    expect(blocked.error).toMatch(/prod\/t-spec/);
+    // finish the upstream task → the gate opens
+    const up = await runStage(root, { tool: "claude", pipeline: "prod", task: "t-spec", stage: "spec1", prompt: "go" }, () => {});
+    expect(up.status).toBe("done");
+    const now = await runStage(root, { tool: "claude", pipeline: "eng", task: "t-build", stage: "build1", prompt: "go" }, () => {});
+    expect(now.status).toBe("done");
+  });
+
+  it("pipeline sequence: edges persist, auto-gate new downstream tasks, and materialize from flow handoffs", async () => {
+    // creating B whose flow hands off to A, then A→B edge is drawn by hand:
+    createPipeline(root, { id: "research", label: "Research", flows: [
+      { id: "study", name: "Study", next: { pipeline: "build", flow: "make" }, stages: [{ id: "st1", name: "Study", outputs: [{ name: "study.md" }] }] },
+    ] });
+    createPipeline(root, { id: "build", label: "Build", flows: [
+      { id: "make", name: "Make", stages: [{ id: "mk1", name: "Make", outputs: [{ name: "out.md" }] }] },
+    ] });
+    // the advisory flow handoff materialized into a pipeline edge on creation
+    expect(readPlan(root).pipeDeps).toEqual([{ from: "research", to: "build" }]);
+
+    createTask(root, { pipeline: "research", id: "r1", title: "Interviews", flow: "study" });
+    createTask(root, { pipeline: "build", id: "b1", title: "Build it", flow: "make" });
+    // the new downstream task is auto-gated on the upstream pipeline's open task
+    expect(readPlan(root).deps["build/b1"]).toEqual({ all: ["research/r1"], any: [] });
+    process.env.BRIDZA_TOOL_OVERRIDE = JSON.stringify({ bin: "sh", args: ["-c", "echo ok"] });
+    const blocked = await runStage(root, { tool: "claude", pipeline: "build", task: "b1", stage: "mk1", prompt: "go" }, () => {});
+    expect(blocked.status).toBe("blocked");
+    // savePlan round-trips pipeDeps and drops self/dupe edges
+    savePlan(root, { pipeDeps: [{ from: "research", to: "build" }, { from: "research", to: "build" }, { from: "build", to: "build" }] });
+    expect(readPlan(root).pipeDeps).toEqual([{ from: "research", to: "build" }]);
+  });
+
+  it("handoff manifest: the follow-on task's context lists the upstream outputs and links it as focused context", async () => {
+    createPipeline(root, { id: "prod2", label: "Prod2", flows: [{ id: "sf", name: "Spec", stages: [{ id: "sp1", name: "Spec", outputs: [{ name: "spec.md" }] }] }] });
+    createPipeline(root, { id: "eng2", label: "Eng2", flows: [{ id: "bf", name: "Build", stages: [{ id: "bd1", name: "Build", outputs: [{ name: "o.md" }] }] }] });
+    createTask(root, { pipeline: "prod2", id: "u1", title: "Write the spec", flow: "sf" });
+    process.env.BRIDZA_TOOL_OVERRIDE = JSON.stringify({ bin: "sh", args: ["-c", `echo spec > ${rel.stageOutputs("prod2", "u1", "sp1")}/spec.md`] });
+    await runStage(root, { tool: "claude", pipeline: "prod2", task: "u1", stage: "sp1", prompt: "go" }, () => {});
+    createTask(root, { pipeline: "eng2", id: "d1", title: "Build from spec", flow: "bf", dependsOn: "prod2/u1" });
+    const ctx = fs.readFileSync(path.join(root, rel.taskContext("eng2", "d1")), "utf8");
+    expect(ctx).toMatch(/Follow-on from #\d+ "Write the spec" \(prod2\/u1\)/);
+    expect(ctx).toContain(rel.stageOutputs("prod2", "u1", "sp1") + "/spec.md");
+    expect(readPlan(root).links["eng2/d1"]).toEqual(["prod2/u1"]);   // focused-context injection
+  });
+
+  it("plan estimates round-trip (hours per task; bad values dropped) and the creation guide carries the plan-board contract", () => {
+    createPipeline(root, MARKETING);
+    savePlan(root, { est: { "marketing/t1": 4, "marketing/t2": 2.5, "marketing/t3": -1, "bad key!": 3, "marketing/t4": "nope" } });
+    expect(readPlan(root).est).toEqual({ "marketing/t1": 4, "marketing/t2": 2.5 });
+    const guide = fs.readFileSync(path.join(root, ".bridza", ".metadata", "creation-guide.md"), "utf8");
+    for (const section of ["AND & OR", "Estimate the cost", "Pipeline-level sequence", "The planning contract"]) expect(guide).toContain(section);
+    // old-guide projects self-heal to the v2 contract
+    fs.writeFileSync(path.join(root, ".bridza", ".metadata", "creation-guide.md"), "# old guide\n");
+    ensureDataDir(root);
+    expect(fs.readFileSync(path.join(root, ".bridza", ".metadata", "creation-guide.md"), "utf8")).toContain("plan-guide-v2");
+  });
+
+  it("planning stages are gated on a populated plan board (mandatory shell check)", () => {
+    const eng = STARTER_PIPELINES.find((p) => p.id === "engineering");
+    const planning = pipelineFlows(eng).find((f) => f.id === "full-sdlc").stages.find((s) => s.id === "planning");
+    const breakdown = pipelineFlows(STARTER_PIPELINES.find((p) => p.id === "product")).find((f) => f.id === "product-spec").stages.find((s) => s.id === "ps-breakdown");
+    for (const st of [planning, breakdown]) {
+      expect(st.shell.some((c) => c.includes("plan board is empty"))).toBe(true);
+      expect(st.systemPrompt).toContain("creation-guide.md");
+      expect(st.outputs.some((o) => o.type === "issue")).toBe(true);
+    }
+  });
+
+  it("starter handoffs: research → product spec → engineering", () => {
+    const flowNext = (pid, fid) => pipelineFlows(STARTER_PIPELINES.find((p) => p.id === pid)).find((f) => f.id === fid).next;
+    expect(flowNext("strategy", "deep-research")).toEqual({ pipeline: "product", flow: "product-spec" });
+    expect(flowNext("product", "product-spec")).toEqual({ pipeline: "engineering", flow: "dissection" });
+    expect(flowNext("product", "feedback-roadmap")).toEqual({ pipeline: "engineering", flow: "feature" });
+  });
+
+  it("pipeline edges support fan-in and leave independent pipelines ungated", () => {
+    const mk = (id) => createPipeline(root, { id, label: id, flows: [{ id: "f", name: "F", stages: [{ id: id + "-s1", name: "S", outputs: [{ name: "o.md" }] }] }] });
+    mk("alpha"); mk("beta"); mk("gamma"); mk("free");
+    savePlan(root, { pipeDeps: [{ from: "alpha", to: "gamma" }, { from: "beta", to: "gamma" }] });   // fan-in: gamma waits on both
+    createTask(root, { pipeline: "alpha", id: "a1", title: "A1", flow: "f" });
+    createTask(root, { pipeline: "beta", id: "b1", title: "B1", flow: "f" });
+    createTask(root, { pipeline: "gamma", id: "g1", title: "G1", flow: "f" });
+    createTask(root, { pipeline: "free", id: "fr1", title: "FR1", flow: "f" });
+    expect(readPlan(root).deps["gamma/g1"].all.sort()).toEqual(["alpha/a1", "beta/b1"]);
+    expect(readPlan(root).deps["free/fr1"]).toBeUndefined();   // independent pipeline: no gate
+  });
+
+  it("archived upstream pipelines stop gating new downstream tasks", () => {
+    const mk = (id) => createPipeline(root, { id, label: id, flows: [{ id: "f", name: "F", stages: [{ id: id + "-s1", name: "S", outputs: [{ name: "o.md" }] }] }] });
+    mk("up"); mk("down");
+    savePlan(root, { pipeDeps: [{ from: "up", to: "down" }] });
+    createTask(root, { pipeline: "up", id: "u1", title: "U1", flow: "f" });
+    archivePipeline(root, { id: "up", archived: true });
+    createTask(root, { pipeline: "down", id: "d1", title: "D1", flow: "f" });
+    expect(readPlan(root).deps["down/d1"]).toBeUndefined();
+  });
+
+  it("OR gates open at run time when ANY alternative is done", async () => {
+    createPipeline(root, { id: "orp", label: "OrP", flows: [{ id: "f", name: "F", stages: [
+      { id: "x1", name: "X1", outputs: [{ name: "o.md" }] }, { id: "x2", name: "X2", outputs: [{ name: "o.md" }] }, { id: "x3", name: "X3", outputs: [{ name: "o.md" }] },
+    ] }] });
+    createTask(root, { pipeline: "orp", id: "opt-a", title: "A", stages: ["x1"] });
+    createTask(root, { pipeline: "orp", id: "opt-b", title: "B", stages: ["x2"] });
+    createTask(root, { pipeline: "orp", id: "final", title: "F", stages: ["x3"] });
+    savePlan(root, { deps: { "orp/final": { all: [], any: ["orp/opt-a", "orp/opt-b"] } } });
+    process.env.BRIDZA_TOOL_OVERRIDE = JSON.stringify({ bin: "sh", args: ["-c", "echo ok"] });
+    const blocked = await runStage(root, { tool: "claude", pipeline: "orp", task: "final", stage: "x3", prompt: "go" }, () => {});
+    expect(blocked.status).toBe("blocked");
+    await runStage(root, { tool: "claude", pipeline: "orp", task: "opt-b", stage: "x2", prompt: "go" }, () => {});   // one alternative done
+    const now = await runStage(root, { tool: "claude", pipeline: "orp", task: "final", stage: "x3", prompt: "go" }, () => {});
+    expect(now.status).toBe("done");
+  });
+
+  it("archive round-trips WITHOUT losing flows, handoffs, or specs", () => {
+    createPipeline(root, STARTER_PIPELINES.find((p) => p.id === "product"));
+    archivePipeline(root, { id: "product", archived: true });
+    archivePipeline(root, { id: "product", archived: false });
+    const p = readProject(root).pipelines[0];
+    expect(p.flows.map((f) => f.id)).toEqual(["feedback-roadmap", "product-spec"]);
+    expect(p.flows[1].next).toEqual({ pipeline: "engineering", flow: "dissection" });
+    expect(p.flows[1].stages[0].specs.length).toBeGreaterThan(0);
+  });
+
+  it("a pipeline export → import round trip preserves handoffs and materializes edges when the target exists", () => {
+    createPipeline(root, STARTER_PIPELINES.find((p) => p.id === "engineering"));
+    const file = JSON.stringify(exportPipeline(STARTER_PIPELINES.find((p) => p.id === "product")));
+    const parsed = parsePipelineFile(file);
+    const r = createPipeline(root, { id: "product", label: parsed.pipeline.label, workingDir: parsed.pipeline.workingDir, flows: parsed.pipeline.flows });
+    expect(r.ok).toBe(true);
+    const prod = readProject(root).pipelines.find((p) => p.id === "product");
+    expect(prod.flows.find((f) => f.id === "product-spec").next).toEqual({ pipeline: "engineering", flow: "dissection" });
+    // both product flows point at engineering (dissection + feature) → edges materialized (deduped)
+    expect(readPlan(root).pipeDeps).toEqual([{ from: "product", to: "engineering" }]);
+  });
+
+  it("deleting a task keeps unrelated plan data (est, pipeDeps) intact", () => {
+    createPipeline(root, MARKETING);
+    createTask(root, { pipeline: "marketing", id: "keep", title: "Keep" });
+    createTask(root, { pipeline: "marketing", id: "drop", title: "Drop" });
+    savePlan(root, { est: { "marketing/keep": 3, "marketing/drop": 5 }, pipeDeps: [{ from: "marketing", to: "other" }] });
+    deleteTask(root, { pipeline: "marketing", task: "drop" });
+    const plan = readPlan(root);
+    expect(plan.est["marketing/keep"]).toBe(3);
+    expect(plan.pipeDeps).toEqual([{ from: "marketing", to: "other" }]);
   });
 
   it("single-flow pipelines don't require a flow choice", () => {

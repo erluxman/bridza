@@ -18,6 +18,7 @@ async function post(p, dir, body) {
   } catch (e) { return { ...NO_BRIDGE }; }
 }
 
+export const recommendPipelines = (dir, description) => post("/recommend-pipelines", dir, { description });
 export const getState = (dir) => get("/state", dir);
 export const getTools = (dir) => get("/tools", dir);
 export const getModels = (dir, tool) => get(`/models?tool=${encodeURIComponent(tool)}`, dir);

@@ -2,6 +2,11 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import "./bridza.css";
 import * as api from "./store/client.js";
 import { STARTER_PIPELINES, gateSatisfied, criticalPath, SPEC_CATALOG, specLabel, specValues, withSpecs, pipelineFlows, flowFitCheck, judgeStageId, exportFlow, parseFlowFile, exportPipeline, parsePipelineFile } from "./store/bridza.js";
+
+/* ───────────────────────── helpers ───────────────────────── */
+const recKey = (d) => "bridza-rec:" + d;
+const lsGet = (k, def) => { try { const v = localStorage.getItem(k); return v != null ? v : def; } catch (e) { return def; } };
+const lsSet = (k, v) => { try { if (v != null) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) { /* storage unavailable */ } };
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
@@ -26,6 +31,18 @@ const fitCheckFor = (pipeline, task, stageId) => {
   const own = flows.find((f) => f.id === task.flow);
   if (!own || flows.length < 2 || judgeStageId(own) !== stageId) return "";
   return flowFitCheck(own.name, flows.filter((f) => f.id !== own.id));
+};
+// ONE prompt assembly for every run (manual + auto-advance): base text, then
+// the spec block, then the fit check — the system prompt is never touched.
+const runPrompt = (pipeline, task, def, base) =>
+  [withSpecs(base, def.specs), fitCheckFor(pipeline, task, def.id)].filter(Boolean).join("\n\n");
+const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const downloadJSON = (name, obj) => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" }));
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
 };
 // bridza bookkeeping files — hidden from change lists so only the WORK shows
 const BOOKKEEP = /\/metadata\.json$|\/README\.md$|\/prompts\.md$|\.gitkeep$|^\.bridza\/(\.gitignore|inbox\.json)$/;
@@ -127,7 +144,7 @@ export default function App() {
           <Inbox dir={dir} proj={proj} onChange={refresh} flash={flash} {...topbarNav}
             onOpenTask={(pid, tid) => { setInboxOpen(false); setActivePipe(pid); refresh().then(() => setActiveTask(tid)); }} />
         ) : flowOpen ? (
-          <PipelineFlow dir={dir} pipeline={pipeline} tools={tools} onClose={() => setFlowOpen(false)} onSaved={refresh} flash={flash} {...topbarNav} />
+          <PipelineFlow dir={dir} proj={proj} pipeline={pipeline} tools={tools} onClose={() => setFlowOpen(false)} onSaved={refresh} flash={flash} {...topbarNav} />
         ) : !task ? (
           <Board dir={dir} pipeline={pipeline} runningTasks={runningTasks} onOpen={setActiveTask} onNewTask={() => setModal({ type: "task" })} onFlow={() => setFlowOpen(true)} {...topbarNav} />
         ) : (
@@ -187,7 +204,24 @@ function Welcome({ recents, onPick, onOpen, onForget, error }) {
 function PipelinePicker({ dir, repo, onClose, onCreated, flash }) {
   const [sel, setSel] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [desc, setDesc] = useState(() => lsGet(recKey(dir), ""));
+  const [analyzedDesc, setAnalyzedDesc] = useState("");
+  const [recs, setRecs] = useState(null);
+  const [recBusy, setRecBusy] = useState(false);
   const toggle = (id) => setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+  const analyze = async () => {
+    if (!desc.trim()) return;
+    setRecBusy(true); setRecs(null);
+    const r = await api.recommendPipelines(dir, desc.trim());
+    setRecBusy(false);
+    if (!r.ok || !Array.isArray(r.recommendations)) return flash(r.error || "recommendation failed");
+    setRecs(r.recommendations);
+    setAnalyzedDesc(desc.trim());
+    // Merge AI recs with existing manual selections
+    setSel((s) => [...new Set([...s, ...r.recommendations.map((x) => x.id)])]);
+    lsSet(recKey(dir), desc.trim());
+  };
+  const clearAll = () => { setDesc(""); setAnalyzedDesc(""); setRecs(null); setSel([]); lsSet(recKey(dir), null); };
   const create = async () => {
     setBusy(true);
     let first = "";
@@ -199,16 +233,33 @@ function PipelinePicker({ dir, repo, onClose, onCreated, flash }) {
     setBusy(false);
     if (first) onCreated(first);
   };
+  const best = (id) => recs && recs.find((r) => r.id === id);
+  const descChanged = recs && desc.trim() !== analyzedDesc;
   return (
     <div className="center">
       <div className="panel">
         <h2>Set up <span className="mono" style={{ fontSize: 15 }}>{base(repo)}</span></h2>
-        <p className="muted">No pipelines yet. Pick starter pipelines to write into <code>.bridza/</code>. Nothing else in the folder is touched.</p>
+        <p className="muted">No pipelines yet. Describe your project and let AI recommend pipelines, or pick manually.</p>
+        <div className="field">
+          <label>Describe your project</label>
+          <textarea className="input" rows={3} placeholder="e.g. We build a cross-platform mobile app with a web dashboard, need marketing pages, content blog, and customer support." value={desc} onChange={(e) => setDesc(e.target.value)} />
+        </div>
+        <div className="spread" style={{ marginBottom: 14 }}>
+          <button className="btn ghost sm" title="Clear description and recommendations" onClick={clearAll}>Clear</button>
+          <button className="btn primary" disabled={!desc.trim() || recBusy} onClick={analyze}>{recBusy ? "Analyzing…" : "Analyze with AI ✦"}</button>
+        </div>
+        {recs && recs.length > 0 && <p className="muted" style={{ fontSize: 12, margin: "0 0 10px" }}>AI recommended {recs.length} pipeline{recs.length === 1 ? "" : "s"} — adjust selections below then create.</p>}
+        {recs && recs.length === 0 && <p className="muted" style={{ fontSize: 12, margin: "0 0 10px", color: "var(--warn)" }}>AI found no matching pipelines. Try a more detailed description or pick manually below.</p>}
+        {descChanged && <p className="muted" style={{ fontSize: 11, margin: "-6px 0 10px", color: "var(--warn)" }}>Description changed — re-run Analyze to refresh recommendations.</p>}
         <div className="picker">
-          {STARTER_PIPELINES.map((p) => { const fl = pipelineFlows(p); return (
+          {STARTER_PIPELINES.map((p) => { const fl = pipelineFlows(p); const b = best(p.id); return (
             <button key={p.id} className={"pick" + (sel.includes(p.id) ? " on" : "")} onClick={() => toggle(p.id)}>
-              <b>{p.label}</b>
+              <div className="spread" style={{ gap: 4 }}>
+                <b>{p.label}</b>
+                {b && <span className="tag" style={{ fontSize: 10 }}>✦ {b.score}/10</span>}
+              </div>
               <div className="meta">{fl.length > 1 ? fl.length + " flows · " + fl.map((f) => f.name).join(", ") : fl[0].stages.map((s) => s.name).join(" → ")}</div>
+              {b && <div className="meta" style={{ color: "var(--accent)", fontSize: 11, marginTop: 2 }}>{b.reason}</div>}
             </button>
           ); })}
         </div>
@@ -439,6 +490,25 @@ function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, collaps
 
 function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, onBack, onChange, onOpenTask, flash, collapsed, onExpandSide }) {
   const stageObjs = task.stages.map((id) => (pipeline.stages || []).find((s) => s.id === id) || { id, name: id });
+  // flow handoff: when this task's flow declares `next` and this task is
+  // delivered, one click creates the follow-on task there — plan-gated on this
+  // one, so the next flow can't start before this one is done.
+  const handoff = (() => {
+    const own = pipelineFlows(pipeline).find((f) => f.id === task.flow);
+    if (!own || !own.next) return null;
+    const tp = (proj.pipelines || []).find((p) => p.id === own.next.pipeline);
+    const tf = tp && pipelineFlows(tp).find((f) => f.id === own.next.flow);
+    return tp && tf ? { tp, tf } : null;
+  })();
+  const delivered = task.finalized || (task.stages.length > 0 && task.stages.every((s) => task.tracking[s] && task.tracking[s].status === "done"));
+  const followOn = async () => {
+    const id = (slug(task.title || task.id).slice(0, 30) + "-" + handoff.tf.id).slice(0, 40);
+    const r = await api.createTask(dir, { pipeline: handoff.tp.id, id, title: task.title, flow: handoff.tf.id, dependsOn: pipeline.id + "/" + task.id });
+    if (!r.ok) return flash(r.error);
+    flash(`follow-on task created in ${handoff.tp.label} · ${handoff.tf.name} — gated on this task`, 5000);
+    onChange();
+    onOpenTask(handoff.tp.id, r.id);
+  };
   const [timeline, setTimeline] = useState([]);
   const [tlOpen, setTlOpen] = useState(true);
   const [openStage, setOpenStage] = useState(() => task.stages.find((s) => !(task.tracking[s] && task.tracking[s].status === "done")) || task.stages[0]);
@@ -537,7 +607,7 @@ function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, onBack, o
     // stale). NO model is ever passed — each tool runs with its own default.
     const bodies = stageObjs.map((def) => ({
       pipeline: pipeline.id, task: task.id, stage: def.id, tool: def.tool || "opencode",
-      prompt: [withSpecs([task.title && ("Task: " + task.title), task.context, def.hint].filter(Boolean).join("\n\n") || ("Complete the " + (def.name || def.id) + " stage."), def.specs), fitCheckFor(pipeline, task, def.id)].filter(Boolean).join("\n\n"),
+      prompt: runPrompt(pipeline, task, def, [task.title && ("Task: " + task.title), task.context, def.hint].filter(Boolean).join("\n\n") || ("Complete the " + (def.name || def.id) + " stage.")),
       system: def.systemPrompt || "", shell: def.shell || [], workingDir: pipeline.workingDir || ".",
       stageName: def.name || def.id, taskTitle: task.title,
     }));
@@ -586,6 +656,12 @@ function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, onBack, o
             <input type="checkbox" checked={automating} disabled={automating || task.finalized} onChange={(e) => e.target.checked && automate()} />
             <span className="slider" /><span className="switch-lbl">{automating ? "⚡ Auto-advancing…" : "⚡ Auto-advance"}</span>
           </label>
+          {handoff && (
+            <button className="btn" onClick={followOn} disabled={!delivered}
+              title={delivered ? `Create the follow-on task in ${handoff.tp.label} · ${handoff.tf.name}, plan-gated on this task` : `This flow hands off to ${handoff.tp.label} · ${handoff.tf.name} — finish all stages here first`}>
+              → {handoff.tf.name}
+            </button>
+          )}
           <button className="btn" onClick={() => finalize()} disabled={task.finalized}>{task.finalized ? "Finalized" : "Finalize → main"}</button>
         </div>
       </div>
@@ -884,7 +960,7 @@ function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle
     if (onLog) onLog(`\n━━ ${def.name} · run ━━\n`);
     const end = await api.runStage(dir, {
       pipeline: pipeline.id, task: task.id, stage: def.id, tool, model: model.trim(),
-      prompt: [withSpecs(prompt, def.specs), fitCheckFor(pipeline, task, def.id)].filter(Boolean).join("\n\n"), system: def.systemPrompt || "", shell: def.shell || [], workingDir: pipeline.workingDir || ".",
+      prompt: runPrompt(pipeline, task, def, prompt), system: def.systemPrompt || "", shell: def.shell || [], workingDir: pipeline.workingDir || ".",
       stageName: def.name, taskTitle: task.title, wallSeconds: seconds,
     }, (e) => {
       if (e.t === "out") append(e.d);
@@ -1112,7 +1188,7 @@ const OUT_TYPES = ["doc", "data", "code", "media", "value", "text", "asset", "gi
 const mkStage = () => ({ id: "stage-" + Math.random().toString(36).slice(2, 7), name: "New stage", hint: "", tool: "claude", systemPrompt: "Operate only on the previous stage's outputs. Produce only this stage's outputs.", outputs: [{ name: "out.md", type: "doc", note: "" }], specs: [], shell: [], gate: "Output reviewed", auto: false, judge: false });
 const normStage = (s, i) => ({ id: s.id || "stage-" + (i + 1), name: s.name || s.id || "Stage " + (i + 1), hint: s.hint || "", tool: s.tool || "claude", systemPrompt: s.systemPrompt || "", outputs: (s.outputs || []).map((o) => ({ name: o.name || "", type: o.type || "doc", note: o.note || "" })), specs: (s.specs || []).map((v) => ({ key: v.key || "", value: v.value || "" })), shell: s.shell || [], gate: s.gate || "", auto: !!s.auto, judge: !!s.judge });
 
-function PipelineFlow({ dir, pipeline, tools, onClose, onSaved, flash, collapsed, onExpandSide }) {
+function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, flash, collapsed, onExpandSide }) {
   // one designer PER FLOW, side by side — a pipeline can carry several named
   // stage flows (ticket, multi-ticket feature, bugfix…); scroll horizontally.
   const [flows, setFlows] = useState(() => pipelineFlows(pipeline).map((f) => ({ ...f, stages: (f.stages || []).map(normStage) })));
@@ -1130,6 +1206,10 @@ function PipelineFlow({ dir, pipeline, tools, onClose, onSaved, flash, collapsed
   // one judge per flow: flagging a stage clears the flag on its siblings
   const setJudge = (fi, i) => mutStages(fi, (st) => st.map((s, k) => ({ ...s, judge: k === i ? !s.judge : false })));
   const setFlowName = (fi, name) => mut((fl) => fl.map((f, k) => k === fi ? { ...f, name } : f));
+  const setFlowNext = (fi, v) => mut((fl) => fl.map((f, k) => k === fi ? { ...f, next: v ? { pipeline: v.split("/")[0], flow: v.split("/")[1] } : null } : f));
+  // every flow of every pipeline in the project (minus itself) is a valid
+  // handoff target — where a delivered task of this flow continues
+  const handoffTargets = (proj ? proj.pipelines : []).flatMap((pp) => pipelineFlows(pp).map((tf) => ({ pid: pp.id, plabel: pp.label, fid: tf.id, fname: tf.name })));
   const addFlow = () => mut((fl) => [...fl, { id: "flow-" + Math.random().toString(36).slice(2, 7), name: "", stages: [mkStage()] }]);
   const delFlow = (fi) => { if (flows.length <= 1) return flash("a pipeline needs at least one flow"); mut((fl) => fl.filter((_, k) => k !== fi)); };
 
@@ -1153,19 +1233,14 @@ function PipelineFlow({ dir, pipeline, tools, onClose, onSaved, flash, collapsed
   // ── a single flow is portable: download as JSON, import from JSON, or send
   // by email (default mail app via mailto:, or Gmail's compose URL).
   const importRef = useRef(null);
-  const flowJson = (f) => JSON.stringify(exportFlow({ ...f, name: f.name || label }), null, 2);
   const downloadFlow = (f) => {
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([flowJson(f)], { type: "application/json" }));
-    a.download = "bridza-flow-" + (((f.name || label).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")) || "flow") + ".json";
-    a.click();
-    URL.revokeObjectURL(a.href);
+    downloadJSON("bridza-flow-" + (slug(f.name || label) || "flow") + ".json", exportFlow({ ...f, name: f.name || label }));
     flash("flow exported — import it from any Bridza project's Stage flows screen");
   };
   const emailFlow = (f, via) => {
     const name = f.name || label;
     const subject = "Bridza stage flow: " + name;
-    const body = "Stage flow “" + name + "” from the “" + label + "” pipeline.\nSave the JSON below as a .json file and import it from Bridza → Stage flows → Import flow.\n\n" + flowJson(f);
+    const body = "Stage flow “" + name + "” from the “" + label + "” pipeline.\nSave the JSON below as a .json file and import it from Bridza → Stage flows → Import flow.\n\n" + JSON.stringify(exportFlow({ ...f, name }), null, 2);
     if (via === "gmail") window.open("https://mail.google.com/mail/?view=cm&fs=1&su=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body), "_blank", "noopener");
     else window.location.href = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
   };
@@ -1190,12 +1265,7 @@ function PipelineFlow({ dir, pipeline, tools, onClose, onSaved, flash, collapsed
   };
   // the WHOLE pipeline (all flows) as one file — importable from New pipeline
   const downloadPipeline = () => {
-    const data = JSON.stringify(exportPipeline({ label, workingDir, flows }), null, 2);
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([data], { type: "application/json" }));
-    a.download = "bridza-pipeline-" + (label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "pipeline") + ".json";
-    a.click();
-    URL.revokeObjectURL(a.href);
+    downloadJSON("bridza-pipeline-" + (slug(label) || "pipeline") + ".json", exportPipeline({ label, workingDir, flows }));
     flash("pipeline exported — import it from “＋ New pipeline” in any Bridza project");
   };
   const toggleArchive = async () => {
@@ -1237,6 +1307,16 @@ function PipelineFlow({ dir, pipeline, tools, onClose, onSaved, flash, collapsed
                 <button className="btn ghost sm" onClick={() => emailFlow(f, "mailto")} title="Email this flow via your default mail app">✉</button>
                 <button className="btn ghost sm" onClick={() => emailFlow(f, "gmail")} title="Email this flow via Gmail (opens a compose window)">✉ᴳ</button>
                 <button className="btn ghost sm" onClick={() => delFlow(fi)} disabled={flows.length <= 1} title="Delete this flow">🗑</button>
+              </div>
+              <div className="row" style={{ marginTop: 4, gap: 6 }}>
+                <span className="io-lbl" title="Where a DELIVERED task of this flow continues. The follow-on task is plan-gated on this one — its stages refuse to run until this task is done.">hands off to</span>
+                <select className="input spec-add" value={f.next ? f.next.pipeline + "/" + f.next.flow : ""} onChange={(e) => setFlowNext(fi, e.target.value)}>
+                  <option value="">— none</option>
+                  {handoffTargets.filter((t) => !(t.pid === pipeline.id && t.fid === f.id))
+                    .map((t) => <option key={t.pid + "/" + t.fid} value={t.pid + "/" + t.fid}>{t.plabel} → {t.fname}</option>)}
+                  {f.next && !handoffTargets.some((t) => t.pid === f.next.pipeline && t.fid === f.next.flow) &&
+                    <option value={f.next.pipeline + "/" + f.next.flow}>{f.next.pipeline} → {f.next.flow} (not in this project yet)</option>}
+                </select>
               </div>
               <div className="flow">
                 <div className="flow-term">▸ Capture · task intent</div>
@@ -1419,6 +1499,7 @@ function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed, onExp
   const [wide, setWide] = useState(() => localStorage.getItem("bridza-plan-wide") === "1");
   const [critOn, setCritOn] = useState(false);
   const [dragPos, setDragPos] = useState({});   // live positions while dragging a node/milestone
+  const [linkFrom, setLinkFrom] = useState(null);   // pipeline-timeline: edge source being connected
   const svgRef = useRef(null);
   const dragRef = useRef(null);
   const viewRef = useRef(view);
@@ -1426,7 +1507,7 @@ function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed, onExp
 
   useEffect(() => {
     let on = true;
-    api.getPlan(dir).then((r) => { if (on) setPlan({ deps: (r.plan && r.plan.deps) || {}, milestones: (r.plan && r.plan.milestones) || [], pos: (r.plan && r.plan.pos) || {} }); });
+    api.getPlan(dir).then((r) => { if (on) setPlan({ deps: (r.plan && r.plan.deps) || {}, milestones: (r.plan && r.plan.milestones) || [], pos: (r.plan && r.plan.pos) || {}, pipeDeps: (r.plan && r.plan.pipeDeps) || [], est: (r.plan && r.plan.est) || {} }); });
     return () => { on = false; };
   }, [dir]);
 
@@ -1487,7 +1568,11 @@ function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed, onExp
     const extra = (((m && m.needs) || []).flatMap((id) => { const req = msById.get(id); return req ? msMembers(req) : []; })).filter((d) => d !== k);
     return extra.length ? { all: [...new Set([...g.all, ...extra])], any: g.any } : g;
   };
-  const crit = criticalPath(tasks.map((t) => t.key), effGateOf, (k) => (doneSet.has(k) ? 0 : 1));
+  // cost-weighted: a task's weight is its estimated hours (plan.est), so the
+  // critical path is the LONGEST-RUNNING chain, not just the deepest one
+  const est = plan.est || {};
+  const hasEst = tasks.some((t) => est[t.key] > 0);
+  const crit = criticalPath(tasks.map((t) => t.key), effGateOf, (k) => (doneSet.has(k) ? 0 : (Number(est[k]) > 0 ? Number(est[k]) : 1)));
   const critSet = new Set(critOn ? crit.path : []);
   const critPairs = new Set();
   if (critOn) for (let i = 1; i < crit.path.length; i++) critPairs.add(crit.path[i - 1] + ">" + crit.path[i]);
@@ -1552,6 +1637,35 @@ function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed, onExp
   const addMsNeed = (id, reqId) => { const m = msById.get(id); if (!m || !reqId || reqId === id) return; patchMs(id, { needs: [...new Set([...(m.needs || []), reqId])] }); };
   const rmMsNeed = (id, reqId) => { const m = msById.get(id); if (m) patchMs(id, { needs: (m.needs || []).filter((x) => x !== reqId) }); };
   const toggleWide = () => { setWide((w) => { localStorage.setItem("bridza-plan-wide", w ? "0" : "1"); return !w; }); };
+
+  // ---- pipeline timeline: sequence edges between whole pipelines -------------
+  // An edge A → B auto-gates every NEW task created in B on A's open tasks
+  // (createTask does the wiring; blockedByPlan enforces it at run time).
+  const pipeDeps = plan.pipeDeps || [];
+  const pipes = proj.pipelines.filter((p) => !p.archived);
+  const pipeById = new Map(pipes.map((p) => [p.id, p]));
+  const orderedPipes = (() => {   // topological by edges; original order breaks ties/cycles
+    const inDeg = new Map(pipes.map((p) => [p.id, 0]));
+    const edges = pipeDeps.filter((d) => inDeg.has(d.from) && inDeg.has(d.to));
+    edges.forEach((d) => inDeg.set(d.to, inDeg.get(d.to) + 1));
+    const out = [], q = pipes.filter((p) => !inDeg.get(p.id)).map((p) => p.id);
+    const left = new Set(edges.map((_, i) => i));
+    while (q.length) {
+      const id = q.shift(); out.push(id);
+      edges.forEach((d, i) => { if (left.has(i) && d.from === id) { left.delete(i); inDeg.set(d.to, inDeg.get(d.to) - 1); if (!inDeg.get(d.to)) q.push(d.to); } });
+    }
+    pipes.forEach((p) => { if (!out.includes(p.id)) out.push(p.id); });
+    return out.map((id) => pipeById.get(id));
+  })();
+  const pipePct = (p) => { const ts = p.tasks || []; if (!ts.length) return null; return Math.round(ts.filter((t) => t.finalized || (t.stages.length > 0 && t.progress === 100)).length / ts.length * 100); };
+  const clickPipe = (id) => {
+    if (!linkFrom) return setLinkFrom(id);
+    if (linkFrom === id) return setLinkFrom(null);
+    const exists = pipeDeps.some((d) => d.from === linkFrom && d.to === id);
+    save({ ...plan, pipeDeps: exists ? pipeDeps.filter((d) => !(d.from === linkFrom && d.to === id)) : [...pipeDeps, { from: linkFrom, to: id }] });
+    flash(exists ? "sequence removed" : `${(pipeById.get(linkFrom) || {}).label} → ${(pipeById.get(id) || {}).label}: new ${(pipeById.get(id) || {}).label} tasks will wait for ${(pipeById.get(linkFrom) || {}).label}'s open tasks`, 5200);
+    setLinkFrom(null);
+  };
 
   // ---- one drag system: pan the board, drag a node, or drag a whole milestone ----
   const startDrag = (e, d) => { e.stopPropagation(); dragRef.current = { ...d, sx: e.clientX, sy: e.clientY, moved: false }; };
@@ -1680,10 +1794,29 @@ function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed, onExp
           <button className={"btn ghost" + (wide ? " on" : "")} onClick={toggleWide} title={wide ? "Compact cards" : "Widen cards to show full task names"}>⤢ {wide ? "Compact" : "Full names"}</button>
           <button className={"btn ghost" + (critOn ? " on" : "")} onClick={() => setCritOn((c) => !c)}
             title="Highlight the longest chain of remaining work — the path that sets the project's finish date">
-            ⚡ Critical path{crit.length > 0 ? ` · ${crit.length}` : ""}
+            ⚡ Critical path{crit.path.length > 0 ? ` · ${crit.path.length}${hasEst ? " · ~" + Math.round(crit.length) + "h" : ""}` : ""}
           </button>
           <button className="btn primary" onClick={addMilestone}>＋ Milestone</button>
         </div>
+      </div>
+      <div className="pipe-strip">
+        <span className="io-lbl" title="Pipeline sequence: click a pipeline, then the one that comes AFTER it, to connect (or disconnect). An edge A → B auto-gates every NEW task in B on A's open tasks — enforced when stages run.">⧖ pipeline timeline</span>
+        {orderedPipes.map((p) => {
+          const pct = pipePct(p);
+          return (
+            <button key={p.id} className={"pipe-chip" + (linkFrom === p.id ? " src" : "")} onClick={() => clickPipe(p.id)}
+              title={linkFrom && linkFrom !== p.id ? `Connect: ${(pipeById.get(linkFrom) || {}).label} → ${p.label}` : "Click to start a sequence edge from " + p.label}>
+              {p.label}{pct != null && <span className="pipe-pct">{pct}%</span>}
+            </button>
+          );
+        })}
+        {pipeDeps.filter((d) => pipeById.has(d.from) && pipeById.has(d.to)).map((d) => (
+          <span className="pipe-edge" key={d.from + "→" + d.to}>
+            {pipeById.get(d.from).label} → {pipeById.get(d.to).label}
+            <button className="ochip-x" title="Remove this sequence edge" onClick={() => save({ ...plan, pipeDeps: pipeDeps.filter((x) => !(x.from === d.from && x.to === d.to)) })}>×</button>
+          </span>
+        ))}
+        {linkFrom && <span className="muted" style={{ fontSize: 12 }}>connecting from <b>{(pipeById.get(linkFrom) || {}).label}</b> — click the pipeline that comes after it (click it again to cancel)</span>}
       </div>
       <div className="plan-wrap">
         {tasks.length === 0 ? (
@@ -1740,6 +1873,7 @@ function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed, onExp
                     <circle className="pn-pin" cx={W} cy={PN.H / 2} r="3" />
                     <text className="pn-title" x="11" y="20">{trunc(t.title, titleChars)}</text>
                     <text className="pn-sub" x="11" y="36">{trunc(t.pipe, wide ? 40 : 12)} · {st === "done" ? "✓ done" : st === "running" ? "● running" : st === "blocked" ? "⛔ blocked" : "○ ready"}</text>
+                    {est[t.key] > 0 && <text className="pn-est" x={W - 10} y="20" textAnchor="end">~{est[t.key]}h</text>}
                   </g>
                 );
               })}
@@ -1758,7 +1892,7 @@ function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed, onExp
             ) : (
               <>
                 <div className="muted" style={{ fontSize: 11.5, margin: "6px 0 10px" }}>
-                  <b style={{ color: "var(--warn, #d8a03a)" }}>{crit.length}</b> task{crit.length === 1 ? "" : "s"} deep — the longest chain of unfinished work.
+                  <b style={{ color: "var(--warn, #d8a03a)" }}>{crit.path.length}</b> task{crit.path.length === 1 ? "" : "s"} deep{hasEst ? <> · ~<b style={{ color: "var(--warn, #d8a03a)" }}>{Math.round(crit.length)}h</b> of estimated work</> : null} — the longest chain of unfinished work.
                   Nothing can shorten the project without shortening this path: split its tasks, parallelize them, or cut scope here first.
                 </div>
                 {crit.path.map((k, i) => {
@@ -1817,6 +1951,10 @@ function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed, onExp
                 <option value="">— none —</option>
                 {plan.milestones.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
               </select>
+              <div className="side-label" style={{ padding: "12px 0 4px" }}>Cost estimate (hours)</div>
+              <input className="input" type="number" min="0" step="0.5" placeholder="e.g. 4" value={est[sel] || ""}
+                title="Estimated hours of work — shown on the node and weighted into the critical path"
+                onChange={(e) => { const v = Number(e.target.value); const n = { ...est }; if (v > 0) n[sel] = v; else delete n[sel]; save({ ...plan, est: n }); }} />
               <button className="btn" style={{ marginTop: 12, width: "100%" }} onClick={() => onOpenTask(selTask.pid, selTask.tid)}>Open task →</button>
             </aside>
           );
@@ -1936,11 +2074,14 @@ function NewPipelineModal({ dir, existing, onClose, onDone, flash }) {
   const [label, setLabel] = useState("");
   const [workingDir, setWorkingDir] = useState(".");
   const [tplId, setTplId] = useState(STARTER_PIPELINES[0].id);
-  const [imported, setImported] = useState(null);   // a parsed bridza-pipeline file beats the template picker
+  const [imported, setImported] = useState(null);
   const importRef = useRef(null);
+  const [aiDesc, setAiDesc] = useState("");
+  const [aiRecs, setAiRecs] = useState(null);
+  const [aiBusy, setAiBusy] = useState(false);
   const create = async () => {
     const tpl = imported || STARTER_PIPELINES.find((p) => p.id === tplId);
-    const id = (label || tpl.label).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const id = slug(label || tpl.label);
     if (existing.includes(id)) return flash("pipeline id already exists");
     const r = await api.createPipeline(dir, { id, label: label || tpl.label, workingDir, stages: tpl.stages || [], flows: tpl.flows || [], templates: tpl.templates || [] });
     if (r.ok) onDone(r.id); else flash(r.error);
@@ -1951,21 +2092,57 @@ function NewPipelineModal({ dir, existing, onClose, onDone, flash }) {
       const r = parsePipelineFile(String(rd.result));
       if (r.error) return flash(r.error);
       setImported(r.pipeline);
+      setAiRecs(null); // importing clears AI recommendations
       if (r.pipeline.workingDir) setWorkingDir(r.pipeline.workingDir);
       flash(`pipeline “${r.pipeline.label}” loaded from file — Create to add it`);
     };
     rd.readAsText(file);
   };
+  const analyze = async () => {
+    if (!aiDesc.trim()) return;
+    setAiBusy(true); setAiRecs(null);
+    const r = await api.recommendPipelines(dir, aiDesc.trim());
+    setAiBusy(false);
+    if (!r.ok || !Array.isArray(r.recommendations)) return flash(r.error || "recommendation failed");
+    setAiRecs(r.recommendations);
+    if (r.recommendations.length) {
+      setTplId(r.recommendations[0].id);
+      setLabel(r.recommendations[0].label);
+    }
+  };
+  const backFromImport = () => { setImported(null); setAiRecs(null); };
   const chosen = imported || STARTER_PIPELINES.find((p) => p.id === tplId);
   const chosenFlows = pipelineFlows(chosen);
   return (
     <Modal title="New pipeline" onClose={onClose} onConfirm={create} confirm="Create">
       <Field label="Name"><input className="input" autoFocus value={label} onChange={(e) => setLabel(e.target.value)} placeholder={imported ? imported.label : "e.g. Marketing"} /></Field>
+      {!imported && (
+        <Field label="AI recommend (optional)">
+          <textarea className="input" rows={2} placeholder="e.g. We need a pipeline for our content marketing team — blog posts, social media, and newsletter production." value={aiDesc} onChange={(e) => setAiDesc(e.target.value)} />
+          <div className="row" style={{ marginTop: 6 }}>
+            <button className="btn primary sm" disabled={!aiDesc.trim() || aiBusy} onClick={analyze}>{aiBusy ? "Analyzing…" : "Analyze with AI ✦"}</button>
+            {aiRecs && aiRecs.length > 0 && <span className="tag" style={{ fontSize: 11 }}>{aiRecs.length} found</span>}
+            {aiRecs && aiRecs.length === 0 && <span className="muted" style={{ fontSize: 11 }}>No matches — try a different description</span>}
+            {aiRecs && <button className="btn ghost sm" title="Clear AI recommendations" onClick={() => setAiRecs(null)}>Clear</button>}
+          </div>
+          {aiRecs && aiRecs.length > 0 && (
+            <div style={{ marginTop: 6, fontSize: 12 }}>
+              {aiRecs.map((r) => (
+                <div key={r.id} className="row" style={{ marginBottom: 3 }}>
+                  <button className={"btn ghost sm" + (tplId === r.id ? " on" : "")} onClick={() => { setTplId(r.id); setLabel(r.label); }}>{r.label}</button>
+                  <span className="tag" style={{ fontSize: 10 }}>✦ {r.score}/10</span>
+                  <span className="muted" style={{ fontSize: 11 }}>{r.reason}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Field>
+      )}
       {imported ? (
         <Field label="From file">
           <div className="row">
             <span className="tag">⤒ {imported.label} · {chosenFlows.length} flow{chosenFlows.length === 1 ? "" : "s"}</span>
-            <button className="btn ghost sm" onClick={() => setImported(null)} title="Back to the built-in templates">× use a template instead</button>
+            <button className="btn ghost sm" onClick={backFromImport} title="Back to the built-in templates">× use a template instead</button>
           </div>
         </Field>
       ) : (
@@ -1998,7 +2175,7 @@ function NewTaskModal({ dir, pipeline, onClose, onDone, flash }) {
   const chosen = flows.find((f) => f.id === flowId);
   const create = async () => {
     if (!chosen) return flash("pick a stage flow — every task belongs to exactly one");
-    const id = (title || "task").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "task";
+    const id = slug(title || "task").slice(0, 40) || "task";
     const r = await api.createTask(dir, { pipeline: pipeline.id, id, title, flow: flowId });
     if (r.ok) onDone(r.id); else flash(r.error);
   };
