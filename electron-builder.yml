@@ -1,0 +1,58 @@
+appId: com.erluxman.bridza
+productName: Bridza
+copyright: © erluxman
+
+directories:
+  output: release
+  buildResources: build
+
+# Ship only what the loopback bridge needs at runtime. `dependencies` in
+# package.json (node-pty, ws) are bundled automatically; devDeps are not.
+files:
+  - electron/**
+  - server/**
+  - src/app/store/**
+  - dist/**
+  - package.json
+
+# node-pty is a native module + ships a spawn-helper binary — both must live
+# outside the asar so they can be dlopen'd / exec'd.
+asarUnpack:
+  - "**/node_modules/node-pty/**"
+
+# Predictable, arch-tagged names so the CLI installers can match assets.
+artifactName: "${productName}-${version}-${os}-${arch}.${ext}"
+
+publish:
+  provider: github
+  owner: erluxman
+  repo: bridza
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg   # UI download
+      arch: [arm64, x64]
+    - target: zip   # terminal install (unzip .app straight into /Applications)
+      arch: [arm64, x64]
+  # No signing/notarization yet (unsigned) — Gatekeeper shows a warning the
+  # user clicks through. See docs/10-desktop-app.md.
+  identity: null
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+
+linux:
+  category: Development
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]

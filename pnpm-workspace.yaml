@@ -3,3 +3,4 @@ allowBuilds:
   esbuild: true
   sharp: false
   workerd: true
+  electron: true

@@ -32,6 +32,12 @@ function Header() {
             can't resolve: the wildcard TLS covers one level only), and the
             custom domain. The app. subdomain still works where DNS has it. */}
         <a
+          href="/download"
+          className="border-accent-soft text-accent bg-surface/60 hover:border-accent rounded-full border px-3 py-1 text-sm font-medium transition-colors"
+        >
+          Download
+        </a>
+        <a
           href="/app"
           className="border-accent-soft text-accent bg-surface/60 hover:border-accent rounded-full border px-3 py-1 text-sm font-medium transition-colors"
         >

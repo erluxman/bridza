@@ -10,11 +10,15 @@ import App from "./pages/App.tsx";
 //   app.localhost:5173       (local dev — browsers resolve *.localhost)
 //   /app                     (kept as a fallback path; e2e drives this)
 const Bridza = lazy(() => import("./app/App.jsx"));
+// The download page is a lazy chunk too — the landing payload stays lean.
+const Download = lazy(() => import("./pages/Download.tsx"));
 
 const isApp =
   location.hostname.startsWith("app.") ||
   location.pathname === "/app" ||
   location.pathname.startsWith("/app/");
+const isDownload =
+  location.pathname === "/download" || location.pathname.startsWith("/download/");
 
 createRoot(document.getElementById("root")!).render(
   isApp ? (
@@ -23,6 +27,12 @@ createRoot(document.getElementById("root")!).render(
     <Suspense fallback={null}>
       <Bridza />
     </Suspense>
+  ) : isDownload ? (
+    <StrictMode>
+      <Suspense fallback={null}>
+        <Download />
+      </Suspense>
+    </StrictMode>
   ) : (
     <StrictMode>
       <App />

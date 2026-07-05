@@ -2,7 +2,14 @@
   "name": "bridza",
   "private": true,
   "version": "0.1.0",
+  "description": "A conveyor belt for knowledge work — run, review, and ship AI automation pipelines on your own repos.",
+  "author": "erluxman <erluxman@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://bridza.erluxman.dev",
+  "repository": { "type": "git", "url": "https://github.com/erluxman/bridza.git" },
+  "bugs": "https://github.com/erluxman/bridza/issues",
   "type": "module",
+  "main": "electron/main.js",
   "packageManager": "pnpm@11.6.0",
   "engines": {
     "node": ">=25"
@@ -12,6 +19,10 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview:local": "vite preview",
+    "desktop": "pnpm build && electron .",
+    "desktop:pack": "pnpm build && electron-builder --dir",
+    "desktop:dist": "pnpm build && electron-builder --publish never",
+    "desktop:release": "pnpm build && electron-builder --publish always",
     "deploy": "pnpm build && wrangler pages deploy dist --project-name=bridza --branch=main --commit-dirty=true",
     "deploy:preview": "pnpm build && wrangler pages deploy dist --project-name=bridza --branch=preview --commit-dirty=true",
     "test": "vitest run",
@@ -22,8 +33,10 @@
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
+    "node-pty": "^1.1.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.28.0",
@@ -32,17 +45,17 @@
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.5",
     "@vitejs/plugin-react": "^4.5.1",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
     "eslint": "^9.28.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.2.0",
-    "node-pty": "^1.1.0",
     "tailwindcss": "^4.1.8",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.33.1",
     "vite": "^6.3.5",
     "vitest": "^4.1.8",
-    "wrangler": "^4",
-    "ws": "^8.21.0"
+    "wrangler": "^4"
   }
 }

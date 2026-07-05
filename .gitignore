@@ -3,6 +3,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# electron-builder output (installers)
+release/
+
 # secrets / local creds
 .env
 .env.*
