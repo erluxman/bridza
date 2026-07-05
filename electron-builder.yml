@@ -6,6 +6,11 @@ directories:
   output: release
   buildResources: build
 
+# Ad-hoc code-sign the macOS app (arm64 requires a signature, or Finder reports
+# the app as "damaged"). electron-builder skips signing (identity: null), so the
+# hook does it. See build/afterPack.cjs.
+afterPack: build/afterPack.cjs
+
 # Ship only what the loopback bridge needs at runtime. `dependencies` in
 # package.json (node-pty, ws) are bundled automatically; devDeps are not.
 files:
