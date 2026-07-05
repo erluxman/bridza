@@ -4,8 +4,9 @@
     {
       "name": "bridza",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "npx vite --port 5173 --strictPort"],
-      "port": 5173
+      "runtimeArgs": ["-c", "npx vite --port ${PORT:-5173} --strictPort"],
+      "port": 5173,
+      "autoPort": true
     }
   ]
 }

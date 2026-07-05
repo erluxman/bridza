@@ -12,7 +12,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync, spawn } from "node:child_process";
-import { DATA_DIR, taskBranchName, rel, safeRef, CLI_TOOLS } from "../src/app/store/bridza.js";
+import { DATA_DIR, taskBranchName, rel, safeRef, CLI_TOOLS, STARTER_PIPELINES, pipelineFlows, gateSatisfied } from "../src/app/store/bridza.js";
 
 export { DATA_DIR, taskBranchName };
 
@@ -326,6 +326,100 @@ export function resolveTool(toolId) {
   return CLI_TOOLS.find((t) => t.id === toolId) || null;
 }
 
+// ── AI pipeline recommender ─────────────────────────────────────────────────
+// ── plan-gate enforcement ────────────────────────────────────────────────────
+// A task is DONE for gating purposes when it's finalized, or every one of its
+// stages is tracked done. Tracking lives on the task's branch tip (runs commit
+// there, not to main), so read the branch first; fall back to the working tree.
+function taskDoneForGate(root, key) {
+  const [p, t] = key.split("/");
+  let meta;
+  try { meta = JSON.parse(readTaskField(root, p, t, rel.taskMeta(p, t))); }
+  catch (e) { return false; }
+  if (meta.finalized) return true;
+  const stages = [...new Set([...(meta.stages || []), ...Object.keys(meta.tracking || {})])];
+  return stages.length > 0 && stages.every((s) => meta.tracking && meta.tracking[s] && meta.tracking[s].status === "done");
+}
+
+// Non-null = a human-readable reason this task may not run yet.
+export function blockedByPlan(root, pipeline, task) {
+  let deps;
+  try { deps = JSON.parse(fs.readFileSync(path.join(root, rel.plan()), "utf8")).deps || {}; }
+  catch (e) { return null; }   // no plan file → nothing gated
+  const gate = deps[safeRef(pipeline) + "/" + safeRef(task)];
+  if (!gate) return null;
+  const keys = [...new Set([...(gate.all || []), ...(gate.any || [])])];
+  const done = new Set(keys.filter((k) => taskDoneForGate(root, k)));
+  if (gateSatisfied(gate, done)) return null;
+  const waiting = keys.filter((k) => !done.has(k));
+  return "blocked by the plan — waiting on: " + waiting.join(", ") + " (finish those tasks first, or remove the dependency in Plan)";
+}
+
+// Given a free-text project description, ask the available CLI tool to pick
+// the most relevant starter pipelines. Returns an array of
+// { id, label, reason, score } sorted by relevance.
+// derived from STARTER_PIPELINES so the recommender can never drift from the
+// actual catalog (flow names + stage sequences straight from the source)
+const CATALOG_SUMMARY = STARTER_PIPELINES.map((p) => ({
+  id: p.id, label: p.label,
+  summary: pipelineFlows(p).map((f) => f.name + " (" + f.stages.map((s) => s.name).join("→") + ")").join(", "),
+}));
+
+const DESC_MAX = 2000;
+
+export function recommendPipelines(raw) {
+  const description = String(raw || "").trim().slice(0, DESC_MAX);
+  if (!description) return [];
+  const catalog = CATALOG_SUMMARY.map((p) => `  - "${p.id}" = ${p.label}: ${p.summary}`).join("\n");
+  const prompt = [
+    "You are a pipeline recommender for Bridza. Each pipeline bundles stage flows (ordered sequences of AI-driven stages like Research → Design → Build → Review).",
+    "",
+    "Available pipelines:",
+    catalog,
+    "",
+    "The user describes what they are building. Recommend which pipelines fit. Consider:",
+    "- What business functions does the project need? (engineering, marketing, sales, support...)",
+    "- What kind of work will the team do regularly?",
+    "- Which stage flows match their workflow?",
+    "",
+    "---BEGIN USER DESCRIPTION---",
+    description,
+    "---END USER DESCRIPTION---",
+    "",
+    "Respond ONLY with a JSON array of objects:",
+    '  [ { "id": "<pipeline-id>", "reason": "<one-sentence why>", "score": <1-10> } ]',
+    "Example:",
+    '  [{"id":"engineering","reason":"Building a software product from scratch","score":9},{"id":"product","reason":"Defining the product vision and requirements","score":7}]',
+    "Return [] if none fit. No preamble, no explanation, no markdown fences — pure JSON array.",
+  ].join("\n");
+
+  for (const id of ["opencode", "claude"]) {
+    const tool = resolveTool(id);
+    if (!tool) continue;
+    try {
+      const out = execFileSync(tool.bin, tool.args({ prompt, system: "", model: "" }), { encoding: "utf8", timeout: 60000, stdio: ["ignore", "pipe", "pipe"] });
+      // Find the first `[` and last `]` on their own lines to extract JSON
+      const lines = out.split("\n");
+      const start = lines.findIndex((l) => l.trim().startsWith("["));
+      const end = lines.findLastIndex((l) => l.trim().endsWith("]"));
+      const json = start >= 0 && end >= start ? lines.slice(start, end + 1).join("\n") : out.trim();
+      const parsed = JSON.parse(json);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter((r) => r && r.id && CATALOG_SUMMARY.some((c) => c.id === r.id))
+        .map((r) => {
+          const id = r.id;
+          const entry = CATALOG_SUMMARY.find((c) => c.id === id);
+          const reason = String(r.reason || "").replace(/^["'`]+|["'`]+$/g, "").slice(0, 200);
+          const score = r.score != null ? Math.min(10, Math.max(1, Math.round(Number(r.score)))) : 5;
+          return { id, label: entry.label, reason, score };
+        })
+        .sort((a, b) => b.score - a.score);
+    } catch (e) { /* try next tool */ }
+  }
+  return [];
+}
+
 // ── one-commit-per-stage helpers ────────────────────────────────────────────
 // The task branch is a clean sequence: [base] → spec → build → review, ONE
 // commit per stage. These find "the last commit that is still valid" when a
@@ -380,6 +474,10 @@ export function runStage(root, body, emit) {
     if (!tool) return end({ exit: 1, errorKind: "unknown-tool", error: "unknown tool: " + toolId });
     const bad = validRef(pipeline, "pipeline") || validRef(task, "task") || validRef(stage, "stage");
     if (bad) return end({ exit: 1, errorKind: "bad-ref", error: bad });
+    // plan gate: a task wired behind others (a flow handoff, or hand-drawn
+    // deps) can't run any stage until its upstream tasks are done
+    const blocked = blockedByPlan(root, pipeline, task);
+    if (blocked) return end({ exit: 1, status: "blocked", errorKind: "plan-gate", error: blocked });
     runKey = safeRef(pipeline) + "/" + safeRef(task) + "/" + safeRef(stage) + "#" + Date.now();
     const runEntry = { pipeline: safeRef(pipeline), task: safeRef(task), stage: safeRef(stage), tool: toolId, startedAt: nowISO(), kill: null };
     ACTIVE_RUNS.set(runKey, runEntry);

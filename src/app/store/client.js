@@ -18,6 +18,7 @@ async function post(p, dir, body) {
   } catch (e) { return { ...NO_BRIDGE }; }
 }
 
+export const recommendPipelines = (dir, description) => post("/recommend-pipelines", dir, { description });
 export const getState = (dir) => get("/state", dir);
 export const getTools = (dir) => get("/tools", dir);
 export const getModels = (dir, tool) => get(`/models?tool=${encodeURIComponent(tool)}`, dir);
@@ -25,6 +26,7 @@ export const pickFolder = () => post("/pick-folder");
 export const reveal = (p) => post("/reveal", null, { path: p });
 export const createPipeline = (dir, body) => post("/pipeline", dir, body);
 export const savePipeline = (dir, body) => post("/pipeline/save", dir, body);
+export const archivePipeline = (dir, body) => post("/pipeline/archive", dir, body);
 export const createTask = (dir, body) => post("/task", dir, body);
 export const deleteTask = (dir, body) => post("/task/delete", dir, body);
 export const stopRun = (dir, body) => post("/run/stop", dir, body);

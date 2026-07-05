@@ -6,7 +6,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { DATA_DIR, rel, safeRef } from "../src/app/store/bridza.js";
+import { DATA_DIR, rel, safeRef, pipelineFlows, flattenFlows } from "../src/app/store/bridza.js";
 import { git, isGitRepo, branchExists, ensureTaskBranch, taskBranchName, removeTaskWorktree, stopRuns } from "./bridza-run.js";
 
 const BIDENT = ["-c", "user.name=bridza", "-c", "user.email=bridza@local"];
@@ -95,15 +95,49 @@ a stage first runs. Do not write a \`ref\` number — Bridza assigns it.
 ## Split a feature into sub-tasks (dissection)
 
 Create one task per sub-feature as above (type: "subtask"), each with its own
-context.md. Then record ordering in \`.bridza/plan.json\` under \`deps\`:
-\`{ "deps": { "<pipeline>/<child>": { "all": ["<pipeline>/<parent-or-sibling>"], "any": [] } } }\`
-Merge into the existing file — never overwrite other entries.
+context.md. Then record ordering in \`.bridza/plan.json\` under \`deps\`.
+
+## Wire dependencies (the AND & OR network) <!-- plan-guide-v2 -->
+
+\`.bridza/plan.json\` \`deps\` is the gate network the plan board renders and
+ENFORCES (a task's stages refuse to run until its gate opens):
+\`{ "deps": { "<pipeline>/<task>": { "all": ["<key>", …], "any": ["<key>", …] } } }\`
+- \`all\` = AND: every listed task must be done first.
+- \`any\` = OR: at least one listed task must be done (use for alternatives).
+- Keys may CROSS pipelines freely — dependencies are not limited to one
+  pipeline. Independent work gets NO deps; never invent ordering that the work
+  doesn't require.
+Merge into the existing file — never overwrite entries you didn't create.
+
+## Estimate the cost of each task
+
+\`.bridza/plan.json\` \`est\` maps task → estimated HOURS of work (numbers):
+\`{ "est": { "<pipeline>/<task>": 4, … } }\`
+Estimate every task you create. The plan board shows the cost on each node and
+weights the critical path with it.
 
 ## Create a milestone
 
 Append to \`milestones\` in \`.bridza/plan.json\`:
-\`{ "id": "ms-<slug>", "title": "<title>", "due": "YYYY-MM-DD or empty", "tasks": ["<pipeline>/<task>", …], "needs": [] }\`
-A task may belong to at most ONE milestone.
+\`{ "id": "ms-<slug>", "title": "<title>", "due": "YYYY-MM-DD or empty", "tasks": ["<pipeline>/<task>", …], "needs": ["<other-milestone-id>", …] }\`
+A task may belong to at most ONE milestone, but a milestone's tasks may SPAN
+several pipelines — use that for initiatives that cut across (e.g. a launch
+touching engineering + content + marketing). \`needs\` orders milestones.
+
+## Pipeline-level sequence (only when truly ordered)
+
+\`pipeDeps\` orders WHOLE pipelines: \`{ "pipeDeps": [{ "from": "<pipeline>", "to": "<pipeline>" }] }\`
+Every NEW task in \`to\` is auto-gated on \`from\`'s open tasks. Pipelines are NOT
+all sequential: some block another, some are fully independent (no edge), and
+one may feed several others (multiple edges). Add an edge only where the order
+is real; prefer task-level \`deps\` for anything finer-grained.
+
+## The planning contract
+
+A planning/breakdown stage is done ONLY when its output is on the plan board:
+tasks created as files, deps + est + milestones merged into \`.bridza/plan.json\`.
+Docs alone don't count. The user will review, rearrange, re-estimate or delete
+items on the board afterwards — structure generously, but keep every item real.
 `;
 
 export function ensureDataDir(root) {
@@ -115,8 +149,10 @@ export function ensureDataDir(root) {
     if (!fs.existsSync(path.join(root, f))) writeText(path.join(root, f), seed);
   const readme = path.join(dir, "README.md");
   if (!fs.existsSync(readme)) writeText(readme, README_MANIFEST);
+  // refresh the guide when it predates the plan-board contract (v2 marker)
   const guide = path.join(dir, ".metadata", "creation-guide.md");
-  if (!fs.existsSync(guide)) writeText(guide, CREATION_GUIDE);
+  let guideCur = ""; try { guideCur = fs.readFileSync(guide, "utf8"); } catch (e) { /* absent */ }
+  if (!guideCur.includes("plan-guide-v2")) writeText(guide, CREATION_GUIDE);
   // .bridza/.cache holds the live wall-clock store — local, never committed.
   const gi = path.join(dir, ".gitignore");
   if (!fs.existsSync(gi)) writeText(gi, ".cache/\n");
@@ -273,14 +309,18 @@ export function readProject(root) {
   const pids = [...new Set([...listDirs(pipelinesRoot), ...scan.found.keys()])];
   const pipelines = pids.map((pid) => {
     const def = readPipelineDef(root, pid);
+    const flows = pipelineFlows(def);
+    // the id→def lookup tasks resolve against: every flow's stages, plus any
+    // legacy pool stages not in a flow (first occurrence of an id wins)
+    const allStages = flattenFlows([...flows, { stages: def.stages || [] }]);
     const tids = [...new Set([...listDirs(path.join(pipelinesRoot, pid)), ...(scan.found.get(pid) || [])])]
       .filter((tid) => !tombstones.has(pid + "/" + tid));
     const tasks = tids.map((tid) => {
       const meta = readTaskMetaFromAnyBranch(root, scan, pid, tid);
-      const defStages = (def.stages || []).map((s) => s.id);
-      // template tasks keep their own (subset) flow; otherwise show the FULL
-      // pipeline flow — upcoming steps are visible even before they run.
-      const stages = meta.template && (meta.stages || []).length
+      const defStages = allStages.map((s) => s.id);
+      // flow/template tasks keep their own (subset) stage list; otherwise show
+      // the FULL pipeline — upcoming steps are visible even before they run.
+      const stages = (meta.flow || meta.template) && (meta.stages || []).length
         ? meta.stages
         : [...new Set([...(meta.stages || []), ...defStages])];
       const tr = meta.tracking || {};
@@ -288,14 +328,14 @@ export function readProject(root) {
       return {
         id: meta.id || tid, pipeline: pid, title: meta.title || tid,
         ref: refs[pid + "/" + tid] || meta.ref || null,
-        type: meta.type || "", template: meta.template || "",
+        type: meta.type || "", template: meta.template || "", flow: meta.flow || meta.template || "",
         status: meta.status || "in-progress", finalized: !!meta.finalized,
         stages, tracking: tr, branch: taskBranchName(pid, tid),
         progress: stages.length ? Math.round((done / stages.length) * 100) : 0,
         live: !!meta._live, onBranch: meta._onBranch || null,
       };
     });
-    return { id: def.id || pid, label: def.label || pid, workingDir: def.workingDir || ".", stages: def.stages || [], templates: def.templates || [], tasks };
+    return { id: def.id || pid, label: def.label || pid, workingDir: def.workingDir || ".", stages: allStages, flows, templates: def.templates || [], archived: !!def.archived, tasks };
   });
   return { initialized: pipelines.length > 0, business, pipelines, inbox: readInbox(root) };
 }
@@ -308,74 +348,136 @@ const normTemplates = (templates) => (Array.isArray(templates) ? templates : [])
   .filter((t) => t && t.id)
   .map((t) => ({ id: safeRef(t.id), label: t.label || t.id, description: String(t.description || ""), stages: (Array.isArray(t.stages) ? t.stages : []).map(safeRef) }));
 
-export function createPipeline(root, { id, label, workingDir = ".", stages = [], templates = [] }) {
+export function createPipeline(root, { id, label, workingDir = ".", stages = [], flows = [], templates = [] }) {
   if (!id) return { ok: false, error: "pipeline id required" };
   const pid = safeRef(id);
   const metaPath = rel.pipelineMeta(pid);
   if (fs.existsSync(path.join(root, metaPath))) return { ok: false, error: "pipeline already exists" };
   ensureDataDir(root);   // materialise .bridza/.metadata now, committed below
   const tpls = normTemplates(templates);
-  writeJSON(path.join(root, metaPath), { v: 1, id: pid, label: label || id, workingDir, stages, templates: tpls });
-  const flow = (stages || []).map((s) => s.name || s.id).join(" → ");
+  // whatever form the caller speaks (flows / stage list / template subsets),
+  // the pipeline is stored in the flows form + the flattened stage union
+  const fl = pipelineFlows({ id: pid, label: label || id, stages, flows, templates: tpls })
+    .map((f, fi) => normFlow(f, fi, label || id));
+  const allStages = flattenFlows(fl);
+  writeJSON(path.join(root, metaPath), { v: 1, id: pid, label: label || id, workingDir, flows: fl, stages: allStages, templates: tpls });
   const msg = [
-    `bridza: add pipeline "${label || id}" (${pid}) · ${stages.length} stage${stages.length === 1 ? "" : "s"}`,
+    `bridza: add pipeline "${label || id}" (${pid}) · ${allStages.length} stage${allStages.length === 1 ? "" : "s"}`,
     "",
-    `Stage flow: ${flow || "(none)"}`,
+    ...fl.map((f) => `Flow "${f.name}": ${f.stages.map((s) => s.name || s.id).join(" → ") || "(none)"}`),
     `Working dir: ${workingDir}`,
     ...(tpls.length ? [`Templates: ${tpls.map((t) => t.label).join(", ")}`] : []),
   ].join("\n");
   const commit = commitPaths(root, [DATA_DIR + "/.gitignore", DATA_DIR + "/README.md", DATA_DIR + "/.metadata/creation-guide.md", rel.business(), rel.principles(), rel.rules(), metaPath], msg);
+  // Materialize the template's ADVISORY ordering into the plan board (the
+  // editable source of truth): every flow handoff (`next`) whose two ends now
+  // both exist becomes a pipeline edge from→to. Both directions are checked —
+  // this pipeline pointing at installed ones, and installed flows pointing here.
+  const edges = [];
+  for (const f of fl) if (f.next && fs.existsSync(path.join(root, rel.pipelineMeta(f.next.pipeline)))) edges.push({ from: pid, to: f.next.pipeline });
+  for (const other of listDirs(path.join(root, rel.pipelines()))) {
+    if (other === pid) continue;
+    for (const f of pipelineFlows(readPipelineDef(root, other))) {
+      if (f.next && f.next.pipeline === pid) edges.push({ from: other, to: pid });
+    }
+  }
+  if (edges.length) {
+    const plan = readPlan(root);
+    savePlan(root, { ...plan, pipeDeps: [...plan.pipeDeps, ...edges] });   // savePlan dedupes
+  }
   return { ok: true, id: pid, committed: commit.committed };
 }
 
-// Edit a pipeline's stage flow (the stage definitions: name, system prompt,
+const normStageDef = (s, i) => ({
+  id: safeRef(s.id || "stage-" + (i + 1)),
+  name: s.name || s.id || "Stage " + (i + 1),
+  hint: s.hint || "",
+  tool: s.tool || "claude",
+  systemPrompt: s.systemPrompt || "",
+  outputs: Array.isArray(s.outputs) ? s.outputs.map((o) => ({ name: o.name || "", type: o.type || "doc", note: o.note || "" })) : [],
+  specs: Array.isArray(s.specs) ? s.specs.map((v) => ({ key: String((v && v.key) || "").trim(), value: String((v && v.value) || "") })).filter((v) => v.key) : [],
+  shell: Array.isArray(s.shell) ? s.shell.filter((c) => String(c).trim()) : [],
+  gate: s.gate || "",
+  auto: !!s.auto,
+  judge: !!s.judge,
+});
+
+// One normalizer for a stored flow, shared by create + save: slugged id,
+// named (falling back to the pipeline label), normalized stages, valid handoff.
+const normFlow = (f, fi, fallbackName) => ({
+  id: safeRef(f.id || "flow-" + (fi + 1)),
+  name: f.name || fallbackName,
+  stages: (Array.isArray(f.stages) ? f.stages : []).map(normStageDef),
+  next: f.next && f.next.pipeline && f.next.flow ? { pipeline: safeRef(f.next.pipeline), flow: safeRef(f.next.flow) } : null,
+});
+
+// Edit a pipeline's stage flows (the stage definitions: name, system prompt,
 // outputs, gate, tool, shell, auto). Stage ids are kept stable on rename so
 // existing tasks (keyed by stage id) stay valid; only NEW tasks pick up the new
-// flow. Commits just the pipeline's metadata.json.
-export function savePipeline(root, { id, label, workingDir, stages, templates }) {
+// flows. `flows` is the multi-flow form; a bare `stages` array (older clients)
+// still works as a single unnamed flow. `stages` is always re-derived as the
+// flattened id→def union. Commits just the pipeline's metadata.json.
+export function savePipeline(root, { id, label, workingDir, stages, flows, templates }) {
   if (!id) return { ok: false, error: "pipeline id required" };
   const pid = safeRef(id);
   const metaPath = rel.pipelineMeta(pid);
   if (!fs.existsSync(path.join(root, metaPath))) return { ok: false, error: "pipeline not found" };
   const cur = readPipelineDef(root, pid);
+  const nextFlows = Array.isArray(flows) && flows.length
+    ? flows.map((f, fi) => normFlow(f, fi, label || cur.label || pid))
+    : Array.isArray(stages) ? [{ id: "main", name: label || cur.label || pid, stages: stages.map(normStageDef) }]
+      : pipelineFlows(cur);
   const next = {
     ...cur, id: pid,
     label: label != null ? label : cur.label,
     workingDir: workingDir != null ? workingDir : (cur.workingDir || "."),
-    stages: Array.isArray(stages) ? stages.map((s, i) => ({
-      id: safeRef(s.id || "stage-" + (i + 1)),
-      name: s.name || s.id || "Stage " + (i + 1),
-      hint: s.hint || "",
-      tool: s.tool || "claude",
-      systemPrompt: s.systemPrompt || "",
-      outputs: Array.isArray(s.outputs) ? s.outputs.map((o) => ({ name: o.name || "", type: o.type || "doc", note: o.note || "" })) : [],
-      shell: Array.isArray(s.shell) ? s.shell.filter((c) => String(c).trim()) : [],
-      gate: s.gate || "",
-      auto: !!s.auto,
-    })) : cur.stages,
+    flows: nextFlows,
+    stages: flattenFlows(nextFlows),
     templates: templates != null ? normTemplates(templates) : (cur.templates || []),
   };
   writeJSON(path.join(root, metaPath), next);
   const msg = [
-    `bridza: edit pipeline "${next.label || pid}" (${pid}) stage flow · ${next.stages.length} stage${next.stages.length === 1 ? "" : "s"}`,
+    `bridza: edit pipeline "${next.label || pid}" (${pid}) stage flows · ${next.flows.length} flow${next.flows.length === 1 ? "" : "s"}, ${next.stages.length} stage${next.stages.length === 1 ? "" : "s"}`,
     "",
-    `Stage flow: ${next.stages.map((s) => s.name || s.id).join(" → ") || "(none)"}`,
+    ...next.flows.map((f) => `Flow "${f.name}": ${f.stages.map((s) => s.name || s.id).join(" → ") || "(none)"}`),
     ...(next.templates.length ? [`Templates: ${next.templates.map((t) => t.label).join(", ")}`] : []),
   ].join("\n");
   const commit = commitPaths(root, [metaPath], msg);
   return { ok: true, id: pid, committed: commit.committed, pipeline: next };
 }
 
-export function createTask(root, { pipeline, id, title = "", type = "", outputMode = "docs", stages, template = "" }) {
+// Archive / unarchive a pipeline: it disappears from the main sidebar list but
+// ALL its data (.bridza dir, tasks, branches, history) stays — nothing is
+// deleted. Just a flag in the pipeline's metadata, committed like any edit.
+export function archivePipeline(root, { id, archived = true }) {
+  if (!id) return { ok: false, error: "pipeline id required" };
+  const pid = safeRef(id);
+  const metaPath = rel.pipelineMeta(pid);
+  if (!fs.existsSync(path.join(root, metaPath))) return { ok: false, error: "pipeline not found" };
+  const def = readPipelineDef(root, pid);
+  def.archived = !!archived;
+  writeJSON(path.join(root, metaPath), def);
+  const commit = commitPaths(root, [metaPath], `bridza: ${archived ? "archive" : "unarchive"} pipeline "${def.label || pid}" (${pid})\n\nData is kept — only hidden from the pipeline list.`);
+  return { ok: true, id: pid, archived: !!archived, committed: commit.committed };
+}
+
+export function createTask(root, { pipeline, id, title = "", type = "", outputMode = "docs", stages, flow = "", template = "", dependsOn = "" }) {
   const bad = !pipeline ? "pipeline required" : !id ? "task id required" : null;
   if (bad) return { ok: false, error: bad };
   const pid = safeRef(pipeline), tid = safeRef(id);
   const def = readPipelineDef(root, pid);
-  // stage flow: explicit stages > the chosen template's subset > the pipeline flow
+  const flows = pipelineFlows(def);
+  // Every task belongs to ONE flow. When the pipeline has several, the choice
+  // is mandatory (the client enforces it; template is the legacy alias).
+  const chosen = flows.find((f) => f.id === safeRef(flow || template)) || (flows.length === 1 ? flows[0] : null);
+  if (!chosen && flows.length > 1 && !(stages && stages.length)) {
+    return { ok: false, error: "this pipeline has " + flows.length + " stage flows — pick one: " + flows.map((f) => f.id).join(", ") };
+  }
   const tpl = template ? (def.templates || []).find((t) => t.id === safeRef(template)) : null;
+  // stage list: explicit stages > the chosen flow > the flattened pipeline pool
   const stageIds = stages && stages.length ? stages.map(safeRef)
-    : tpl && tpl.stages.length ? tpl.stages
-      : (def.stages || []).map((s) => s.id);
+    : chosen ? chosen.stages.map((s) => s.id)
+      : flattenFlows(flows).map((s) => s.id);
   const metaPath = rel.taskMeta(pid, tid), ctxPath = rel.taskContext(pid, tid);
   if (fs.existsSync(path.join(root, metaPath))) return { ok: false, error: "task already exists" };
   ensureDataDir(root);   // self-heal the .bridza/README.md map + .gitignore for older projects
@@ -387,20 +489,65 @@ export function createTask(root, { pipeline, id, title = "", type = "", outputMo
   }
   const ref = assignRefs(root, [pid + "/" + tid])[pid + "/" + tid];
   writeJSON(path.join(root, metaPath), {
-    v: 1, id: tid, pipeline: pid, title: title || tid, ref, type: type || (tpl ? tpl.id : ""), template: tpl ? tpl.id : "", outputMode,
+    v: 1, id: tid, pipeline: pid, title: title || tid, ref, type: type || (tpl ? tpl.id : ""), flow: chosen ? chosen.id : "", template: tpl ? tpl.id : "", outputMode,
     branch: taskBranchName(pid, tid), stages: stageIds, routing: {},
     status: "in-progress", finalized: false, tracking: {},
   });
-  writeText(path.join(root, ctxPath), (title ? "# " + title + "\n\n" : "") + "Describe the intent of this task.\n");
+  // handoff manifest: a follow-on task's context.md opens with WHO it follows
+  // and the files that task produced — the concrete inputs to this one.
+  const dep = String(dependsOn || "").trim();
+  const depOk = /^[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+$/.test(dep) && dep !== pid + "/" + tid;
+  let manifest = "";
+  if (depOk) {
+    const [up, ut] = dep.split("/");
+    let umeta;
+    try { umeta = JSON.parse(git(root, ["show", taskBranchName(up, ut) + ":" + rel.taskMeta(up, ut)])); }
+    catch (e) { umeta = readTaskMeta(root, up, ut); }
+    const files = [...new Set(Object.values(umeta.tracking || {}).flatMap((tr) => (tr.runs || []).flatMap((r) => r.files || [])))];
+    manifest = [
+      `Follow-on from ${umeta.ref ? "#" + umeta.ref + " " : ""}"${umeta.title || ut}" (${dep}).`,
+      "",
+      files.length ? "Inputs produced by the upstream task (in this repo once it finalizes):" : "The upstream task has no tracked output files yet.",
+      ...files.slice(0, 40).map((f) => "- " + f),
+      "",
+    ].join("\n");
+  }
+  writeText(path.join(root, ctxPath), (title ? "# " + title + "\n\n" : "") + manifest + "Describe the intent of this task.\n");
   const msg = [
     `bridza: add task #${ref} "${(title || tid).slice(0, 50)}" (${pid}/${tid})`,
     "",
     `Branch: ${taskBranchName(pid, tid)}`,
     `Stages: ${stageIds.join(" → ")}`,
+    ...(chosen ? [`Flow: ${chosen.name}`] : []),
     ...(tpl ? [`Template: ${tpl.label || tpl.id}`] : []),
     ...(type && (!tpl || type !== tpl.id) ? [`Type: ${type}`] : []),
   ].join("\n");
   const commit = commitPaths(root, [DATA_DIR + "/README.md", DATA_DIR + "/.gitignore", DATA_DIR + "/.metadata/creation-guide.md", metaPath, ctxPath], msg);
+  // dependency wiring — its stages refuse to run until the gate opens:
+  //   1. explicit handoff (dependsOn) → an AND-dep + a focused-context link,
+  //      so the upstream ticket rides into every stage prompt of this task
+  //   2. pipeline sequence edges (plan.pipeDeps) → auto-gate on every OPEN
+  //      task of each upstream pipeline (snapshot at creation; done tasks
+  //      satisfy the gate automatically at run time)
+  const key = pid + "/" + tid;
+  const plan = readPlan(root);
+  const g = plan.deps[key] || { all: [], any: [] };
+  let planTouched = false;
+  if (depOk && !g.all.includes(dep)) { g.all.push(dep); planTouched = true; }
+  if (depOk && !(plan.links[key] || []).includes(dep)) { plan.links[key] = [...(plan.links[key] || []), dep]; planTouched = true; }
+  for (const e of plan.pipeDeps.filter((d) => d && d.to === pid)) {
+    if (readPipelineDef(root, e.from).archived) continue;   // hidden pipelines don't gate new work
+    for (const ut of listDirs(path.join(root, rel.pipeline(e.from)))) {
+      const uk = e.from + "/" + ut;
+      if (uk === key || g.all.includes(uk)) continue;
+      if (readTaskMeta(root, e.from, ut).finalized) continue;   // delivered — nothing to wait on
+      g.all.push(uk); planTouched = true;
+    }
+  }
+  if (planTouched) {
+    if (g.all.length || g.any.length) plan.deps[key] = g;
+    savePlan(root, plan);
+  }
   // create the task branch off the just-committed stub so its history starts clean
   const b = ensureTaskBranch(root, pid, tid);
   return { ok: true, id: tid, pipeline: pid, ref, branch: b.branch, committed: commit.committed };
@@ -484,10 +631,12 @@ export function readPlan(root) {
     milestones: (j && Array.isArray(j.milestones)) ? j.milestones : [],
     pos: (j && j.pos && typeof j.pos === "object") ? j.pos : {},
     links: (j && j.links && typeof j.links === "object") ? j.links : {},
+    pipeDeps: (j && Array.isArray(j.pipeDeps)) ? j.pipeDeps : [],
+    est: (j && j.est && typeof j.est === "object") ? j.est : {},
   };
 }
 
-export function savePlan(root, { deps, milestones, pos, links } = {}) {
+export function savePlan(root, { deps, milestones, pos, links, pipeDeps, est } = {}) {
   ensureDataDir(root);
   const cur = readPlan(root);
   const nextDeps = {};
@@ -518,7 +667,20 @@ export function savePlan(root, { deps, milestones, pos, links } = {}) {
     const clean = cleanKeys(list).filter((x) => x !== k);
     if (clean.length) nextLinks[k] = clean;
   }
-  const next = { v: 1, deps: nextDeps, milestones: nextMs, pos: nextPos, links: nextLinks };
+  // pipeline-level sequence edges: { from, to } pipeline ids. The plan board
+  // is the source of truth; every new task in `to` is auto-gated on `from`'s
+  // open tasks (see createTask) — order enforced by blockedByPlan at run time.
+  const seenPD = new Set();
+  const nextPD = (pipeDeps != null ? pipeDeps : cur.pipeDeps).map((d) => d && ({ from: safeRef(d.from), to: safeRef(d.to) }))
+    .filter((d) => d && d.from && d.to && d.from !== d.to && d.from !== "x" && d.to !== "x")
+    .filter((d) => { const k = d.from + "→" + d.to; if (seenPD.has(k)) return false; seenPD.add(k); return true; });
+  // per-task cost estimates in HOURS — weight the critical path, shown on nodes
+  const nextEst = {};
+  for (const [k, v] of Object.entries(est != null ? est : cur.est)) {
+    const h = Number(v);
+    if (KEY_RE.test(k) && Number.isFinite(h) && h > 0) nextEst[k] = Math.round(h * 10) / 10;
+  }
+  const next = { v: 1, deps: nextDeps, milestones: nextMs, pos: nextPos, links: nextLinks, pipeDeps: nextPD, est: nextEst };
   writeJSON(path.join(root, rel.plan()), next);
   const nD = Object.keys(nextDeps).length, nM = nextMs.length, nL = Object.keys(nextLinks).length;
   const msg = [

@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// Drive the real Bridza app in Chromium. The dev server runs with a STUB tool
+// Drive the real Bridza app in Firefox (the browser installed in the local
+// playwright cache). The dev server runs with a STUB tool
 // (BRIDZA_TOOL_OVERRIDE) so stage runs are instant + deterministic — no opencode.
 const PORT = 5199;
 const STUB = JSON.stringify({
@@ -17,8 +18,8 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"]],
   globalSetup: "./e2e/global-setup.js",
-  use: { baseURL: `http://localhost:${PORT}`, trace: "on-first-retry" },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  use: { baseURL: `http://localhost:${PORT}`, trace: "on-first-retry", actionTimeout: 15_000 },
+  projects: [{ name: "firefox", use: { ...devices["Desktop Firefox"] } }],
   webServer: {
     command: `npx vite --port ${PORT} --strictPort`,
     env: { BRIDZA_TOOL_OVERRIDE: STUB },
