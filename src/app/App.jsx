@@ -172,17 +172,30 @@ const Hamburger = ({ collapsed, onExpandSide }) => collapsed ? <button className
 
 function Welcome({ recents, onPick, onOpen, onForget, error }) {
   const [typed, setTyped] = useState("");
+  // On the DEPLOYED (static) site there is no local bridge — no folder picker,
+  // no git, no CLI runs. Probe once and say so up front instead of offering
+  // buttons that can only fail. Locally the probe returns the tool list.
+  const [bridge, setBridge] = useState(null);   // null = probing, then true/false
+  useEffect(() => { api.getTools("").then((r) => setBridge(!!(r && r.tools))); }, []);
   return (
     <div className="center">
       <div className="panel">
         <h2>Bridza</h2>
         <p className="muted">Agentic project management. Open a repo — its <code>.bridza/</code> is your database.</p>
         {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
-        <div className="row" style={{ marginTop: 16 }}>
-          <button className="btn primary" onClick={onPick}>Open folder…</button>
-          <input className="input" placeholder="…or paste a path" value={typed} onChange={(e) => setTyped(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && typed.trim() && onOpen(typed.trim())} />
-        </div>
+        {bridge === false ? (
+          <div className="no-bridge">
+            <p style={{ margin: "14px 0 6px" }}>🌐 <b>You're on the hosted preview.</b> A web page can't open your file manager or touch your repos — Bridza runs on <i>your</i> machine, where it drives git and your local <code>claude</code>/<code>opencode</code> CLIs.</p>
+            <pre className="mono">{"git clone https://github.com/erluxman/bridza\ncd bridza && pnpm install && pnpm dev"}</pre>
+            <p className="muted" style={{ fontSize: 12.5 }}>then open <code>http://localhost:5173/app</code> and this screen will pick folders for real.</p>
+          </div>
+        ) : (
+          <div className="row" style={{ marginTop: 16 }}>
+            <button className="btn primary" onClick={onPick}>Open folder…</button>
+            <input className="input" placeholder="…or paste a path" value={typed} onChange={(e) => setTyped(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && typed.trim() && onOpen(typed.trim())} />
+          </div>
+        )}
         {recents.length > 0 && (
           <div className="recents">
             <div className="side-label" style={{ padding: "10px 0 4px" }}>Recents</div>
