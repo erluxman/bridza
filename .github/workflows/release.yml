@@ -18,7 +18,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
+        # windows-2022 (VS 2022): the newer runner images ship VS 2026, which
+        # node-pty's bundled node-gyp can't detect ("no Visual Studio found").
+        os: [macos-latest, windows-2022, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +31,12 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+
+      # node-pty is rebuilt from source for Electron's ABI (via node-gyp).
+      # Python 3.12 removed distutils, which node-gyp 9 imports → pin 3.11.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
       - run: pnpm install --frozen-lockfile
 
