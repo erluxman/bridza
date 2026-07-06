@@ -8,6 +8,8 @@ import { gateSatisfied, criticalPath } from "../../../core/domain.js";
 import { Hamburger } from "../ui.jsx";
 
 const PN = { H: 50, ROW: 86, GW: 34, GH: 18 };
+// #16 — palette assigned to pipelines by order; nodes carry their pipeline's colour
+const PIPE_COLORS = ["#5ad18b", "#e0726f", "#4f9cf2", "#d8a24a", "#a97bd6", "#4ec9c9", "#e59abf", "#8bbf5a", "#f0a860", "#7aa2f7"];
 const trunc = (s, n) => (s || "").length > n ? s.slice(0, n - 1) + "…" : (s || "");
 
 // layer = longest dependency chain leading into a task (roots = 0), with a
@@ -62,6 +64,7 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
   const [wide, setWide] = useState(() => localStorage.getItem("bridza-plan-wide") === "1");
   const [critOn, setCritOn] = useState(false);
   const [dragPos, setDragPos] = useState({});   // live positions while dragging a node/milestone
+  const [sizeLive, setSizeLive] = useState({});   // #13 — live sizes while dragging a resize handle
   const [linkFrom, setLinkFrom] = useState(null);   // pipeline-timeline: edge source being connected
   const svgRef = useRef(null);
   const dragRef = useRef(null);
@@ -70,7 +73,7 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
 
   useEffect(() => {
     let on = true;
-    api.getPlan(dir).then((r) => { if (on) setPlan({ deps: (r.plan && r.plan.deps) || {}, milestones: (r.plan && r.plan.milestones) || [], pos: (r.plan && r.plan.pos) || {}, pipeDeps: (r.plan && r.plan.pipeDeps) || [], est: (r.plan && r.plan.est) || {} }); });
+    api.getPlan(dir).then((r) => { if (on) setPlan({ deps: (r.plan && r.plan.deps) || {}, milestones: (r.plan && r.plan.milestones) || [], pos: (r.plan && r.plan.pos) || {}, sizes: (r.plan && r.plan.sizes) || {}, pipeDeps: (r.plan && r.plan.pipeDeps) || [], est: (r.plan && r.plan.est) || {} }); });
     return () => { on = false; };
   }, [dir]);
 
@@ -106,6 +109,8 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
   })));
   const byKey = new Map(tasks.map((t) => [t.key, t]));
   const doneSet = new Set(tasks.filter((t) => t.done).map((t) => t.key));
+  // #16 — stable color per pipeline, so nodes read as colour-coded groups
+  const pipeColor = (pid) => { const i = proj.pipelines.findIndex((p) => p.id === pid); return PIPE_COLORS[(i < 0 ? 0 : i) % PIPE_COLORS.length]; };
   const gateOf = (k) => {
     const g = plan.deps[k] || {};
     return { all: (g.all || []).filter((x) => byKey.has(x)), any: (g.any || []).filter((x) => byKey.has(x)) };
@@ -145,6 +150,10 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
   const W = wide ? Math.min(380, Math.max(190, 30 + maxTitle * 7)) : 170;
   const COL = W + 96;
   const titleChars = wide ? 999 : 21;
+  // #13 — per-task card size (falls back to the uniform default). live sizes while
+  // dragging a resize handle override the saved ones.
+  const wOf = (k) => (sizeLive[k] && sizeLive[k].w) || (plan.sizes && plan.sizes[k] && plan.sizes[k].w) || W;
+  const hOf = (k) => (sizeLive[k] && sizeLive[k].h) || (plan.sizes && plan.sizes[k] && plan.sizes[k].h) || PN.H;
 
   // positions: auto layout, overridden by saved manual positions (plan.pos),
   // then auto-only members get shifted down until milestone boxes don't overlap
@@ -154,7 +163,9 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
   const boxOf = (members) => {
     const xs = members.map((k) => basePos[k].x), ys = members.map((k) => basePos[k].y);
     const x = Math.min(...xs) - 16, y = Math.min(...ys) - 34;
-    return { x, y, w: Math.max(...xs) + W - x + 16, h: Math.max(...ys) + PN.H - y + 14 };
+    const right = Math.max(...members.map((k) => basePos[k].x + wOf(k)));
+    const bottom = Math.max(...members.map((k) => basePos[k].y + hOf(k)));
+    return { x, y, w: right - x + 16, h: bottom - y + 14 };
   };
   const hits = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
   const placed = [];
@@ -172,8 +183,8 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
     placed.push(box);
   });
   const pos = { ...basePos, ...dragPos };
-  const maxX = Math.max(0, ...tasks.map((t) => pos[t.key].x)) + W + 80;
-  const maxY = Math.max(0, ...tasks.map((t) => pos[t.key].y)) + PN.H + 80;
+  const maxX = Math.max(0, ...tasks.map((t) => pos[t.key].x + wOf(t.key))) + 80;
+  const maxY = Math.max(0, ...tasks.map((t) => pos[t.key].y + hOf(t.key))) + 80;
 
   // ---- mutations (each save commits .bridza/plan.json) ----------------------
   const save = (next) => { setPlan(next); api.savePlan(dir, next).then((r) => { if (!r.ok) flash(r.error || "plan save failed"); }); };
@@ -232,6 +243,11 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
 
   // ---- one drag system: pan the board, drag a node, or drag a whole milestone ----
   const startDrag = (e, d) => { e.stopPropagation(); dragRef.current = { ...d, sx: e.clientX, sy: e.clientY, moved: false }; };
+  // #13 — resize a card from its bottom-right handle. ⌘/Ctrl-drag resizes EVERY card.
+  const startResize = (e, key) => {
+    e.stopPropagation();
+    dragRef.current = { type: "resize", key, all: e.metaKey || e.ctrlKey, ow: wOf(key), oh: hOf(key), sx: e.clientX, sy: e.clientY, moved: false };
+  };
   const bgDown = (e) => { dragRef.current = { type: "pan", sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, moved: false }; };
   const bgMove = (e) => {
     const d = dragRef.current;
@@ -240,7 +256,12 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
     if (Math.abs(dx) + Math.abs(dy) > 3) d.moved = true;
     if (!d.moved) return;
     if (d.type === "pan") setView((v) => ({ ...v, x: d.vx + dx, y: d.vy + dy }));
-    else {
+    else if (d.type === "resize") {
+      const nw = Math.min(600, Math.max(120, d.ow + dx / view.k));
+      const nh = Math.min(240, Math.max(38, d.oh + dy / view.k));
+      d.liveSize = d.all ? Object.fromEntries(tasks.map((t) => [t.key, { w: nw, h: nh }])) : { [d.key]: { w: nw, h: nh } };
+      setSizeLive(d.liveSize);
+    } else {
       // keep the live positions on the ref too — mouseup may fire before React
       // re-renders, and persisting must not read stale state
       d.live = Object.fromEntries(d.keys.map((k) => [k, { x: d.orig[k].x + dx / view.k, y: d.orig[k].y + dy / view.k }]));
@@ -254,10 +275,17 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
     if (!d.moved) {
       if (d.type === "node") { setSel(d.keys[0]); setSelMs(null); }
       else if (d.type === "ms") { setSelMs(d.id); setSel(null); }
+      else if (d.type === "resize") { /* a click on the handle, no drag — do nothing */ }
       else { setSel(null); setSelMs(null); }
       return;
     }
     if (d.type === "pan") return;
+    if (d.type === "resize") {
+      const nextSizes = { ...(plan.sizes || {}), ...(d.liveSize || {}) };
+      setSizeLive({});
+      save({ ...plan, sizes: nextSizes });
+      return;
+    }
     // persist the dragged positions (rounded) into the committed plan
     const nextPos = { ...(plan.pos || {}) };
     d.keys.forEach((k) => { const p = (d.live && d.live[k]) || dragPos[k] || pos[k]; nextPos[k] = { x: Math.round(p.x), y: Math.round(p.y) }; });
@@ -285,7 +313,7 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
     if (!members.length) return { m, empty: true, members };
     const xs = members.map((k) => pos[k].x), ys = members.map((k) => pos[k].y);
     const x = Math.min(...xs) - 16, y = Math.min(...ys) - 34;
-    const w = Math.max(...xs) + W - x + 16, h = Math.max(...ys) + PN.H - y + 14;
+    const w = Math.max(...members.map((k) => pos[k].x + wOf(k))) - x + 16, h = Math.max(...members.map((k) => pos[k].y + hOf(k))) - y + 14;
     const done = members.filter((k) => doneSet.has(k)).length;
     return { m, x, y, w, h, done, n: members.length, members, gated: msBlockedBy(m).length > 0 };
   });
@@ -305,7 +333,7 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
   tasks.forEach((t) => {
     const g = gateOf(t.key);
     const { x: tx, y: ty } = pos[t.key];
-    const inY = ty + PN.H / 2;
+    const inY = ty + hOf(t.key) / 2;
     const groups = [["all", g.all], ["any", g.any]].filter(([, list]) => list.length);
     const single = groups.length === 1 && groups[0][1].length === 1;
     groups.forEach(([kind, list], gi) => {
@@ -319,7 +347,7 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
       }
       list.forEach((dep) => {
         const dp = pos[dep];
-        const src = { x: dp.x + W, y: dp.y + PN.H / 2 };
+        const src = { x: dp.x + wOf(dep), y: dp.y + hOf(dep) / 2 };
         const dst = useGate ? { x: gx, y: gy + PN.GH / 2 } : { x: tx, y: inY };
         edges.push({ id: t.key + ":" + kind + ":" + dep, hot: doneSet.has(dep), run: runningTasks.has(dep), crit: critPairs.has(dep + ">" + t.key), ...tracePath(src.x, src.y, dst.x, dst.y) });
       });
@@ -426,17 +454,22 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
               {tasks.map((t) => {
                 const st = stateOf(t);
                 const { x, y } = pos[t.key];
+                const nw = wOf(t.key), nh = hOf(t.key);   // #13 — per-card size
                 return (
                   <g key={t.key} transform={`translate(${x},${y})`} className={"plan-node " + st + (sel === t.key ? " sel" : "") + (critSet.has(t.key) ? " crit" : "")}
                     onMouseDown={(e) => startDrag(e, { type: "node", keys: [t.key], orig: { [t.key]: pos[t.key] } })}
                     onDoubleClick={() => onOpenTask(t.pid, t.tid)}>
-                    <rect className="pn-box" width={W} height={PN.H} rx="9" />
-                    <rect className="pn-prog" x="1" y={PN.H - 4} width={Math.max(0, (W - 2) * t.progress / 100)} height="3" rx="1.5" />
-                    <circle className="pn-pin" cx="0" cy={PN.H / 2} r="3" />
-                    <circle className="pn-pin" cx={W} cy={PN.H / 2} r="3" />
-                    <text className="pn-title" x="11" y="20">{trunc(t.title, titleChars)}</text>
-                    <text className="pn-sub" x="11" y="36">{trunc(t.pipe, wide ? 40 : 12)} · {st === "done" ? "✓ done" : st === "running" ? "● running" : st === "blocked" ? "⛔ blocked" : "○ ready"}</text>
-                    {est[t.key] > 0 && <text className="pn-est" x={W - 10} y="20" textAnchor="end">~{est[t.key]}h</text>}
+                    <rect className="pn-box" width={nw} height={nh} rx="9" />
+                    <rect className="pn-accent" x="0" y="7" width="3.5" height={nh - 14} rx="1.75" fill={pipeColor(t.pid)} />
+                    <rect className="pn-prog" x="1" y={nh - 4} width={Math.max(0, (nw - 2) * t.progress / 100)} height="3" rx="1.5" />
+                    <circle className="pn-pin" cx="0" cy={nh / 2} r="3" />
+                    <circle className="pn-pin" cx={nw} cy={nh / 2} r="3" />
+                    <text className="pn-title" x="14" y="20">{trunc(t.title, titleChars)}</text>
+                    <text className="pn-sub" x="14" y="36"><tspan fill={pipeColor(t.pid)} style={{ fontWeight: 600 }}>{trunc(t.pipe, wide ? 40 : 12)}</tspan> · {st === "done" ? "✓ done" : st === "running" ? "● running" : st === "blocked" ? "⛔ blocked" : "○ ready"}</text>
+                    {est[t.key] > 0 && <text className="pn-est" x={nw - 10} y="20" textAnchor="end">~{est[t.key]}h</text>}
+                    {/* #13 — resize handle (⌘/Ctrl-drag resizes every card) */}
+                    <path className="pn-resize" d={`M ${nw - 12} ${nh} L ${nw} ${nh - 12} L ${nw} ${nh} Z`}
+                      onMouseDown={(e) => startResize(e, t.key)}><title>Drag to resize · ⌘-drag resizes all cards</title></path>
                   </g>
                 );
               })}

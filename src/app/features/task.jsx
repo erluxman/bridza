@@ -6,7 +6,7 @@ import * as api from "../api/client.js";
 import { pipelineFlows, specLabel } from "../../../core/domain.js";
 import { slug, runPrompt, fmt, workFiles, base, ago } from "../lib/format.js";
 import { Hamburger, ColGrip, useColWidth, Kv } from "../ui.jsx";
-import { DiffView } from "./diff.jsx";
+import { DiffView, FileModal } from "./diff.jsx";
 import { TermDrawer } from "./term.jsx";
 
 export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, onBack, onChange, onOpenTask, flash, collapsed, onExpandSide }) {
@@ -34,9 +34,15 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   const [tlOpen, setTlOpen] = useState(true);
   const [openStage, setOpenStage] = useState(() => task.stages.find((s) => !(task.tracking[s] && task.tracking[s].status === "done")) || task.stages[0]);
   const [stageTime, setStageTime] = useState({});
+  const [stageIdle, setStageIdle] = useState({});   // #14 — idle seconds per stage (open, no typing, no run)
+  const idleRef = useRef({});
+  const activityRef = useRef(Date.now());   // last keystroke/interaction on the open stage
+  const runningRef = useRef(runningStages);
+  const markActivity = useCallback(() => { activityRef.current = Date.now(); }, []);
   const [diffCommit, setDiffCommit] = useState(null);
   const [diffBranch, setDiffBranch] = useState(false);
   const [resolveOpen, setResolveOpen] = useState(false);
+  const [fileOpen, setFileOpen] = useState(null);   // #7 — path of a file opened in the editor
   const [automating, setAutomating] = useState(false);
   // ONE task-level terminal log: everything any run of this task prints (stage
   // runs + auto-advance) lands here — shown in the auto-advance card.
@@ -77,22 +83,35 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
       const m = {};
       for (const s of task.stages) m[s] = Math.max((r.time || {})[s] || 0, (task.tracking[s] || {}).seconds || 0);
       setStageTime(m); timeRef.current = m;
+      const idle = (r.time && r.time.__idle) || {};   // #14 — hydrate the idle share
+      setStageIdle(idle); idleRef.current = idle;
     });
     return () => { on = false; };
   }, [dir, pipeline.id, task.id]);
   useEffect(() => { timeRef.current = stageTime; }, [stageTime]);
+  useEffect(() => { idleRef.current = stageIdle; }, [stageIdle]);
+  useEffect(() => { runningRef.current = runningStages; }, [runningStages]);
   useEffect(() => { if (autoRef.current) autoRef.current.scrollTop = autoRef.current.scrollHeight; }, [taskLog, showTerm]);
 
-  // live 1s clock on the open stage — that's where time is being spent
+  // live 1s clock on the open stage — that's where time is being spent. #14 —
+  // each second is WORK (a run is live, or you typed in the last 20s) or IDLE
+  // (stage open, just reading / left there). Only the idle share is tracked
+  // separately; work = total − idle.
   useEffect(() => {
     if (!openStage) return;
-    const t = setInterval(() => { dirtyRef.current = true; setStageTime((p) => ({ ...p, [openStage]: (p[openStage] || 0) + 1 })); }, 1000);
+    const t = setInterval(() => {
+      dirtyRef.current = true;
+      const liveHere = runningRef.current && runningRef.current.has(pipeline.id + "/" + task.id + "/" + openStage);
+      const idle = !liveHere && (Date.now() - activityRef.current > 20000);
+      setStageTime((p) => ({ ...p, [openStage]: (p[openStage] || 0) + 1 }));
+      if (idle) setStageIdle((p) => ({ ...p, [openStage]: (p[openStage] || 0) + 1 }));
+    }, 1000);
     return () => clearInterval(t);
-  }, [openStage]);
+  }, [openStage, pipeline.id, task.id]);
 
   // flush to .bridza/.cache/time.json every 10s, on stage switch, and on unmount
   useEffect(() => {
-    const flush = () => { if (!dirtyRef.current) return; dirtyRef.current = false; api.saveTime(dir, pipeline.id, task.id, timeRef.current); };
+    const flush = () => { if (!dirtyRef.current) return; dirtyRef.current = false; api.saveTime(dir, pipeline.id, task.id, { ...timeRef.current, __idle: idleRef.current }); };
     const t = setInterval(flush, 10000);
     window.addEventListener("beforeunload", flush);
     return () => { clearInterval(t); window.removeEventListener("beforeunload", flush); flush(); };
@@ -155,6 +174,51 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
     else if (end) flash(`Automate stopped at ${end.stoppedAt || "?"}: ${end.error || "failed"}`, 6000);
   };
 
+  // #15 — commit history (the timeline) leads the rail, ahead of blast radius.
+  const timelineCard = (
+    <div className="card">
+      <div className="spread" style={{ marginBottom: tlOpen ? 6 : 0 }}>
+        <button className="tl-tog" style={{ width: "auto", flex: 1 }} onClick={() => setTlOpen((o) => !o)}>
+          <span>{tlOpen ? "▾" : "▸"} TIMELINE <span className="muted">{timeline.length}</span></span>
+        </button>
+        <button className="btn ghost sm" onClick={() => setDiffBranch(true)} title="Every file change on this branch, in one view">⊟ all changes</button>
+      </div>
+      {tlOpen && (timeline.length === 0 ? <p className="muted" style={{ fontSize: 12, margin: "6px 0 0" }}>No runs yet.</p> : (
+        <div className="timeline">
+          {timeline.map((c) => {
+            const kind = c.kind || (/: prompt/.test(c.subject) ? "prompt" : /: result/.test(c.subject) ? "result" : "");
+            // visual bucket: done (+old result) = green, failed = red, prompt (old model) = blue
+            const vis = kind === "failed" ? "failed" : kind === "prompt" ? "prompt" : "result";
+            const files = workFiles(c.files);
+            const churn = files.reduce((a, f) => ({ add: a.add + f.add, del: a.del + f.del }), { add: 0, del: 0 });
+            return (
+              <div className={"tl click " + vis} key={c.sha} onClick={() => setDiffCommit(c.sha)} title="View file changes">
+                <span className="tl-rail"><i className="tl-dot" /></span>
+                <div className="tl-body">
+                  <div className="tl-top">
+                    {c.stage && <span className={"tl-stage " + vis}>{c.stage}</span>}
+                    <span className={"sub " + vis}>{c.subject.replace(/^bridza\([^)]*\):\s*/, "")}</span>
+                  </div>
+                  <div className="tl-meta">
+                    <span className="sha">{c.sha.slice(0, 7)}</span>
+                    <span>{ago(c.date)}</span>
+                    {files.length > 0 && <span className="tl-churn"><span className="add">+{churn.add}</span> <span className="del">−{churn.del}</span></span>}
+                  </div>
+                  {files.length > 0 && (
+                    <div className="tl-files">
+                      {files.slice(0, 3).map((f) => <code key={f.path} title={`${f.path}  +${f.add} −${f.del}`}>{base(f.path)}</code>)}
+                      {files.length > 3 && <span className="muted">+{files.length - 3} more</span>}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <>
       <div className="topbar">
@@ -204,18 +268,28 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
               <div className="term" ref={autoRef}>{taskLog || "…"}</div>
             </div>
           )}
-          {stageObjs.map((def) => (
+          {stageObjs.map((def, i) => {
+            // #7 — a stage's inputs are the previous stage's produced files
+            const prevId = i > 0 ? task.stages[i - 1] : null;
+            const prevDone = prevId ? ((task.tracking[prevId] || {}).runs || []).filter((r) => r.status === "done" && r.files && r.files.length).slice(-1)[0] : null;
+            const inputFiles = prevDone ? prevDone.files : [];
+            return (
             <Stage key={def.id} dir={dir} pipeline={pipeline} task={task} def={def} track={task.tracking[def.id] || { status: "idle" }}
               live={runningStages && runningStages.has(pipeline.id + "/" + task.id + "/" + def.id)}
-              tools={tools} seconds={stageTime[def.id] || 0} open={openStage === def.id}
+              tools={tools} seconds={stageTime[def.id] || 0} open={openStage === def.id} inputFiles={inputFiles} onOpenFile={setFileOpen} onActivity={markActivity}
               onToggle={() => setOpenStage(openStage === def.id ? "" : def.id)}
               onDone={() => { onChange(); loadTimeline(); }} flash={flash} onDiff={setDiffCommit} resultFor={resultFor} onLog={appendLog} />
-          ))}
+            );
+          })}
         </div>
         )}
 
         {!railHidden && (
         <aside className="rail">
+          {timelineCard}
+
+          <BlastRadius dir={dir} pipeline={pipeline.id} task={task.id} refreshKey={timeline.length} onOpen={() => setDiffBranch(true)} />
+
           <div className="card">
             <div className="side-label" style={{ padding: "0 0 8px" }}>Task</div>
             {task.ref && <Kv k="Ref" v={<span className="mono">#{task.ref}</span>} />}
@@ -236,57 +310,14 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
 
           <TaskRelations dir={dir} proj={proj} taskKey={key} taskRef={task.ref} plan={plan} setPlan={setPlan} flash={flash} onOpenTask={onOpenTask} />
 
-          <TimeByStage stages={stageObjs} stageTime={stageTime} activeId={openStage} total={total} />
-
-          <div className="card">
-            <div className="spread" style={{ marginBottom: tlOpen ? 6 : 0 }}>
-              <button className="tl-tog" style={{ width: "auto", flex: 1 }} onClick={() => setTlOpen((o) => !o)}>
-                <span>{tlOpen ? "▾" : "▸"} TIMELINE <span className="muted">{timeline.length}</span></span>
-              </button>
-              <button className="btn ghost sm" onClick={() => setDiffBranch(true)} title="Every file change on this branch, in one view">⊟ all changes</button>
-            </div>
-            {tlOpen && (timeline.length === 0 ? <p className="muted" style={{ fontSize: 12, margin: "6px 0 0" }}>No runs yet.</p> : (
-              <div className="timeline">
-                {timeline.map((c) => {
-                  const kind = c.kind || (/: prompt/.test(c.subject) ? "prompt" : /: result/.test(c.subject) ? "result" : "");
-                  // visual bucket: done (+old result) = green, failed = red, prompt (old model) = blue
-                  const vis = kind === "failed" ? "failed" : kind === "prompt" ? "prompt" : "result";
-                  const files = workFiles(c.files);
-                  const churn = files.reduce((a, f) => ({ add: a.add + f.add, del: a.del + f.del }), { add: 0, del: 0 });
-                  return (
-                    <div className={"tl click " + vis} key={c.sha} onClick={() => setDiffCommit(c.sha)} title="View file changes">
-                      <span className="tl-rail"><i className="tl-dot" /></span>
-                      <div className="tl-body">
-                        <div className="tl-top">
-                          {c.stage && <span className={"tl-stage " + vis}>{c.stage}</span>}
-                          <span className={"sub " + vis}>{c.subject.replace(/^bridza\([^)]*\):\s*/, "")}</span>
-                        </div>
-                        <div className="tl-meta">
-                          <span className="sha">{c.sha.slice(0, 7)}</span>
-                          <span>{ago(c.date)}</span>
-                          {files.length > 0 && <span className="tl-churn"><span className="add">+{churn.add}</span> <span className="del">−{churn.del}</span></span>}
-                        </div>
-                        {files.length > 0 && (
-                          <div className="tl-files">
-                            {files.slice(0, 3).map((f) => <code key={f.path} title={`${f.path}  +${f.add} −${f.del}`}>{base(f.path)}</code>)}
-                            {files.length > 3 && <span className="muted">+{files.length - 3} more</span>}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-
-          <BlastRadius dir={dir} pipeline={pipeline.id} task={task.id} refreshKey={timeline.length} onOpen={() => setDiffBranch(true)} />
+          <TimeByStage stages={stageObjs} stageTime={stageTime} stageIdle={stageIdle} activeId={openStage} total={total} />
         </aside>
         )}
       </div>
       {diffCommit && <DiffView dir={dir} commit={diffCommit} commits={timeline} onCommit={setDiffCommit} pipeline={pipeline.id} task={task.id} flash={flash} onEdited={() => { onChange(); loadTimeline(); }} onClose={() => setDiffCommit(null)} />}
       {diffBranch && <DiffView dir={dir} branch pipeline={pipeline.id} task={task.id} flash={flash} onEdited={() => { onChange(); loadTimeline(); }} onClose={() => setDiffBranch(false)} />}
       {resolveOpen && <DiffView dir={dir} working pipeline={pipeline.id} task={task.id} flash={flash} onResolve={(action, m) => finalize(action, m)} onClose={() => setResolveOpen(false)} />}
+      {fileOpen && <FileModal dir={dir} pipeline={pipeline.id} task={task.id} path={fileOpen} flash={flash} onEdited={() => { onChange(); loadTimeline(); }} onSaved={() => { onChange(); loadTimeline(); }} onClose={() => setFileOpen(null)} />}
     </>
   );
 }
@@ -312,6 +343,15 @@ function TaskRelations({ dir, proj, taskKey, plan, setPlan, flash, onOpenTask })
     setPlan(next);
     api.savePlan(dir, next).then((r) => { if (!r.ok) flash(r.error || "couldn't save links"); });
   };
+  // #12 — dependencies are editable right here (mirrors the Plan board): new deps
+  // go into the ALL (AND) group; the plan.json save commits + gates run-time.
+  const saveDeps = (g) => {
+    const next = { ...plan, deps: { ...plan.deps, [taskKey]: g } };
+    setPlan(next);
+    api.savePlan(dir, next).then((r) => { if (!r.ok) flash(r.error || "couldn't save dependencies"); });
+  };
+  const addNeed = (depKey) => { if (!depKey || depKey === taskKey || needs.includes(depKey)) return; saveDeps({ ...gate, all: [...(gate.all || []), depKey] }); };
+  const rmNeed = (depKey) => saveDeps({ all: (gate.all || []).filter((x) => x !== depKey), any: (gate.any || []).filter((x) => x !== depKey) });
   const name = (k) => { const t = byKey.get(k); return t ? (t.ref ? "#" + t.ref + " " : "") + t.title : k; };
   const row = (k, extra) => {
     const t = byKey.get(k);
@@ -325,19 +365,20 @@ function TaskRelations({ dir, proj, taskKey, plan, setPlan, flash, onOpenTask })
   };
   return (
     <>
-      {(needs.length > 0 || blocks.length > 0) && (
-        <div className="card">
-          <div className="side-label" style={{ padding: "0 0 6px" }}>Dependencies</div>
-          {needs.length > 0 && <>
-            <div className="muted" style={{ fontSize: 11, margin: "2px 0 4px" }}>⛔ waits on</div>
-            {needs.map((k) => row(k))}
-          </>}
-          {blocks.length > 0 && <>
-            <div className="muted" style={{ fontSize: 11, margin: "8px 0 4px" }}>🧱 blocked by this task</div>
-            {blocks.map((t) => row(t.key))}
-          </>}
-        </div>
-      )}
+      <div className="card">
+        <div className="side-label" style={{ padding: "0 0 6px" }}>Dependencies</div>
+        <div className="muted" style={{ fontSize: 11, margin: "2px 0 4px" }}>⛔ waits on</div>
+        {needs.map((k) => row(k, <button className="btn ghost sm" onClick={() => rmNeed(k)} title="Remove dependency">×</button>))}
+        <select className="input" value="" onChange={(e) => e.target.value && addNeed(e.target.value)}>
+          <option value="">＋ add dependency…</option>
+          {all.filter((t) => t.key !== taskKey && !needs.includes(t.key))
+            .map((t) => <option key={t.key} value={t.key}>{t.pipe} / {name(t.key)}</option>)}
+        </select>
+        {blocks.length > 0 && <>
+          <div className="muted" style={{ fontSize: 11, margin: "8px 0 4px" }}>🧱 blocked by this task</div>
+          {blocks.map((t) => row(t.key))}
+        </>}
+      </div>
       <div className="card">
         <div className="side-label" style={{ padding: "0 0 6px" }}>🎯 Focused context</div>
         <p className="muted" style={{ fontSize: 11.5, margin: "0 0 8px" }}>Attach tickets whose intent should weigh heavily here — it's injected into every stage prompt.</p>
@@ -352,59 +393,78 @@ function TaskRelations({ dir, proj, taskKey, plan, setPlan, flash, onOpenTask })
   );
 }
 
-function TimeByStage({ stages, stageTime, activeId, total }) {
+function TimeByStage({ stages, stageTime, stageIdle = {}, activeId, total }) {
   const vals = stages.map((s) => stageTime[s.id] || 0);
   const max = Math.max(1, ...vals);
   const peakSec = Math.max(0, ...vals);
   const peak = stages[vals.indexOf(peakSec)] || stages[0];
+  const idleTotal = stages.reduce((a, s) => a + Math.min(stageIdle[s.id] || 0, stageTime[s.id] || 0), 0);
+  const workTotal = Math.max(0, total - idleTotal);   // #14
   return (
     <div className="card">
-      <div className="spread" style={{ marginBottom: 8 }}><span className="side-label" style={{ padding: 0 }}>Time by stage</span><b style={{ fontSize: 13 }}>{fmt(total)}</b></div>
+      <div className="spread" style={{ marginBottom: 8 }}>
+        <span className="side-label" style={{ padding: 0 }}>Time by stage</span>
+        <b style={{ fontSize: 13 }} title={`${fmt(workTotal)} working · ${fmt(idleTotal)} idle`}>{fmt(total)}</b>
+      </div>
+      {total > 0 && (
+        <div className="tb-split" title="Working: a run is live, or you typed in the last 20s. Idle: stage open, just reading or left there.">
+          <span className="tb-work"><i style={{ width: (total ? workTotal / total * 100 : 0) + "%" }} /></span>
+          <span className="tb-split-lbl"><span className="work">▪ {fmt(workTotal)} work</span> · <span className="idle">▪ {fmt(idleTotal)} idle</span></span>
+        </div>
+      )}
       <div className="timeby">
         {stages.map((s) => {
           const sec = stageTime[s.id] || 0, active = s.id === activeId, isPeak = s.id === (peak && peak.id) && sec > 0;
+          const idle = Math.min(stageIdle[s.id] || 0, sec), work = sec - idle;
           return (
             <div className={"tb-row" + (isPeak ? " peak" : "") + (active ? " active" : "")} key={s.id}>
-              <span className="tb-name">{s.name}{active && <i className="livedot" title="tracking now" />}</span>
-              <span className="tb-bar"><i style={{ width: (sec / max * 100) + "%" }} /></span>
+              <span className="tb-name">{active && <i className="livedot lead" title="tracking now" />}{s.name}</span>
+              <span className="tb-bar" title={sec ? `${fmt(work)} work · ${fmt(idle)} idle` : ""}>
+                <i className="work" style={{ width: (work / max * 100) + "%" }} />
+                <i className="idle" style={{ width: (idle / max * 100) + "%" }} />
+              </span>
               <span className="tb-val">{sec ? fmt(sec) : "—"}</span>
             </div>
           );
         })}
       </div>
-      {peakSec > 0 && total > 0 && <div className="tb-note"><b>{peak.name}</b> is the biggest sink — {Math.round(peakSec / total * 100)}% of tracked time.</div>}
+      {peakSec > 0 && total > 0 && <div className="tb-note"><b>{peak.name}</b> is the biggest sink — {Math.round(peakSec / total * 100)}% of tracked time{idleTotal > 0 ? ` · ${Math.round(idleTotal / total * 100)}% idle overall` : ""}.</div>}
     </div>
   );
 }
 
-/* Blast radius — gitGraph semantics: BFS along REVERSE import edges from the
-   task's changed files. Red = changed (distance 0, center). Orange = files
-   that transitively import a changed file; ring = hop distance, opacity fades
-   with distance (1 / .8 / .6 / .4 / .2). Green note = nothing else imports the
-   change (contained). */
+/* Blast radius (#9) — a NAMED node-link graph, laid out left→right by hop. The
+   changed files (red) sit in the leftmost column; each column to the right is
+   one import hop away (orange, fading with distance). Edges are the real import
+   links (importer → the file it imports), so a reviewer sees exactly which files
+   are connected and how far the change reaches — not anonymous dots on rings.
+   Green note = nothing imports the change (contained). */
 const hopOpacity = (d) => d <= 1 ? 1 : d === 2 ? 0.8 : d === 3 ? 0.6 : d === 4 ? 0.4 : 0.2;
 function BlastRadius({ dir, pipeline, task, refreshKey, onOpen }) {
   const [data, setData] = useState(null);
   useEffect(() => {
     let on = true;
-    api.getBlast(dir, pipeline, task).then((d) => { if (on) setData(d && d.ok ? d : { seeds: [], impacted: [] }); });
+    api.getBlast(dir, pipeline, task).then((d) => { if (on) setData(d && d.ok ? d : { seeds: [], impacted: [], edges: [] }); });
     return () => { on = false; };
   }, [dir, pipeline, task, refreshKey]);
   if (!data || data.seeds.length === 0) return null;
 
   const { seeds, impacted } = data;
-  const maxHop = Math.min(4, Math.max(1, ...impacted.map((f) => f.distance)));
+  const HOPCAP = 4, COLCAP = 10;   // cap columns/rows so the rail card stays readable
+  const nodes = [
+    ...seeds.map((s) => ({ path: s.path, hop: 0, add: s.add, del: s.del })),
+    ...impacted.map((i) => ({ path: i.path, hop: Math.min(i.distance, HOPCAP) })),
+  ];
   const byHop = {};
-  impacted.forEach((f) => { const h = Math.min(f.distance, 4); (byHop[h] = byHop[h] || []).push(f); });
-
-  const C = 88, R0 = 16, STEP = maxHop > 3 ? 17 : 21;
-  const ringR = (h) => R0 + h * STEP;
-  const spread = (list, r, seedJitter) => list.map((f, i) => {
-    const a = -Math.PI / 2 + (Math.PI * 2 * i) / Math.max(1, list.length) + (seedJitter ? 0.4 : 0);
-    return { ...f, x: C + Math.cos(a) * r, y: C + Math.sin(a) * r };
-  });
-  const seedDots = spread(seeds, seeds.length === 1 ? 0 : R0 * 0.55, true);
-  const hopDots = Object.entries(byHop).flatMap(([h, list]) => spread(list, ringR(+h)).map((f) => ({ ...f, hop: +h })));
+  nodes.forEach((n) => (byHop[n.hop] = byHop[n.hop] || []).push(n));
+  const hops = Object.keys(byHop).map(Number).sort((a, b) => a - b);
+  const COLW = 132, ROWH = 24, NW = 118, NH = 18, PADX = 6, PADY = 6;
+  const pos = new Map();
+  hops.forEach((h, hi) => byHop[h].slice(0, COLCAP).forEach((n, i) => { n.x = PADX + hi * COLW; n.y = PADY + i * ROWH; pos.set(n.path, n); }));
+  const width = PADX * 2 + (hops.length - 1) * COLW + NW;
+  const height = PADY * 2 + Math.max(1, ...hops.map((h) => Math.min(byHop[h].length, COLCAP))) * ROWH;
+  const edges = (data.edges || []).filter((e) => pos.has(e.from) && pos.has(e.to));
+  const label = (p) => { const b = base(p); return b.length > 18 ? b.slice(0, 17) + "…" : b; };
 
   return (
     <div className="card">
@@ -412,40 +472,39 @@ function BlastRadius({ dir, pipeline, task, refreshKey, onOpen }) {
         <span className="side-label" style={{ padding: 0 }}>Blast radius</span>
         <span className="muted" style={{ fontSize: 11 }}>{seeds.length} changed → <span style={{ color: impacted.length ? "var(--blast-orange)" : "var(--blast-green)" }}>{impacted.length} impacted</span></span>
       </div>
-      <svg className="blast" viewBox="0 0 176 176" onClick={onOpen} role="img" aria-label="Blast radius: files transitively importing this task's changes">
-        {Array.from({ length: maxHop }, (_, i) => <circle key={i} cx={C} cy={C} r={ringR(i + 1)} className="blast-ring" />)}
-        {hopDots.map((f, i) => (
-          <circle key={"o" + i} cx={f.x} cy={f.y} r="4" className="blast-dot orange" style={{ opacity: hopOpacity(f.hop) }}>
-            <title>{`${f.path} — ${f.distance} hop${f.distance === 1 ? "" : "s"} from the change`}</title>
-          </circle>
-        ))}
-        {seedDots.map((f, i) => (
-          <circle key={"s" + i} cx={f.x} cy={f.y} r="5.5" className="blast-dot red">
-            <title>{`${f.path}  +${f.add} −${f.del}  (changed)`}</title>
-          </circle>
-        ))}
-      </svg>
+      {impacted.length === 0 ? (
+        <div className="blast-contained">✓ contained — nothing in the repo imports the changed files</div>
+      ) : (
+        <div style={{ overflowX: "auto" }} onClick={onOpen} title="Open all changes on this branch">
+          <svg className="blast-graph" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Blast radius graph: which files import this task's changes">
+            {edges.map((e, i) => {
+              const a = pos.get(e.to), b = pos.get(e.from);            // a = imported, b = importer
+              const [L, R] = a.x <= b.x ? [a, b] : [b, a];
+              const x1 = L.x + NW, y1 = L.y + NH / 2, x2 = R.x, y2 = R.y + NH / 2, mx = (x1 + x2) / 2;
+              return <path key={i} className="blast-link" d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`} />;
+            })}
+            {hops.flatMap((h) => byHop[h].slice(0, COLCAP)).map((n) => (
+              <g key={n.path} className="blast-node" transform={`translate(${n.x},${n.y})`}>
+                <rect width={NW} height={NH} rx="4" className={n.hop === 0 ? "bn red" : "bn orange"} style={n.hop ? { opacity: hopOpacity(n.hop) } : undefined} />
+                <text x="6" y={NH / 2 + 3.5} className="bn-t">{label(n.path)}</text>
+                <title>{n.hop === 0 ? `${n.path}  +${n.add} −${n.del}  (changed)` : `${n.path} — ${n.hop} hop${n.hop === 1 ? "" : "s"} from the change`}</title>
+              </g>
+            ))}
+            {hops.map((h, hi) => byHop[h].length > COLCAP && (
+              <text key={"m" + h} x={PADX + hi * COLW + 6} y={PADY + COLCAP * ROWH + 2} className="blast-more">+{byHop[h].length - COLCAP} more</text>
+            ))}
+          </svg>
+        </div>
+      )}
       <div className="blast-legend">
         <span><i className="bl red" /> changed</span>
-        <span><i className="bl orange" /> imports it (fades per hop)</span>
-      </div>
-      <div className="blast-hops">
-        {impacted.length === 0 ? (
-          <div className="blast-contained">✓ contained — nothing in the repo imports the changed files</div>
-        ) : (
-          Object.entries(byHop).map(([h, list]) => (
-            <div className="blast-hop" key={h}>
-              <span className="hop-n" style={{ opacity: hopOpacity(+h) }}>{h}{+h === 4 && maxHop === 4 ? "+" : ""} hop{list.length === 1 && +h === 1 ? "" : "s"}</span>
-              <span className="hop-files">{list.slice(0, 3).map((f) => <code key={f.path} title={f.path}>{base(f.path)}</code>)}{list.length > 3 && <span className="muted">+{list.length - 3}</span>}</span>
-            </div>
-          ))
-        )}
+        <span><i className="bl orange" /> imports it (→ = import edge, fades per hop)</span>
       </div>
     </div>
   );
 }
 
-function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle, onDone, flash, onDiff, resultFor, live, onLog }) {
+function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle, onDone, flash, onDiff, resultFor, live, onLog, inputFiles = [], onOpenFile, onActivity }) {
   const runs = track.runs || [];
   const lastPrompt = runs.length ? (runs[runs.length - 1].prompt || "") : "";
   const [tool, setTool] = useState(def.tool || (tools[0] && tools[0].id) || "claude");
@@ -480,6 +539,7 @@ function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle
   };
 
   const run = async () => {
+    if (onActivity) onActivity();
     setOut(""); setRunning(true);
     // mirror into the task-level terminal too, so the Terminal view has it all
     const append = (s) => { setOut((o) => (o + s).slice(-12000)); if (onLog) onLog(s); };
@@ -535,12 +595,15 @@ function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle
             {model.trim() && <button className="btn ghost sm" title="Back to the tool's default model" onClick={() => setModel("")}>×</button>}
             <button className="btn primary" onClick={run} disabled={running}>{running ? "Running…" : "▸ Run stage"}</button>
           </div>
-          <textarea className="input" placeholder={`What should ${def.name} do? (the stage system prompt is applied automatically)`} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
+          <textarea className="input" placeholder={`What should ${def.name} do? (the stage system prompt is applied automatically)`} value={prompt} onChange={(e) => { setPrompt(e.target.value); onActivity && onActivity(); }} />
           {(out || running) && <div className="term" ref={termRef} style={{ marginTop: 10 }}>{out || "…"}</div>}
           {def.specs && def.specs.filter((v) => v.key && String(v.value || "").trim()).length > 0 && (
             <div className="muted" style={{ fontSize: 12, marginTop: 8 }} title="Appended to every run's prompt as hard requirements">
               specs: {def.specs.filter((v) => v.key && String(v.value || "").trim()).map((v, k) => <code key={k} className="iochip" style={{ marginRight: 4 }}>{specLabel(v.key)}: {v.value}</code>)}
             </div>
+          )}
+          {inputFiles.length > 0 && (
+            <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>inputs: {inputFiles.map((f, k) => <code key={k} className="ck" title={"Open " + f} onClick={() => onOpenFile && onOpenFile(f)}>{base(f)}</code>)}</div>
           )}
           {def.outputs && def.outputs.length > 0 && (
             <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>outputs: {def.outputs.map((o) => o.name).join(", ")}</div>

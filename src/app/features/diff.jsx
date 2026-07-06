@@ -38,6 +38,40 @@ function FileEditor({ dir, pipeline, task, editing, setEditing, flash, onSaved }
   );
 }
 
+// #7 — open ANY task file by path in the editor (reads current worktree content,
+// so it works for input files that weren't changed on this branch, not just diffs).
+export function FileModal({ dir, pipeline, task, path, flash, onClose, onSaved }) {
+  const [editing, setEditing] = useState(null);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    let on = true; setEditing(null); setErr("");
+    api.getFile(dir, pipeline, task, path).then((r) => {
+      if (!on) return;
+      if (r.ok) setEditing({ path, content: r.content, orig: r.content });
+      else setErr(r.error || "couldn't open file");
+    });
+    return () => { on = false; };
+  }, [dir, pipeline, task, path]);
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="diffwin" onClick={(e) => e.stopPropagation()}>
+        {err
+          ? <div className="muted" style={{ padding: 24 }}>{err}<div style={{ marginTop: 12 }}><button className="btn ghost sm" onClick={onClose}>Close</button></div></div>
+          : editing
+            ? <FileEditor dir={dir} pipeline={pipeline} task={task} editing={editing}
+                setEditing={(v) => v === null ? onClose() : setEditing(v)} flash={flash}
+                onSaved={() => { onSaved && onSaved(); onClose(); }} />
+            : <div className="muted" style={{ padding: 24 }}>Loading…</div>}
+      </div>
+    </div>
+  );
+}
+
 // Git-PR-style file explorer for DiffView: nested folders (collapsible) with
 // files as leaves. Tree shape comes from the pure buildFileTree helper.
 function FileTree({ tree, activePath, onPick }) {

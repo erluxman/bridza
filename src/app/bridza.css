@@ -111,13 +111,23 @@ textarea.input { resize: vertical; min-height: 64px; }
 .tb-row { display: grid; grid-template-columns: 84px 1fr 52px; align-items: center; gap: 8px; font-size: 12px; }
 .tb-name { color: var(--txt-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 5px; }
 .tb-row.active .tb-name { color: var(--txt); }
-.tb-bar { height: 7px; border-radius: 4px; background: var(--bg-3); overflow: hidden; }
-.tb-bar > i { display: block; height: 100%; background: linear-gradient(90deg, #3a7fd0, var(--accent)); }
-.tb-row.peak .tb-bar > i { background: linear-gradient(90deg, #c98a35, var(--warn)); }
+.tb-bar { height: 7px; border-radius: 4px; background: var(--bg-3); overflow: hidden; display: flex; }
+.tb-bar > i { display: block; height: 100%; }
+.tb-bar > i.work { background: linear-gradient(90deg, #3a7fd0, var(--accent)); }
+.tb-bar > i.idle { background: repeating-linear-gradient(45deg, var(--txt-3) 0 2px, transparent 2px 4px); opacity: .55; }
+.tb-row.peak .tb-bar > i.work { background: linear-gradient(90deg, #c98a35, var(--warn)); }
 .tb-val { text-align: right; color: var(--txt-3); font-family: var(--mono); font-size: 11px; }
 .tb-note { margin-top: 10px; font-size: 12px; color: var(--txt-2); border-top: 1px solid var(--line); padding-top: 9px; }
 .tb-note b { color: var(--warn); }
+/* #14 — work-vs-idle split summary */
+.tb-split { margin-bottom: 10px; }
+.tb-split > .tb-work { display: block; height: 6px; border-radius: 4px; background: var(--bg-3); overflow: hidden; }
+.tb-split > .tb-work > i { display: block; height: 100%; background: linear-gradient(90deg, #3a7fd0, var(--accent)); }
+.tb-split-lbl { display: block; margin-top: 4px; font-size: 10.5px; color: var(--txt-3); }
+.tb-split-lbl .work { color: var(--accent); }
+.tb-split-lbl .idle { color: var(--txt-3); }
 .livedot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.3s infinite; }
+.livedot.lead { flex: none; }   /* #2 — leading in-progress dot: never clipped when the name truncates */
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
 
 /* per-stage run history */
@@ -354,6 +364,8 @@ textarea.input { resize: vertical; min-height: 64px; }
 .plan-node .pn-title { fill: var(--txt); font-size: 12.5px; font-weight: 600; }
 .plan-node .pn-sub { fill: var(--txt-3); font-size: 10px; font-family: var(--mono); }
 .plan-node .pn-pin { fill: var(--txt-3); }
+.plan-node .pn-resize { fill: var(--line-2); opacity: 0; cursor: nwse-resize; }
+.plan-node:hover .pn-resize { opacity: .7; }
 .plan-node .pn-prog { fill: var(--accent-2); }
 .plan-node.done .pn-box { stroke: #1f9d6b88; }
 .plan-node.done .pn-sub { fill: var(--accent-2); }
@@ -398,7 +410,15 @@ textarea.input { resize: vertical; min-height: 64px; }
 :root { --blast-red: #ef4444; --blast-orange: #eab308; --blast-green: #4ade80; }
 .blast-dot.red { fill: var(--blast-red); stroke: #fff; stroke-width: 1.5; }
 .blast-dot.orange { fill: var(--blast-orange); }
-.blast-legend { display: flex; gap: 12px; font-size: 10.5px; color: var(--txt-3); margin-top: 6px; }
+.blast-legend { display: flex; gap: 12px; font-size: 10.5px; color: var(--txt-3); margin-top: 6px; flex-wrap: wrap; }
+/* #9 — named node-link blast graph */
+.blast-graph { display: block; cursor: pointer; }
+.blast-graph .blast-link { fill: none; stroke: var(--line-2); stroke-width: 1; opacity: .7; }
+.blast-graph .bn.red { fill: color-mix(in srgb, var(--blast-red) 22%, var(--bg-2)); stroke: var(--blast-red); stroke-width: 1.2; }
+.blast-graph .bn.orange { fill: color-mix(in srgb, var(--blast-orange) 20%, var(--bg-2)); stroke: color-mix(in srgb, var(--blast-orange) 70%, var(--line-2)); stroke-width: 1; }
+.blast-graph .bn-t { font-family: var(--mono); font-size: 10px; fill: var(--txt); pointer-events: none; }
+.blast-graph .blast-node:hover .bn { stroke: var(--txt); }
+.blast-graph .blast-more { font-size: 9.5px; fill: var(--txt-3); }
 .blast-legend .bl { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
 .blast-legend .bl.red { background: var(--blast-red); box-shadow: 0 0 0 1.5px #fff8; }
 .blast-legend .bl.orange { background: var(--blast-orange); }

@@ -50,7 +50,7 @@ describe("gateSatisfied — AND/OR dependency gate", () => {
 
 describe("plan store — .bridza/plan.json", () => {
   it("reads an empty plan when none exists", () => {
-    expect(readPlan(root)).toEqual({ v: 1, deps: {}, milestones: [], pos: {}, links: {}, pipeDeps: [], est: {} });
+    expect(readPlan(root)).toEqual({ v: 1, deps: {}, milestones: [], pos: {}, sizes: {}, links: {}, pipeDeps: [], est: {} });
   });
   it("round-trips focused-context links, dropping self/bad keys", () => {
     savePlan(root, { links: { "dev/build": ["dev/spec", "dev/build", "bad key!"], "nope!": ["dev/spec"] } });
@@ -72,6 +72,36 @@ describe("plan store — .bridza/plan.json", () => {
     expect(back.pos["dev/build"]).toEqual({ x: 121, y: 80 });   // rounded
     expect(git(root, ["log", "-1", "--format=%s"]).trim()).toMatch(/bridza: edit plan/);
     expect(fs.existsSync(path.join(root, rel.plan()))).toBe(true);
+  });
+  it("#17 — createTask auto-wires AND/OR deps, estimate and milestone into the plan", () => {
+    createPipeline(root, { id: "eng", label: "Eng", stages: [{ id: "spec", name: "Spec" }] });
+    createTask(root, { pipeline: "eng", id: "a", title: "A" });
+    createTask(root, { pipeline: "eng", id: "b", title: "B" });
+    createTask(root, { pipeline: "eng", id: "c", title: "C",
+      dependsOn: ["eng/a", "eng/b"], dependsOnAny: ["eng/b"], est: 6, milestone: { id: "ms-v1", title: "v1 launch" } });
+    const plan = readPlan(root);
+    expect(plan.deps["eng/c"].all).toEqual(expect.arrayContaining(["eng/a", "eng/b"]));
+    expect(plan.deps["eng/c"].any).toEqual(["eng/b"]);
+    expect(plan.est["eng/c"]).toBe(6);
+    const ms = plan.milestones.find((m) => m.id === "ms-v1");
+    expect(ms.title).toBe("v1 launch");
+    expect(ms.tasks).toContain("eng/c");
+    // a single dependsOn string still works (handoff path) + seeds a context link
+    createTask(root, { pipeline: "eng", id: "d", title: "D", dependsOn: "eng/a" });
+    const p2 = readPlan(root);
+    expect(p2.deps["eng/d"].all).toEqual(["eng/a"]);
+    expect(p2.links["eng/d"]).toContain("eng/a");
+  });
+
+  it("#13 — round-trips per-task card sizes, clamped to bounds", () => {
+    savePlan(root, { sizes: { "dev/build": { w: 260.6, h: 70.2 }, "dev/huge": { w: 9999, h: 9999 }, "dev/tiny": { w: 10, h: 5 }, "bad key!": { w: 200, h: 60 } } });
+    const back = readPlan(root);
+    expect(back.sizes["dev/build"]).toEqual({ w: 261, h: 70 });   // rounded
+    expect(back.sizes["dev/huge"]).toEqual({ w: 600, h: 240 });   // clamped to max
+    expect(back.sizes["dev/tiny"]).toEqual({ w: 120, h: 38 });    // clamped to min
+    expect(back.sizes["bad key!"]).toBeUndefined();               // bad key dropped
+    savePlan(root, { deps: {} });   // partial save keeps sizes
+    expect(readPlan(root).sizes["dev/build"]).toEqual({ w: 261, h: 70 });
   });
   it("sanitizes: drops self-deps, bad keys, empty gates, untitled milestones", () => {
     savePlan(root, {

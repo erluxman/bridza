@@ -306,10 +306,12 @@ describe("multiple stage flows per pipeline", () => {
     expect(readPlan(root).est).toEqual({ "marketing/t1": 4, "marketing/t2": 2.5 });
     const guide = fs.readFileSync(path.join(root, ".bridza", ".metadata", "creation-guide.md"), "utf8");
     for (const section of ["AND & OR", "Estimate the cost", "Pipeline-level sequence", "The planning contract"]) expect(guide).toContain(section);
-    // old-guide projects self-heal to the v2 contract
+    // old-guide projects self-heal to the current (v3) contract
     fs.writeFileSync(path.join(root, ".bridza", ".metadata", "creation-guide.md"), "# old guide\n");
     ensureDataDir(root);
-    expect(fs.readFileSync(path.join(root, ".bridza", ".metadata", "creation-guide.md"), "utf8")).toContain("plan-guide-v2");
+    const healed = fs.readFileSync(path.join(root, ".bridza", ".metadata", "creation-guide.md"), "utf8");
+    expect(healed).toContain("plan-guide-v3");
+    expect(healed).toContain("Worked example");   // the non-confusing reference now ships a concrete example
   });
 
   it("planning stages are gated on a populated plan board (mandatory shell check)", () => {
@@ -417,6 +419,17 @@ describe("wall-clock time store", () => {
     expect(taskTime(root, "marketing", "task-7")).toEqual({ research: 200, planning: 30 });
     expect(fs.readFileSync(path.join(root, ".bridza", ".gitignore"), "utf8")).toContain(".cache/");
     expect(git(root, ["status", "--porcelain"]).trim()).toBe("");        // .cache is ignored
+  });
+  it("#14 — tracks the idle share under __idle without disturbing per-stage totals", () => {
+    createPipeline(root, MARKETING);
+    mergeTime(root, "marketing", "task-9", { research: 300, __idle: { research: 90 } });
+    mergeTime(root, "marketing", "task-9", { research: 360, __idle: { research: 120 } });   // merges
+    const t = taskTime(root, "marketing", "task-9");
+    expect(t.research).toBe(360);              // total
+    expect(t.__idle).toEqual({ research: 120 });   // idle share → work = 240
+    // a later save with no idle data keeps the recorded idle
+    mergeTime(root, "marketing", "task-9", { planning: 20 });
+    expect(taskTime(root, "marketing", "task-9").__idle).toEqual({ research: 120 });
   });
 });
 

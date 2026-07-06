@@ -1129,7 +1129,15 @@ export function blastRadius(root, pipeline, task) {
   const incoming = buildReverseImportGraph(files, read);
   const dist = reverseClosure(incoming, seeds.map((s) => s.path));
   const impacted = [...dist.entries()].filter(([, d]) => d > 0).map(([p, d]) => ({ path: p, distance: d })).sort((a, b) => a.distance - b.distance || a.path.localeCompare(b.path));
-  return { ok: true, branch, seeds, impacted, sourceFiles: files.length };
+  // #9 — the actual connections, so the UI can draw a node-link graph (not just
+  // anonymous rings): importer → the file it imports, both inside the blast set.
+  const inBlast = new Set([...seeds.map((s) => s.path), ...impacted.map((i) => i.path)]);
+  const edges = [];
+  for (const [imported, importers] of incoming) {
+    if (!inBlast.has(imported)) continue;
+    for (const importer of importers) if (inBlast.has(importer)) edges.push({ from: importer, to: imported });
+  }
+  return { ok: true, branch, seeds, impacted, edges: edges.slice(0, 600), sourceFiles: files.length };
 }
 
 // The task branch timeline: the prompt/result commits, newest first. Each
