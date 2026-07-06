@@ -7,7 +7,7 @@
 import { describe, it, expect } from "vitest";
 import {
   safeRef, taskBranchName, gateSatisfied, criticalPath,
-  pipelineFlows, flattenFlows, judgeStageId, flowFitCheck,
+  pipelineFlows, flattenFlows, judgeStageId, flowFitCheck, recommendFlow,
   SPEC_CATALOG, specLabel, specValues, withSpecs,
   FLOW_FILE_KIND, exportFlow, parseFlowFile,
   PIPELINE_FILE_KIND, exportPipeline, parsePipelineFile,
@@ -101,6 +101,51 @@ describe("pipelineFlows", () => {
   it("plain stage list becomes one flow named after the pipeline", () => {
     const fl = pipelineFlows({ label: "Marketing", stages: [{ id: "s1" }] });
     expect(fl).toEqual([{ id: "main", name: "Marketing", stages: [{ id: "s1" }] }]);
+  });
+});
+
+describe("CLI_TOOLS — session reuse flags", () => {
+  const tool = (id) => STARTER_PIPELINES && CLI_TOOLS.find((t) => t.id === id);
+  it("claude: --session-id to start, --resume to continue, nothing without a session", () => {
+    const claude = tool("claude");
+    expect(claude.args({ prompt: "p", session: { id: "abc", mode: "start" } })).toEqual(expect.arrayContaining(["--session-id", "abc"]));
+    expect(claude.args({ prompt: "p", session: { id: "abc", mode: "resume" } })).toEqual(expect.arrayContaining(["--resume", "abc"]));
+    const plain = claude.args({ prompt: "p" });
+    expect(plain).not.toContain("--resume");
+    expect(plain).not.toContain("--session-id");
+  });
+  it("opencode: --session only when resuming", () => {
+    const oc = tool("opencode");
+    expect(oc.args({ prompt: "p", session: { id: "s1", mode: "resume" } })).toEqual(expect.arrayContaining(["--session", "s1"]));
+    expect(oc.args({ prompt: "p", session: { id: "s1", mode: "start" } })).not.toContain("--session");
+    expect(oc.args({ prompt: "p" })).not.toContain("--session");
+  });
+  it("codex: `exec resume <id>` when resuming, plain `exec` otherwise", () => {
+    const cx = tool("codex");
+    expect(cx.args({ prompt: "p", session: { id: "cid", mode: "resume" } }).slice(0, 3)).toEqual(["exec", "resume", "cid"]);
+    expect(cx.args({ prompt: "p" })[0]).toBe("exec");
+    expect(cx.args({ prompt: "p" })).not.toContain("resume");
+  });
+});
+
+describe("recommendFlow — most-appropriate, not most-detailed", () => {
+  const pipeline = { label: "Eng", flows: [
+    { id: "full-sdlc", name: "Full SDLC", stages: [{ id: "vision", name: "Vision" }, { id: "build", name: "Implementation" }] },
+    { id: "feature", name: "Feature", stages: [{ id: "spec", name: "Spec" }, { id: "build", name: "Build" }] },
+    { id: "bugfix", name: "Bugfix", stages: [{ id: "repro", name: "Repro" }, { id: "fix", name: "Fix" }] },
+    { id: "ui-design", name: "UI Design", stages: [{ id: "design", name: "Design" }] },
+  ] };
+  it("single-flow pipeline always returns that flow", () => {
+    expect(recommendFlow({ label: "M", stages: [{ id: "s" }] }, "anything").id).toBe("main");
+  });
+  it("bug title picks the bugfix flow, not the most detailed", () => {
+    expect(recommendFlow(pipeline, "Fix crash on login").id).toBe("bugfix");
+  });
+  it("design title picks the design flow", () => {
+    expect(recommendFlow(pipeline, "Design the new dashboard UI").id).toBe("ui-design");
+  });
+  it("ambiguous title returns no pick (asks the user)", () => {
+    expect(recommendFlow(pipeline, "Q3 stuff").id).toBe("");
   });
 });
 

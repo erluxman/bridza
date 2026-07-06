@@ -29,6 +29,8 @@ export const savePipeline = (dir, body) => post("/pipeline/save", dir, body);
 export const archivePipeline = (dir, body) => post("/pipeline/archive", dir, body);
 export const createTask = (dir, body) => post("/task", dir, body);
 export const deleteTask = (dir, body) => post("/task/delete", dir, body);
+export const retargetTask = (dir, body) => post("/task/retarget", dir, body);
+export const setTaskReuse = (dir, body) => post("/task/reuse", dir, body);
 export const stopRun = (dir, body) => post("/run/stop", dir, body);
 export const saveContext = (dir, body) => post("/context", dir, body);
 export const addInbox = (dir, body) => post("/inbox", dir, body);

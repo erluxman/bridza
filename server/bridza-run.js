@@ -12,6 +12,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { DATA_DIR, taskBranchName, rel, safeRef, CLI_TOOLS, STARTER_PIPELINES, pipelineFlows, gateSatisfied } from "../core/domain.js";
 
 export { DATA_DIR, taskBranchName };
@@ -164,6 +165,25 @@ function writeTaskMeta(wtOrRoot, pipeline, task, meta) {
   const f = path.join(wtOrRoot, rel.taskMeta(pipeline, task));
   fs.mkdirSync(path.dirname(f), { recursive: true });
   fs.writeFileSync(f, JSON.stringify(meta, null, 2) + "\n");
+}
+
+// Session reuse (opt-in per task): the LLM session id per (task, tool) lives in
+// a NON-committed sidecar under .git — session memory is machine-local, so it
+// stays OUT of the reproducible commit history. Reset = drop the task's entry.
+function sessionsFile(root) { return path.join(root, ".git", "bridza-sessions.json"); }
+function readSessions(root) { try { return JSON.parse(fs.readFileSync(sessionsFile(root), "utf8")); } catch (e) { return {}; } }
+function writeSessions(root, obj) { try { fs.writeFileSync(sessionsFile(root), JSON.stringify(obj, null, 2)); } catch (e) { /* best-effort */ } }
+export function getTaskSession(root, pipeline, task, tool) {
+  return (readSessions(root)[safeRef(pipeline) + "/" + safeRef(task)] || {})[tool] || null;   // { id, model } | null
+}
+export function setTaskSession(root, pipeline, task, tool, rec) {
+  const all = readSessions(root), k = safeRef(pipeline) + "/" + safeRef(task);
+  all[k] = { ...(all[k] || {}), [tool]: rec };
+  writeSessions(root, all);
+}
+export function clearTaskSessions(root, pipeline, task) {
+  const all = readSessions(root), k = safeRef(pipeline) + "/" + safeRef(task);
+  if (all[k]) { delete all[k]; writeSessions(root, all); }
 }
 
 // A human-readable mirror of the task metadata, written next to it so the data
@@ -564,7 +584,9 @@ export function runStage(root, body, emit) {
     const startedAt = nowISO();
     const startMs = Date.now();
     const sid = safeRef(stage);
-    let sessionId = null; // opencode session id, captured from the run's JSON events
+    let sessionId = null; // LLM session id: opencode/codex capture it, claude picks it
+    let reuse = false;    // opt-in session reuse (task.reuseSession) for this run
+    let sessionModel = model || "";   // only reuse a session when the model matches
     try {
       // ONE COMMIT PER STAGE: a re-run collapses the stage's previous commit
       // with a SOFT reset — history shrinks back to the last valid commit, but
@@ -654,6 +676,8 @@ export function runStage(root, body, emit) {
         // write + amend so the sha lives inside the commit it names — skip the
         // amend dance; the UI resolves diffs from the timeline instead)
         if (c.committed) emit({ t: "commit", phase: "result", sha: c.sha });
+        // remember this task's session so the next stage can resume it
+        if (reuse && sessionId) setTaskSession(root, pipeline, task, toolId, { id: sessionId, model: sessionModel });
         end({ exit, status, errorKind, error, branch: wt.branch, resultCommit: c.sha || null, files, sessionId });
       } catch (e) { end({ exit: exit || 1, status: "failed", errorKind: "git", error: "stage commit failed: " + firstLine(e), branch: wt.branch }); }
     };
@@ -697,7 +721,12 @@ export function runStage(root, body, emit) {
     };
     let jbuf = "";
     const onStdout = (d) => {
-      if (tool.stream !== "json") return emit({ t: "out", d: d.toString() });
+      if (tool.stream !== "json") {
+        const text = d.toString();
+        // stdout-id tools (codex): sniff the minted session id from its output
+        if (tool.sessionRe && !sessionId) { const m = text.match(tool.sessionRe); if (m) { sessionId = m[1]; emit({ t: "session", tool: toolId, sessionId }); } }
+        return emit({ t: "out", d: text });
+      }
       jbuf += d.toString();
       let nl;
       while ((nl = jbuf.indexOf("\n")) >= 0) {
@@ -714,7 +743,23 @@ export function runStage(root, body, emit) {
     // to the tool (the stored run record keeps showing "no prompt — defaults").
     const basePrompt = (prompt && prompt.trim()) ? prompt : DEFAULT_STAGE_PROMPT;
     const fullPrompt = focus ? String(basePrompt) + "\n\n" + focus : basePrompt;
-    const args = tool.args({ prompt: fullPrompt, system, model });
+    // session reuse (opt-in per task): one session per (tool, model) across the
+    // task's stages. claude picks the id up front (start→resume); opencode/codex
+    // mint it and we capture it below. A model change starts a fresh session.
+    let session = null;
+    reuse = !!tool.sessionIdSource && !!readTaskMeta(W, pipeline, task).reuseSession;
+    if (reuse) {
+      const prev = getTaskSession(root, pipeline, task, toolId);
+      if (prev && prev.id && (prev.model || "") === sessionModel) {
+        session = { id: prev.id, mode: "resume" };
+        if (tool.sessionIdSource === "client") sessionId = prev.id;
+      } else if (tool.sessionIdSource === "client") {
+        sessionId = randomUUID();
+        session = { id: sessionId, mode: "start" };
+      }   // stream tools with no prior id: run fresh, capture the minted id below
+      emit({ t: "out", d: "· session reuse ON — " + (session ? session.mode + " " + session.id : "new " + toolId + " session") + "\n" });
+    }
+    const args = tool.args({ prompt: fullPrompt, system, model, session });
     // show EXACTLY what gets executed (long args abbreviated for readability —
     // the full prompt text is in <stage>/prompts.md). Also flags when NO model
     // flag is passed, i.e. the tool's own configured default decides.
@@ -839,7 +884,62 @@ export function reopenStage(root, pipeline, task, stage) {
   const removed = head === target ? 0 : parseInt(git(W, ["rev-list", "--count", target + ".." + head]).trim(), 10) || 0;
   if (removed) git(W, ["reset", "--hard", target]);
   const reset = order.slice(order.indexOf(sid));
+  clearTaskSessions(root, pipeline, task);   // discarded stages must not linger in a reused session
   return { ok: true, branch: wt.branch, reset, removed, head: target };
+}
+
+// Change a task's stage FLOW (and/or its type) after creation. Switching flow
+// is destructive — a different flow has different stages — so per the product
+// decision the task's progress is DISCARDED: the branch is hard-reset to before
+// the first stage (dropping every stage commit) and the metadata is rewritten
+// with the new flow's stages + empty tracking. A type-only change touches no
+// commits. The caller resolves the flow's stage ids + name from the pipeline
+// def; here we just apply it on the branch (the tip readTaskMeta trusts).
+export function retargetTask(root, pipeline, task, { flow, flowName, stages, type } = {}) {
+  const bad = validRef(pipeline, "pipeline") || validRef(task, "task");
+  if (bad) return { ok: false, error: bad };
+  const wt = ensureTaskWorktree(root, pipeline, task);
+  if (!wt.ok) return wt;
+  const W = wt.worktree;
+  const meta = readTaskMeta(W, pipeline, task);
+  if (meta.finalized) return { ok: false, error: "task is finalized — can't change its flow" };
+  const flowChanged = !!flow && flow !== meta.flow;
+  if (flowChanged && (!Array.isArray(stages) || !stages.length)) return { ok: false, error: "the new flow has no stages" };
+  let removed = 0;
+  if (flowChanged) {
+    const order = stageOrderOf(meta);
+    if (order.length) {
+      const target = lastValidCommitBefore(W, order, order[0]);   // the commit before ANY stage ran
+      const head = git(W, ["rev-parse", "HEAD"]).trim();
+      if (target && head !== target) { removed = parseInt(git(W, ["rev-list", "--count", target + ".." + head]).trim(), 10) || 0; git(W, ["reset", "--hard", target]); }
+    }
+  }
+  // re-read AFTER the reset (it restored the pre-stage metadata), then apply.
+  const m = readTaskMeta(W, pipeline, task);
+  if (flowChanged) { m.flow = safeRef(flow); m.template = ""; m.stages = stages.map(safeRef); m.tracking = {}; m.status = "in-progress"; m.finalized = false; clearTaskSessions(root, pipeline, task); }
+  if (type != null) m.type = String(type);
+  writeTaskMeta(W, pipeline, task, m);
+  const msg = flowChanged
+    ? `bridza: retarget ${safeRef(pipeline)}/${safeRef(task)} → flow "${flowName || flow}" (progress discarded${removed ? `, ${removed} stage commit${removed === 1 ? "" : "s"} dropped` : ""})`
+    : `bridza: set type "${type}" on ${safeRef(pipeline)}/${safeRef(task)}`;
+  const c = commitWorktree(W, msg);
+  return { ok: true, branch: wt.branch, flow: m.flow, type: m.type, stages: m.stages, removed, committed: c.committed };
+}
+
+// Toggle opt-in LLM session reuse for a task. Turning it OFF also drops any
+// stored session ids so a later re-enable starts clean.
+export function setTaskReuse(root, pipeline, task, on) {
+  const bad = validRef(pipeline, "pipeline") || validRef(task, "task");
+  if (bad) return { ok: false, error: bad };
+  const wt = ensureTaskWorktree(root, pipeline, task);
+  if (!wt.ok) return wt;
+  const W = wt.worktree;
+  const m = readTaskMeta(W, pipeline, task);
+  m.reuseSession = !!on;
+  writeTaskMeta(W, pipeline, task, m);
+  if (!on) clearTaskSessions(root, pipeline, task);
+  const c = commitWorktree(W, `bridza: ${on ? "enable" : "disable"} LLM session reuse on ${safeRef(pipeline)}/${safeRef(task)}`);
+  return { ok: true, reuseSession: !!on, committed: c.committed };
 }
 
 // ── finalize: merge the task branch into main ───────────────────────────────
@@ -868,7 +968,7 @@ function aiCommitMessage(wt) {
   return null;
 }
 
-export function finalizeTask(root, pipeline, task, { style = "merge", into, resolveMain, mainCommitMessage } = {}) {
+export function finalizeTask(root, pipeline, task, { style = "squash", into, resolveMain, mainCommitMessage } = {}) {
   const branch = taskBranchName(pipeline, task);
   if (!isGitRepo(root)) return { ok: false, error: "not a git repository" };
   if (!branchExists(root, branch)) return { ok: false, error: "task branch does not exist — run a stage first" };

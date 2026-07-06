@@ -171,6 +171,36 @@ export function flowFitCheck(flowName, otherFlows) {
     + ". If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.";
 }
 
+// Recommend the MOST APPROPRIATE flow for a new task from its title — not the
+// most detailed one. Pure + instant (no AI): heavily-weighted intent presets
+// (bug→bugfix, design→ui-design, spec→product…) matched against each flow's
+// id/name, plus a light title↔flow token overlap. Returns { id, ranked }; id is
+// "" when nothing signals, so a genuinely ambiguous task still asks the user.
+// The AI second-opinion isn't needed here: the flow's ⚖ judge stage already
+// re-checks fit later with the research/requirements in hand (see flowFitCheck).
+const FLOW_PRESETS = [
+  { words: ["bug", "fix", "crash", "error", "broken", "regression", "hotfix", "defect", "fault", "repro"], flow: /bug|fix|hotfix|repro|patch/ },
+  { words: ["design", "ui", "ux", "mockup", "wireframe", "visual", "layout", "figma", "prototype", "style", "brand"], flow: /design|ui|ux|brand/ },
+  { words: ["spec", "prd", "requirement", "requirements", "research", "vision", "scope", "discovery", "roadmap"], flow: /spec|product|prd|requirement|research|discovery|vision/ },
+  { words: ["feature", "add", "implement", "support", "build", "new", "enhance"], flow: /feature|build|implement|sdlc/ },
+];
+export function recommendFlow(pipeline, title) {
+  const flows = pipelineFlows(pipeline);
+  if (flows.length <= 1) return { id: flows[0] ? flows[0].id : "", ranked: flows.map((f) => ({ id: f.id, name: f.name, score: 0 })) };
+  const t = " " + String(title || "").toLowerCase() + " ";
+  const toks = new Set(t.split(/[^a-z0-9]+/).filter((w) => w.length > 2));
+  const score = (f) => {
+    const hay = (f.id + " " + f.name).toLowerCase();
+    let s = 0;
+    for (const p of FLOW_PRESETS) if (p.flow.test(hay) && p.words.some((w) => toks.has(w))) s += 100;   // big weight
+    const flowText = (f.name + " " + (f.stages || []).map((st) => st.name || st.id).join(" ")).toLowerCase();
+    for (const w of toks) if (flowText.includes(w)) s += 3;   // light title↔flow overlap
+    return s;
+  };
+  const ranked = flows.map((f) => ({ id: f.id, name: f.name, score: score(f) })).sort((a, b) => b.score - a.score);
+  return { id: ranked[0].score > 0 ? ranked[0].id : "", ranked };
+}
+
 // ── stage-flow files: one flow, portable ─────────────────────────────────────
 // A single stage flow can leave a pipeline (export/email) and enter another
 // (import) as a small self-describing JSON document.
@@ -788,10 +818,14 @@ export const CLI_TOOLS = [
     id: "claude",
     label: "Claude Code",
     bin: "claude",
-    args: ({ prompt, system, model }) => {
+    // session reuse (opt-in): we pick the id, so START a fresh session with a
+    // chosen --session-id, then --resume it on later stages.
+    sessionIdSource: "client",
+    args: ({ prompt, system, model, session }) => {
       const a = ["-p", prompt, "--permission-mode", "acceptEdits"];
       if (model) a.push("--model", model);
       if (system) a.push("--append-system-prompt", system);
+      if (session && session.id) a.push(session.mode === "resume" ? "--resume" : "--session-id", session.id);
       return a;
     },
   },
@@ -800,11 +834,13 @@ export const CLI_TOOLS = [
     label: "opencode",
     bin: "opencode",
     stream: "json", // --format json: one JSON event per line, parsed for text + sessionID
+    sessionIdSource: "stream", // opencode mints the id; captured from its JSON events
     // opencode has no system-prompt flag — fold it into the message.
     // --dangerously-skip-permissions: unattended runs (the Automate flow) must not
     // block on tool-approval prompts. This is Bridza's own subprocess, by design.
-    args: ({ prompt, system, model }) => [
+    args: ({ prompt, system, model, session }) => [
       "run", "--format", "json", "--dangerously-skip-permissions",
+      ...(session && session.mode === "resume" && session.id ? ["--session", session.id] : []),
       ...(model ? ["-m", model] : []),
       (system ? "System instructions:\n" + system + "\n\n" : "") + prompt,
     ],
@@ -813,20 +849,25 @@ export const CLI_TOOLS = [
     id: "codex",
     label: "Codex CLI",
     bin: "codex",
+    sessionIdSource: "stream", // codex mints the id; best-effort captured from stdout
+    sessionRe: /session\s*id[:\s]+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i,
     // `codex exec` = non-interactive. --skip-git-repo-check: Bridza runs it inside
     // a worktree that git already tracks; --dangerously-bypass-approvals-and-sandbox:
     // unattended runs must not block on approval prompts (same rationale as opencode).
-    // No system-prompt flag — fold it into the message.
-    args: ({ prompt, system, model }) => [
-      "exec", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox",
-      ...(model ? ["-m", model] : []),
-      (system ? "System instructions:\n" + system + "\n\n" : "") + prompt,
-    ],
+    // No system-prompt flag — fold it into the message. Resume via `exec resume <id>`.
+    args: ({ prompt, system, model, session }) => {
+      const common = ["--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox", ...(model ? ["-m", model] : [])];
+      const msg = (system ? "System instructions:\n" + system + "\n\n" : "") + prompt;
+      if (session && session.mode === "resume" && session.id) return ["exec", "resume", session.id, ...common, msg];
+      return ["exec", ...common, msg];
+    },
   },
   {
     id: "gemini",
     label: "Gemini CLI",
     bin: "gemini",
+    // no reliable headless session-resume flag → always runs fresh (session ignored).
+    sessionIdSource: null,
     // -p = non-interactive prompt, -y/--yolo = auto-approve tool calls (unattended).
     // No system-prompt flag — fold it into the message.
     args: ({ prompt, system, model }) => [

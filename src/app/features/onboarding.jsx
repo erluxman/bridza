@@ -2,7 +2,7 @@
 // screen, the AI-assisted pipeline picker, and the new-pipeline / new-task modals.
 import { useState, useEffect, useRef } from "react";
 import * as api from "../api/client.js";
-import { STARTER_PIPELINES, pipelineFlows, parsePipelineFile } from "../../../core/domain.js";
+import { STARTER_PIPELINES, pipelineFlows, parsePipelineFile, recommendFlow } from "../../../core/domain.js";
 import { base, slug, lsGet, lsSet, recKey } from "../lib/format.js";
 import { Modal, Field } from "../ui.jsx";
 
@@ -221,8 +221,19 @@ export function NewPipelineModal({ dir, existing, onClose, onDone, flash }) {
 export function NewTaskModal({ dir, pipeline, onClose, onDone, flash }) {
   const flows = pipelineFlows(pipeline);
   const [title, setTitle] = useState("");
-  // one flow → preselected; several → the choice is MANDATORY (no default)
+  // one flow → preselected; several → auto-pick the most APPROPRIATE flow from
+  // the title (recommendFlow), but let the user override — once they touch the
+  // select we stop auto-picking.
   const [flowId, setFlowId] = useState(flows.length === 1 ? flows[0].id : "");
+  const [touched, setTouched] = useState(false);
+  const [autoPicked, setAutoPicked] = useState(false);
+  const onTitle = (v) => {
+    setTitle(v);
+    if (touched || flows.length === 1) return;
+    const rec = recommendFlow(pipeline, v).id;
+    setFlowId(rec);
+    setAutoPicked(!!rec);
+  };
   const chosen = flows.find((f) => f.id === flowId);
   const create = async () => {
     if (!chosen) return flash("pick a stage flow — every task belongs to exactly one");
@@ -232,10 +243,10 @@ export function NewTaskModal({ dir, pipeline, onClose, onDone, flash }) {
   };
   return (
     <Modal title={`New task in ${pipeline.label}`} onClose={onClose} onConfirm={create} confirm="Create">
-      <Field label="Title"><input className="input" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Q3 launch microsite" /></Field>
+      <Field label="Title"><input className="input" autoFocus value={title} onChange={(e) => onTitle(e.target.value)} placeholder="e.g. Q3 launch microsite" /></Field>
       {flows.length > 1 && (
-        <Field label="Stage flow (required — what kind of work is this?)">
-          <select className="input" value={flowId} onChange={(e) => setFlowId(e.target.value)}>
+        <Field label={autoPicked && !touched ? "Stage flow (auto-picked from the title — change if wrong)" : "Stage flow (required — what kind of work is this?)"}>
+          <select className="input" value={flowId} onChange={(e) => { setTouched(true); setAutoPicked(false); setFlowId(e.target.value); }}>
             <option value="" disabled>Choose a stage flow…</option>
             {flows.map((f) => <option key={f.id} value={f.id}>{f.name} — {(f.stages || []).map((s) => s.name).join(" → ")}</option>)}
           </select>

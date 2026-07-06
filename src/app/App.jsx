@@ -112,7 +112,7 @@ export default function App() {
         ) : flowOpen ? (
           <PipelineFlow dir={dir} proj={proj} pipeline={pipeline} tools={tools} onClose={() => setFlowOpen(false)} onSaved={refresh} flash={flash} {...topbarNav} />
         ) : !task ? (
-          <Board dir={dir} pipeline={pipeline} runningTasks={runningTasks} onOpen={setActiveTask} onNewTask={() => setModal({ type: "task" })} onFlow={() => setFlowOpen(true)} {...topbarNav} />
+          <Board dir={dir} pipeline={pipeline} runningTasks={runningTasks} onOpen={setActiveTask} onNewTask={() => setModal({ type: "task" })} onFlow={() => setFlowOpen(true)} onChange={refresh} flash={flash} {...topbarNav} />
         ) : (
           <TaskDetail dir={dir} proj={proj} pipeline={pipeline} task={task} tools={tools} runningStages={runningStages} onBack={() => setActiveTask("")} onChange={refresh} flash={flash} {...topbarNav}
             onOpenTask={(pid, tid) => { setActivePipe(pid); setActiveTask(tid); }} />

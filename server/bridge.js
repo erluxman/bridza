@@ -22,9 +22,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { DATA_DIR, CLI_TOOLS } from "../core/domain.js";
-import { readProject, createPipeline, savePipeline, archivePipeline, createTask, deleteTask, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan, assignRefs } from "./bridza-store.js";
-import { runStage, automateTask, finalizeTask, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, listModels, termRun, ensureTaskWorktree, recommendPipelines, readTaskFile, saveTaskFile } from "./bridza-run.js";
+import { DATA_DIR, CLI_TOOLS, pipelineFlows } from "../core/domain.js";
+import { readProject, createPipeline, savePipeline, archivePipeline, createTask, deleteTask, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan, assignRefs, readPipelineDef } from "./bridza-store.js";
+import { runStage, automateTask, finalizeTask, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, retargetTask, setTaskReuse, listModels, termRun, ensureTaskWorktree, recommendPipelines, readTaskFile, saveTaskFile } from "./bridza-run.js";
 
 function resolveDir(raw) {
   if (!raw) return null;
@@ -204,6 +204,22 @@ export async function handleApi(req, res) {
     if (M === "POST" && P === "/api/bridza/task/delete") {
       if (!root) return void need(), true;
       res.end(JSON.stringify(deleteTask(root, (await json(req)) || {}))); return true;
+    }
+    if (M === "POST" && P === "/api/bridza/task/retarget") {
+      if (!root) return void need(), true;
+      const b = (await json(req)) || {};
+      let flow, flowName, stages;
+      if (b.flow) {
+        const fl = pipelineFlows(readPipelineDef(root, b.pipeline)).find((f) => f.id === b.flow);
+        if (!fl) { res.end(JSON.stringify({ ok: false, error: "unknown flow " + b.flow })); return true; }
+        flow = fl.id; flowName = fl.name; stages = fl.stages.map((s) => s.id);
+      }
+      res.end(JSON.stringify(retargetTask(root, b.pipeline, b.task, { flow, flowName, stages, type: b.type }))); return true;
+    }
+    if (M === "POST" && P === "/api/bridza/task/reuse") {
+      if (!root) return void need(), true;
+      const b = (await json(req)) || {};
+      res.end(JSON.stringify(setTaskReuse(root, b.pipeline, b.task, !!b.on))); return true;
     }
     if (M === "POST" && P === "/api/bridza/run/stop") {
       const b = (await json(req)) || {};

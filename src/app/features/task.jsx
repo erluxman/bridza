@@ -254,7 +254,11 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
         </div>
       </div>
       <div className="content detail" style={{ gridTemplateColumns: railHidden ? "1fr" : `1fr ${railW}px`, position: "relative" }}>
-        {!railHidden && <ColGrip side="right" {...railGrip} style={{ right: railW - 3 }} />}
+        {/* grip sits on the column split: right-padding (22) + railW + half the
+            grid gap (9), minus the 4px from grip width to its hairline. Unlike
+            the sidebar grid, .content.detail has padding + gap, so railW-3 alone
+            (correct there) lands ~30px into the rail here. */}
+        {!railHidden && <ColGrip side="right" {...railGrip} style={{ right: railW + 27 }} />}
         <button className="rail-toggle" onClick={toggleRail} title={railHidden ? "Show details panel" : "Hide details panel"}>{railHidden ? "‹" : "›"}</button>
         {showTerm ? (
           <div className="stages">
@@ -295,8 +299,31 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
             {task.ref && <Kv k="Ref" v={<span className="mono">#{task.ref}</span>} />}
             <Kv k="Status" v={task.finalized ? "finalized" : task.status} />
             <Kv k="Branch" v={<span className="mono" style={{ fontSize: 11 }}>{task.branch}</span>} />
-            <Kv k="Type" v={task.type || "—"} />
+            <div className="kv"><span>Type</span>
+              <input className="input" style={{ height: 26, fontSize: 12, width: 130, textAlign: "right" }} defaultValue={task.type || ""} placeholder="—" disabled={task.finalized}
+                onBlur={async (e) => { const v = e.target.value.trim(); if (v === (task.type || "")) return; const r = await api.retargetTask(dir, { pipeline: pipeline.id, task: task.id, type: v }); if (r.ok) onChange(); else flash(r.error); }} />
+            </div>
+            {pipeline.flows && pipeline.flows.length > 1 && (
+              <div className="kv"><span>Flow</span>
+                <select className="input" style={{ height: 26, fontSize: 12, width: 130 }} value={task.flow || ""} disabled={task.finalized}
+                  onChange={async (e) => {
+                    const nf = e.target.value; if (!nf || nf === task.flow) return;
+                    const fl = pipeline.flows.find((f) => f.id === nf);
+                    if (!window.confirm(`Switch this task to the “${fl ? fl.name : nf}” flow?\n\nThe current flow's progress is DISCARDED — every stage commit on ${task.branch} is dropped and the task restarts with the new flow's stages.`)) { e.target.value = task.flow || ""; return; }
+                    const r = await api.retargetTask(dir, { pipeline: pipeline.id, task: task.id, flow: nf });
+                    if (r.ok) { flash(r.removed ? `flow → ${fl ? fl.name : nf} · ${r.removed} stage commit${r.removed === 1 ? "" : "s"} discarded` : "flow changed", 4000); onChange(); loadTimeline(); }
+                    else flash(r.error);
+                  }}>
+                  {pipeline.flows.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                </select>
+              </div>
+            )}
             <Kv k="Output" v={task.outputMode || "—"} />
+            <div className="kv" title="Reuse ONE LLM session per tool across this task's stages (context carries over). Rolling back a stage resets it.">
+              <span>Reuse LLM session</span>
+              <input type="checkbox" checked={!!task.reuseSession} disabled={task.finalized}
+                onChange={async (e) => { const r = await api.setTaskReuse(dir, { pipeline: pipeline.id, task: task.id, on: e.target.checked }); if (r.ok) { flash(e.target.checked ? "session reuse on — one session per tool" : "session reuse off", 3500); onChange(); } else flash(r.error); }} />
+            </div>
             <Kv k="Stages" v={`${done}/${task.stages.length} done`} />
             <Kv k="Time tracked" v={fmt(total)} />
             <button className="btn ghost sm" style={{ color: "var(--danger)", width: "100%", marginTop: 10, justifyContent: "center" }}

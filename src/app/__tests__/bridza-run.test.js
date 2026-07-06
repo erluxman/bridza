@@ -14,7 +14,8 @@ import { execFileSync } from "node:child_process";
 // contention doesn't flake the run.
 vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
 import {
-  ensureTaskBranch, ensureTaskWorktree, taskWorktree, runStage, finalizeTask,
+  ensureTaskBranch, ensureTaskWorktree, taskWorktree, runStage, finalizeTask, retargetTask,
+  getTaskSession, setTaskSession, clearTaskSessions,
   taskTimeline, branchExists, currentBranch, git, taskBranchName, parseDiff, commitDiff, branchDiff, workingDiff,
   resolveRunnableTool, DEFAULT_STAGE_PROMPT, readTaskFile, saveTaskFile,
 } from "../../../server/bridza-run.js";
@@ -409,5 +410,43 @@ describe("finalize → merge into main", () => {
     expect(git(root, ["log", "-1", "--format=%s", "main"]).trim()).toBe("bridza: finalize marketing/task-506 → main");
     // the task branch's own commits are reachable from main (true merge, not squash)
     expect(git(root, ["branch", "--contains", taskBranchName("marketing", "task-506"), "--list", "main"]).trim()).toContain("main");
+  });
+});
+
+describe("retargetTask — change a task's flow/type after creation", () => {
+  it("switching flow DISCARDS progress: drops stage commits, rewrites stages + empty tracking", async () => {
+    stub(`echo brief > ${rel.stageOutputs("marketing", "task-506", "research")}/brief.md`);
+    await run({});                                             // one 'research' stage commit
+    const r = retargetTask(root, "marketing", "task-506", { flow: "feature", flowName: "Feature", stages: ["spec", "build"] });
+    expect(r.ok).toBe(true);
+    expect(r.removed).toBeGreaterThanOrEqual(1);              // research commit dropped
+    expect(r.flow).toBe("feature");
+    expect(r.stages).toEqual(["spec", "build"]);
+    const W = taskWorktree(root, "marketing", "task-506");
+    const meta = JSON.parse(git(W, ["show", "HEAD:" + rel.taskMeta("marketing", "task-506")]));
+    expect(meta.flow).toBe("feature");
+    expect(meta.stages).toEqual(["spec", "build"]);
+    expect(meta.tracking).toEqual({});
+  });
+  it("session store: set/get/clear per (task, tool), and reopenStage resets it", async () => {
+    setTaskSession(root, "marketing", "task-506", "claude", { id: "u1", model: "" });
+    setTaskSession(root, "marketing", "task-506", "opencode", { id: "s1", model: "opus" });
+    expect(getTaskSession(root, "marketing", "task-506", "claude")).toEqual({ id: "u1", model: "" });
+    expect(getTaskSession(root, "marketing", "task-506", "opencode")).toEqual({ id: "s1", model: "opus" });
+    clearTaskSessions(root, "marketing", "task-506");
+    expect(getTaskSession(root, "marketing", "task-506", "claude")).toBe(null);
+  });
+
+  it("type-only change keeps stage commits and progress", async () => {
+    stub(`echo x > ${rel.stageOutputs("marketing", "task-506", "research")}/o.md`);
+    await run({});
+    const r = retargetTask(root, "marketing", "task-506", { type: "bug" });
+    expect(r.ok).toBe(true);
+    expect(r.removed).toBe(0);
+    expect(r.type).toBe("bug");
+    const W = taskWorktree(root, "marketing", "task-506");
+    const meta = JSON.parse(git(W, ["show", "HEAD:" + rel.taskMeta("marketing", "task-506")]));
+    expect(meta.tracking.research).toBeTruthy();             // progress preserved
+    expect(meta.type).toBe("bug");
   });
 });

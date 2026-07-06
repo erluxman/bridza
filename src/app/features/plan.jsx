@@ -83,9 +83,12 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
     if (!el) return;
     const onWheel = (e) => {
       e.preventDefault();
+      const v = viewRef.current;
+      // macOS trackpad pinch (and ctrl/cmd+wheel) fire wheel with ctrlKey → zoom.
+      // Plain two-finger scroll → pan (like dragging the canvas).
+      if (!e.ctrlKey) { setView({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }); return; }
       const rect = el.getBoundingClientRect();
       const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-      const v = viewRef.current;
       const k = Math.min(2.5, Math.max(0.25, v.k * (e.deltaY < 0 ? 1.12 : 0.9)));
       const f = k / v.k;
       setView({ k, x: mx - (mx - v.x) * f, y: my - (my - v.y) * f });
@@ -336,14 +339,24 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
     const inY = ty + hOf(t.key) / 2;
     const groups = [["all", g.all], ["any", g.any]].filter(([, list]) => list.length);
     const single = groups.length === 1 && groups[0][1].length === 1;
+    // Both an AND-group and an OR-group? They combine in SERIES: each keeps its
+    // own gate, then a final AND join merges the two — so the picture reads
+    // (all-group) AND (any-group), exactly what gateSatisfied evaluates. With a
+    // single group the gate wires straight to the task as before.
+    const both = groups.length === 2;
+    const joinX = tx - PN.GW - 16, joinY = inY - PN.GH / 2;
+    const groupColX = both ? joinX - PN.GW - 16 : tx - PN.GW - 16;
+    const openOf = {};
     groups.forEach(([kind, list], gi) => {
-      const gy = inY - PN.GH / 2 + (groups.length === 2 ? (gi === 0 ? -13 : 13) : 0);
-      const gx = tx - PN.GW - 16;
+      const gy = inY - PN.GH / 2 + (both ? (gi === 0 ? -13 : 13) : 0);
+      const gx = groupColX;
       const useGate = !single;
+      const open = kind === "all" ? list.every((k) => doneSet.has(k)) : list.some((k) => doneSet.has(k));
+      openOf[kind] = open;
       if (useGate) {
-        const open = kind === "all" ? list.every((k) => doneSet.has(k)) : list.some((k) => doneSet.has(k));
         gates.push({ id: t.key + ":" + kind, kind, x: gx, y: gy, open });
-        edges.push({ id: t.key + ":" + kind + ":out", from: null, hot: open, crit: list.some((dep) => critPairs.has(dep + ">" + t.key)), ...tracePath(gx + PN.GW, gy + PN.GH / 2, tx, inY) });
+        const to = both ? { x: joinX, y: joinY + PN.GH / 2 } : { x: tx, y: inY };
+        edges.push({ id: t.key + ":" + kind + ":out", from: null, hot: open, crit: list.some((dep) => critPairs.has(dep + ">" + t.key)), ...tracePath(gx + PN.GW, gy + PN.GH / 2, to.x, to.y) });
       }
       list.forEach((dep) => {
         const dp = pos[dep];
@@ -352,6 +365,11 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
         edges.push({ id: t.key + ":" + kind + ":" + dep, hot: doneSet.has(dep), run: runningTasks.has(dep), crit: critPairs.has(dep + ">" + t.key), ...tracePath(src.x, src.y, dst.x, dst.y) });
       });
     });
+    if (both) {
+      const jOpen = !!openOf.all && !!openOf.any;                          // the series AND
+      gates.push({ id: t.key + ":join", kind: "all", x: joinX, y: joinY, open: jOpen });
+      edges.push({ id: t.key + ":join:out", from: null, hot: jOpen, ...tracePath(joinX + PN.GW, joinY + PN.GH / 2, tx, inY) });
+    }
   });
 
   const blocked = tasks.filter((t) => stateOf(t) === "blocked");
