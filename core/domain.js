@@ -744,6 +744,41 @@ export const STARTER_PIPELINES = [
   },
 ];
 
+// Group a flat list of changed files into a nested folder tree for a git-PR-style
+// file explorer (the DiffView left column). Single-child directory chains are
+// collapsed like GitHub (src/app/store → one row). Each file keeps its original
+// fields (add/del/binary…) plus a leaf `name`. Pure → unit-tested.
+// Returns { dirs: [{ name, path, dirs, files }], files: [{ ...file, name }] }.
+export function buildFileTree(files) {
+  const root = { dirs: new Map(), files: [] };
+  for (const f of files || []) {
+    const parts = String(f.path || "").split("/").filter(Boolean);
+    const name = parts.pop() || String(f.path || "");
+    let node = root;
+    for (const p of parts) {
+      if (!node.dirs.has(p)) node.dirs.set(p, { dirs: new Map(), files: [] });
+      node = node.dirs.get(p);
+    }
+    node.files.push({ ...f, name });
+  }
+  const toArr = (node, prefix) => {
+    const dirs = [...node.dirs.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([name, child]) => {
+        let path = prefix ? prefix + "/" + name : name;
+        let n = child, nm = name;
+        while (n.files.length === 0 && n.dirs.size === 1) {   // collapse a/b/c chains
+          const [cn, cc] = [...n.dirs.entries()][0];
+          nm += "/" + cn; path += "/" + cn; n = cc;
+        }
+        return { name: nm, path, ...toArr(n, path) };
+      });
+    const files = node.files.sort((a, b) => a.name.localeCompare(b.name));
+    return { dirs, files };
+  };
+  return toArr(root, "");
+}
+
 // CLI tool registry — how each supported command-line tool is invoked. v1:
 // claude (Claude Code) and opencode. API tools come later behind the same
 // interface. `model` (optional) overrides the tool's own default — set per run,
@@ -771,6 +806,31 @@ export const CLI_TOOLS = [
     args: ({ prompt, system, model }) => [
       "run", "--format", "json", "--dangerously-skip-permissions",
       ...(model ? ["-m", model] : []),
+      (system ? "System instructions:\n" + system + "\n\n" : "") + prompt,
+    ],
+  },
+  {
+    id: "codex",
+    label: "Codex CLI",
+    bin: "codex",
+    // `codex exec` = non-interactive. --skip-git-repo-check: Bridza runs it inside
+    // a worktree that git already tracks; --dangerously-bypass-approvals-and-sandbox:
+    // unattended runs must not block on approval prompts (same rationale as opencode).
+    // No system-prompt flag — fold it into the message.
+    args: ({ prompt, system, model }) => [
+      "exec", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox",
+      ...(model ? ["-m", model] : []),
+      (system ? "System instructions:\n" + system + "\n\n" : "") + prompt,
+    ],
+  },
+  {
+    id: "gemini",
+    label: "Gemini CLI",
+    bin: "gemini",
+    // -p = non-interactive prompt, -y/--yolo = auto-approve tool calls (unattended).
+    // No system-prompt flag — fold it into the message.
+    args: ({ prompt, system, model }) => [
+      "-y", ...(model ? ["-m", model] : []), "-p",
       (system ? "System instructions:\n" + system + "\n\n" : "") + prompt,
     ],
   },

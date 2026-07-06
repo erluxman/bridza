@@ -16,7 +16,7 @@ afterPack: build/afterPack.cjs
 files:
   - electron/**
   - server/**
-  - src/app/store/**
+  - core/**
   - dist/**
   - package.json
 

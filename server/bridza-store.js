@@ -6,7 +6,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { DATA_DIR, rel, safeRef, pipelineFlows, flattenFlows } from "../src/app/store/bridza.js";
+import { DATA_DIR, rel, safeRef, pipelineFlows, flattenFlows } from "../core/domain.js";
 import { git, isGitRepo, branchExists, ensureTaskBranch, taskBranchName, removeTaskWorktree, stopRuns } from "./bridza-run.js";
 
 const BIDENT = ["-c", "user.name=bridza", "-c", "user.email=bridza@local"];

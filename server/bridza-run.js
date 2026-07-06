@@ -12,7 +12,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync, spawn } from "node:child_process";
-import { DATA_DIR, taskBranchName, rel, safeRef, CLI_TOOLS, STARTER_PIPELINES, pipelineFlows, gateSatisfied } from "../src/app/store/bridza.js";
+import { DATA_DIR, taskBranchName, rel, safeRef, CLI_TOOLS, STARTER_PIPELINES, pipelineFlows, gateSatisfied } from "../core/domain.js";
 
 export { DATA_DIR, taskBranchName };
 
@@ -238,6 +238,53 @@ function commitWorktree(wt, message) {
   return { committed: true, sha: git(wt, ["rev-parse", "HEAD"]).trim(), files: staged.split("\n") };
 }
 
+// ── single-file editor (read + save one output file) ─────────────────────────
+// #1 — read a task file's current content from its worktree (branch-tip state)
+// and save an edit as EITHER an amend of the branch tip OR a fresh commit. The
+// path is validated to stay inside the worktree — no traversal, no absolute.
+function safeWorktreePath(W, relPath) {
+  const p = String(relPath || "").replace(/\\/g, "/");
+  if (!p || p.startsWith("/") || p.split("/").includes("..")) return null;
+  const abs = path.resolve(W, p);
+  return abs === W || abs.startsWith(W + path.sep) ? abs : null;
+}
+
+export function readTaskFile(root, { pipeline, task, path: relPath }) {
+  const wt = ensureTaskWorktree(root, pipeline, task);
+  if (!wt.ok) return { ok: false, error: wt.error };
+  const abs = safeWorktreePath(wt.worktree, relPath);
+  if (!abs) return { ok: false, error: "bad path" };
+  try {
+    if (!fs.existsSync(abs)) return { ok: true, exists: false, content: "" };
+    const st = fs.statSync(abs);
+    if (st.isDirectory()) return { ok: false, error: "that path is a directory" };
+    if (st.size > 2 * 1024 * 1024) return { ok: false, error: "file too large to edit (" + Math.round(st.size / 1024) + " KB)" };
+    const buf = fs.readFileSync(abs);
+    if (buf.includes(0)) return { ok: false, error: "binary file — not editable" };
+    return { ok: true, exists: true, content: buf.toString("utf8") };
+  } catch (e) { return { ok: false, error: firstLine(e) }; }
+}
+
+export function saveTaskFile(root, { pipeline, task, path: relPath, content, amend, message }) {
+  const wt = ensureTaskWorktree(root, pipeline, task);
+  if (!wt.ok) return { ok: false, error: wt.error };
+  const W = wt.worktree;
+  const abs = safeWorktreePath(W, relPath);
+  if (!abs) return { ok: false, error: "bad path" };
+  try {
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, content == null ? "" : String(content));
+    git(W, ["add", "--", relPath]);
+    // no actual change → no-op (never create an empty commit or a pointless amend)
+    if (!git(W, ["diff", "--cached", "--name-only"]).trim())
+      return { ok: true, committed: false, unchanged: true, branch: wt.branch };
+    const author = ["-c", "user.name=bridza", "-c", "user.email=bridza@local"];
+    if (amend) git(W, [...author, "commit", "--amend", "--no-edit"]);
+    else git(W, [...author, "commit", "-m", String(message || "").trim() || ("bridza: edit " + relPath)]);
+    return { ok: true, committed: true, amended: !!amend, sha: git(W, ["rev-parse", "HEAD"]).trim(), branch: wt.branch };
+  } catch (e) { return { ok: false, error: firstLine(e) }; }
+}
+
 // ── live run registry ───────────────────────────────────────────────────────
 // The in-process truth of what is running RIGHT NOW. Committed metadata can say
 // "running" forever after a crashed run; this registry can't — entries exist
@@ -298,6 +345,10 @@ export function focusedContext(root, pipeline, task) {
 
 // ── CLI tool detection + the stage runner ───────────────────────────────────
 
+// Sent to the tool when a stage is run with no typed prompt — the stage still
+// works off its system prompt + upstream outputs instead of erroring on "".
+export const DEFAULT_STAGE_PROMPT = "Continue this stage from the output of previous stages.";
+
 export function toolAvailable(bin) {
   try { execFileSync("which", [bin], { stdio: "pipe" }); return true; } catch (e) { return false; }
 }
@@ -324,6 +375,20 @@ export function resolveTool(toolId) {
     catch (e) { /* fall through */ }
   }
   return CLI_TOOLS.find((t) => t.id === toolId) || null;
+}
+
+// Resolve the tool a stage will ACTUALLY run with. A pipeline can pin a tool
+// (e.g. "opencode") that isn't installed on this machine; spawning it dies with
+// ENOENT and stops the Automate chain. So substitute the first installed CLI
+// agent instead of failing. Returns { tool, toolId, fellBackFrom? } or { error }.
+// `isAvailable` is injectable for tests; BRIDZA_TOOL_OVERRIDE always resolves.
+export function resolveRunnableTool(toolId, isAvailable = toolAvailable) {
+  const tool = resolveTool(toolId);
+  if (!tool) return { error: "unknown tool: " + toolId };
+  if (process.env.BRIDZA_TOOL_OVERRIDE || isAvailable(tool.bin)) return { tool, toolId };
+  const alt = CLI_TOOLS.find((t) => isAvailable(t.bin));
+  if (!alt) return { error: "no CLI agent installed — install one of: " + CLI_TOOLS.map((t) => t.bin).join(", ") };
+  return { tool: resolveTool(alt.id), toolId: alt.id, fellBackFrom: toolId };
 }
 
 // ── AI pipeline recommender ─────────────────────────────────────────────────
@@ -468,10 +533,13 @@ export function runStage(root, body, emit) {
       rawEmit(ev);
     };
     const end = (obj) => { if (ended) return; ended = true; if (runKey) ACTIVE_RUNS.delete(runKey); emit({ t: "end", ...obj }); resolve(obj); };
-    const { pipeline, task, stage, tool: toolId, prompt, system, shell = [], workingDir = ".", stageContext, stageName, taskTitle, wallSeconds } = body || {};
+    const { pipeline, task, stage, prompt, system, shell = [], workingDir = ".", stageContext, stageName, taskTitle, wallSeconds } = body || {};
+    const picked = resolveRunnableTool(body && body.tool);
+    if (picked.error) return end({ exit: 1, errorKind: picked.error.startsWith("unknown") ? "unknown-tool" : "no-tool", error: picked.error });
+    const tool = picked.tool;
+    const toolId = picked.toolId;
+    if (picked.fellBackFrom) emit({ t: "out", d: "· " + picked.fellBackFrom + " not installed — falling back to " + toolId + "\n" });
     const model = (body && body.model) || process.env["BRIDZA_" + String(toolId).toUpperCase() + "_MODEL"] || "";
-    const tool = resolveTool(toolId);
-    if (!tool) return end({ exit: 1, errorKind: "unknown-tool", error: "unknown tool: " + toolId });
     const bad = validRef(pipeline, "pipeline") || validRef(task, "task") || validRef(stage, "stage");
     if (bad) return end({ exit: 1, errorKind: "bad-ref", error: bad });
     // plan gate: a task wired behind others (a flow handoff, or hand-drawn
@@ -542,6 +610,16 @@ export function runStage(root, body, emit) {
     const resultCommit = (exit, status, errorKind, error) => {
       if (resultDone || ended) return;
       resultDone = true;
+      // Only a fully-complete stage earns a commit. A failed/stopped run is
+      // surfaced live (events + flash) but never committed, so the timeline
+      // stays a clean sequence of done stages instead of accumulating error
+      // commits. Drop the failed run's untracked partial output so it can't leak
+      // into the next stage's commit; `clean -fd` only removes untracked files —
+      // prior done output is tracked/staged and left intact (no data loss).
+      if (status !== "done") {
+        try { git(W, ["clean", "-fd"]); } catch (e) { /* best-effort scrub */ }
+        return end({ exit, status, errorKind, error, branch: wt.branch, resultCommit: null, files: [], sessionId });
+      }
       try {
         // stage first so the changed-files list (minus scaffolding) can be
         // recorded INTO the metadata that this same commit will carry.
@@ -631,7 +709,11 @@ export function runStage(root, body, emit) {
     // focused context (linked tickets) rides along in the prompt — the linked
     // tasks' intent plays a bigger role in shaping this stage's work.
     const focus = focusedContext(root, pipeline, task);
-    const fullPrompt = focus ? String(prompt || "") + "\n\n" + focus : prompt;
+    // An empty stage prompt must NOT error the tool: a stage with no typed input
+    // still runs off its system prompt + upstream outputs. Default the text sent
+    // to the tool (the stored run record keeps showing "no prompt — defaults").
+    const basePrompt = (prompt && prompt.trim()) ? prompt : DEFAULT_STAGE_PROMPT;
+    const fullPrompt = focus ? String(basePrompt) + "\n\n" + focus : basePrompt;
     const args = tool.args({ prompt: fullPrompt, system, model });
     // show EXACTLY what gets executed (long args abbreviated for readability —
     // the full prompt text is in <stage>/prompts.md). Also flags when NO model

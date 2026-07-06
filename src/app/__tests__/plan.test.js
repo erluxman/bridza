@@ -7,7 +7,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { readPlan, savePlan, readTaskMeta, createPipeline, createTask } from "../../../server/bridza-store.js";
 import { git, extractImports, resolveImport, buildReverseImportGraph, reverseClosure, runStage, reopenStage } from "../../../server/bridza-run.js";
-import { gateSatisfied, criticalPath, rel } from "../store/bridza.js";
+import { gateSatisfied, criticalPath, rel } from "../../../core/domain.js";
 
 // generous: the reopen/failed-run tests do several real runStage rounds (git
 // worktrees + subprocesses) and slow down when the whole suite runs in parallel
@@ -227,7 +227,10 @@ describe("reopenStage — hard rollback: commits after the stage are removed", (
 });
 
 describe("failed runs carry their reason", () => {
-  it("stores error + output tail on the run record (committed to the branch)", async () => {
+  // #6 — a failed run reports its reason LIVE (end event + streamed output) but
+  // is NOT committed: no error commit, and nothing about the failure is written
+  // to the branch. The timeline stays a clean sequence of done stages.
+  it("reports the failure reason on the end event and commits nothing", async () => {
     const wtBase = fs.mkdtempSync(path.join(os.tmpdir(), "bridza-fail-wt-"));
     dirs.push(wtBase);
     process.env.BRIDZA_WORKTREE_DIR = wtBase;
@@ -235,15 +238,18 @@ describe("failed runs carry their reason", () => {
     try {
       createPipeline(root, { id: "dev", label: "Dev", stages: [{ id: "spec", name: "Spec" }] });
       createTask(root, { pipeline: "dev", id: "t2", title: "T2" });
-      const end = await runStage(root, { pipeline: "dev", task: "t2", stage: "spec", tool: "opencode", prompt: "go" }, () => {});
+      const events = [];
+      const end = await runStage(root, { pipeline: "dev", task: "t2", stage: "spec", tool: "opencode", prompt: "go" }, (e) => events.push(e));
       expect(end.status).toBe("failed");
       expect(end.exit).toBe(3);
-      const meta = readTaskMeta(root, "dev", "t2");
-      const run = meta.tracking.spec.runs[0];
-      expect(run.status).toBe("failed");
-      expect(run.error).toMatch(/exited with code 3/);
-      expect(run.log).toMatch(/^\$ sh -c /);   // the EXACT command line is the log's first line
-      expect(run.log).toMatch(/not authenticated/);
+      expect(end.resultCommit).toBe(null);            // no commit for the failure
+      expect(end.error).toMatch(/exited with code 3/); // reason is on the end event…
+      // …and the tool's stderr streamed live to the client
+      expect(events.some((e) => e.t === "out" && /not authenticated/.test(e.d))).toBe(true);
+      // nothing about the failure reached the branch: no stage commit at all
+      const branch = "bridza/dev/t2";
+      const log = git(root, ["log", "--format=%s", "main.." + branch]).trim();
+      expect(log).not.toMatch(/spec/);
     } finally {
       delete process.env.BRIDZA_WORKTREE_DIR;
       delete process.env.BRIDZA_TOOL_OVERRIDE;
@@ -266,10 +272,11 @@ describe("opencode error events (exit 0) mark the run failed", () => {
       expect(end.status).toBe("failed");
       expect(end.errorKind).toBe("tool-error");
       expect(end.error).toMatch(/DeepSeek/);
-      const run = readTaskMeta(root, "dev", "t3").tracking.spec.runs[0];
-      expect(run.status).toBe("failed");
-      expect(run.error).toMatch(/missing field name/);
-      expect(run.sessionId).toBe("ses_test");
+      expect(end.error).toMatch(/missing field name/);   // provider message surfaced on the end event
+      expect(end.sessionId).toBe("ses_test");            // session captured even on failure
+      expect(end.resultCommit).toBe(null);               // #6 — failure is not committed
+      // the failure left no spec run on the branch
+      expect((readTaskMeta(root, "dev", "t3").tracking || {}).spec).toBeUndefined();
     } finally {
       delete process.env.BRIDZA_WORKTREE_DIR;
       delete process.env.BRIDZA_TOOL_OVERRIDE;

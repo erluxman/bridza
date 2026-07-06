@@ -8,7 +8,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { ensureDataDir, readProject, readPlan, savePlan, createPipeline, savePipeline, archivePipeline, createTask, deleteTask, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox } from "../../../server/bridza-store.js";
 import { runStage, git } from "../../../server/bridza-run.js";
-import { STARTER_PIPELINES, rel, judgeStageId, pipelineFlows, exportFlow, parseFlowFile, exportPipeline, parsePipelineFile } from "../store/bridza.js";
+import { STARTER_PIPELINES, rel, judgeStageId, pipelineFlows, exportFlow, parseFlowFile, exportPipeline, parsePipelineFile } from "../../../core/domain.js";
 
 vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
 
