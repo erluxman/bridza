@@ -11,8 +11,8 @@ import {
   SPEC_CATALOG, specLabel, specValues, withSpecs,
   FLOW_FILE_KIND, exportFlow, parseFlowFile,
   PIPELINE_FILE_KIND, exportPipeline, parsePipelineFile,
-  STARTER_PIPELINES, CLI_TOOLS,
-} from "../store/bridza.js";
+  STARTER_PIPELINES, CLI_TOOLS, buildFileTree,
+} from "../../../core/domain.js";
 
 /* ───────────────────────── naming + branches ───────────────────────── */
 
@@ -307,14 +307,44 @@ describe("STARTER_PIPELINES integrity (the category catalog)", () => {
 /* ───────────────────────── CLI tool registry ───────────────────────── */
 
 describe("CLI_TOOLS", () => {
-  it("claude and opencode are registered with arg builders", () => {
+  it("claude, opencode, codex and gemini are registered with arg builders", () => {
     const ids = CLI_TOOLS.map((t) => t.id);
-    expect(ids).toContain("claude");
-    expect(ids).toContain("opencode");
+    expect(ids).toEqual(expect.arrayContaining(["claude", "opencode", "codex", "gemini"]));
     for (const t of CLI_TOOLS) {
       const args = t.args({ prompt: "P", system: "S", model: "M" });
       expect(args.join(" ")).toContain("P");
       expect(args.join(" ")).toContain("M");
     }
+  });
+});
+
+describe("buildFileTree (#8 — git-PR file explorer)", () => {
+  const f = (path, add = 1, del = 0) => ({ path, add, del });
+
+  it("nests files under their folders, dirs before files, alpha-sorted", () => {
+    const t = buildFileTree([f("src/b.js"), f("src/a.js"), f("README.md")]);
+    expect(t.dirs.map((d) => d.name)).toEqual(["src"]);
+    expect(t.files.map((x) => x.name)).toEqual(["README.md"]);   // root-level file
+    expect(t.dirs[0].files.map((x) => x.name)).toEqual(["a.js", "b.js"]);
+  });
+
+  it("collapses single-child directory chains like GitHub", () => {
+    const t = buildFileTree([f("a/b/c/deep.js")]);
+    expect(t.dirs).toHaveLength(1);
+    expect(t.dirs[0].name).toBe("a/b/c");            // whole chain in one row
+    expect(t.dirs[0].files.map((x) => x.name)).toEqual(["deep.js"]);
+  });
+
+  it("stops collapsing when a directory branches", () => {
+    const t = buildFileTree([f("a/b/x.js"), f("a/c/y.js")]);
+    expect(t.dirs.map((d) => d.name)).toEqual(["a"]);
+    expect(t.dirs[0].dirs.map((d) => d.name)).toEqual(["b", "c"]);
+  });
+
+  it("preserves each file's original fields plus a leaf name, and handles empty input", () => {
+    const t = buildFileTree([f("src/app.js", 4, 2)]);
+    expect(t.dirs[0].files[0]).toMatchObject({ path: "src/app.js", add: 4, del: 2, name: "app.js" });
+    expect(buildFileTree([])).toEqual({ dirs: [], files: [] });
+    expect(buildFileTree(undefined)).toEqual({ dirs: [], files: [] });
   });
 });

@@ -285,8 +285,8 @@ export const STARTER_PIPELINES = [
           outputs: [{ name: "docs/requirements.md" }, { name: "docs/user-stories.md" }],
           specs: [{ key: "target-os", value: "" }, { key: "form-factors", value: "" }, { key: "offline", value: "" }] },
         { id: "architecture", name: "Design & Architecture", tool: "opencode", gate: "design approved",
-          systemPrompt: "You are a product designer and software architect. Read docs/vision.md and docs/requirements.md. Define the UX (screen list, navigation, layout rules for every required form factor), the data model, and the app architecture (folder structure, state management, key libraries) for the stack in the specs — or the repo's existing stack if none is specified. Prefer the platform's native capabilities over extra dependencies. Write docs/design.md and docs/architecture.md. Do NOT write application code yet.",
-          outputs: [{ name: "docs/design.md" }, { name: "docs/architecture.md" }],
+          systemPrompt: "You are a product designer and software architect. Read docs/vision.md and docs/requirements.md. Define the UX (screen list, navigation, layout rules for every required form factor), the data model, and the app architecture (folder structure, state management, key libraries) for the stack in the specs — or the repo's existing stack if none is specified. Prefer the platform's native capabilities over extra dependencies. Write docs/design.md and docs/architecture.md. Because UX is best judged by seeing and clicking it, ALSO build an interactive prototype as ONE self-contained static HTML file (inline CSS + JS, no external/CDN dependencies, works by opening the file directly): render every screen, make the primary navigation and interactive states actually work, use placeholder data, and cover the required form factors responsively. Write docs/prototype.html. Do NOT write application code yet.",
+          outputs: [{ name: "docs/design.md" }, { name: "docs/architecture.md" }, { name: "docs/prototype.html" }],
           specs: [{ key: "framework", value: "" }] },
         { id: "planning", name: "Sprint Planning", tool: "opencode", gate: "plan board populated",
           systemPrompt: "You are an agile lead. Read the docs/ design and requirements. Break the work into a prioritized backlog of concrete, small tasks mapped to user stories (each INVEST: independent, valuable, small, testable). Your PRIMARY output is the PLAN BOARD, not documents: FIRST read .bridza/.metadata/creation-guide.md and follow it exactly — create each task under .bridza/pipelines/ with metadata.json + context.md, wire the AND/OR dependency network into .bridza/plan.json deps (only real ordering; independent tasks get none; deps may cross pipelines), estimate every task in hours under est, and group them into milestones (a milestone may span pipelines). Then summarize in docs/backlog.md and docs/sprint-plan.md. The user will review and rearrange the board afterwards. Do NOT write code.",
@@ -329,8 +329,8 @@ export const STARTER_PIPELINES = [
           systemPrompt: "You are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we'll know it works.",
           outputs: [{ name: "spec.md" }, { name: "acceptance.md" }] },
         { id: "design", name: "Design", tool: "claude", gate: "design approved", judge: true,
-          systemPrompt: "You are a product designer. From the task intent (and spec.md if present), define the UX and visual design: screens, states, layout rules, component inventory. Write design.md. Do NOT write application code.",
-          outputs: [{ name: "design.md" }] },
+          systemPrompt: "You are a product designer. From the task intent (and spec.md if present), define the UX and visual design: screens, states, layout rules, component inventory. Write design.md. Because a design is best judged by seeing and clicking it — not by reading prose — ALSO build an interactive prototype as ONE self-contained static HTML file (inline CSS + JS, no external/CDN dependencies, works by opening the file directly): render every screen, make the primary navigation and interactive states actually work, and use placeholder data. Write prototype.html. Do NOT write application code.",
+          outputs: [{ name: "design.md" }, { name: "prototype.html" }] },
       ] },
       { id: "dissection", name: "Feature dissection", stages: [
         { id: "dissect", name: "Dissect", tool: "claude", gate: "sub-tasks reviewed",
@@ -365,8 +365,8 @@ export const STARTER_PIPELINES = [
           outputs: [{ name: "docs/personas.md" }, { name: "docs/requirements.md" }, { name: "docs/user-stories.md" }],
           specs: [{ key: "user-expertise", value: "" }, { key: "accessibility", value: "" }, { key: "compliance", value: "" }] },
         { id: "ps-ux", name: "UX Design & Mockups", tool: "opencode", gate: "design approved",
-          systemPrompt: "You are a product designer. Read docs/concept.md and docs/requirements.md. Design the user experience: screen-by-screen navigation, user flows for every key scenario, wireframe descriptions (layout, components, interaction per screen), and a design direction (typography, spacing, color principles). Honor every stage spec as a hard constraint. Write docs/ux-flows.md, docs/wireframes.md, and docs/design-direction.md. Do NOT write code.",
-          outputs: [{ name: "docs/ux-flows.md" }, { name: "docs/wireframes.md" }, { name: "docs/design-direction.md" }],
+          systemPrompt: "You are a product designer. Read docs/concept.md and docs/requirements.md. Design the user experience: screen-by-screen navigation, user flows for every key scenario, wireframe descriptions (layout, components, interaction per screen), and a design direction (typography, spacing, color principles). Honor every stage spec as a hard constraint. Write docs/ux-flows.md, docs/wireframes.md, and docs/design-direction.md. Because wireframes are best judged by seeing and clicking them, ALSO build an interactive prototype as ONE self-contained static HTML file (inline CSS + JS, no external/CDN dependencies, works by opening the file directly): render every screen from the wireframes, make the primary navigation and interactive states actually work, use placeholder data, and honor the design direction + required form factors responsively. Write docs/prototype.html. Do NOT write code.",
+          outputs: [{ name: "docs/ux-flows.md" }, { name: "docs/wireframes.md" }, { name: "docs/design-direction.md" }, { name: "docs/prototype.html" }],
           specs: [{ key: "form-factors", value: "" }, { key: "branding", value: "" }] },
         { id: "ps-architecture", name: "System Design & Architecture", tool: "opencode", gate: "design approved",
           systemPrompt: "You are a software architect. Read ALL docs/ from previous stages. Define the system architecture: high-level component diagram (text-based), module boundaries and responsibilities, data model (entities, relationships, key fields), API surface, and technology choices with rationale. Prefer the repo's existing stack; use stage specs otherwise. Prefer platform-native capabilities over extra dependencies. Write docs/architecture.md, docs/data-model.md, and docs/system-design.md. Do NOT write code.",
@@ -744,6 +744,41 @@ export const STARTER_PIPELINES = [
   },
 ];
 
+// Group a flat list of changed files into a nested folder tree for a git-PR-style
+// file explorer (the DiffView left column). Single-child directory chains are
+// collapsed like GitHub (src/app/store → one row). Each file keeps its original
+// fields (add/del/binary…) plus a leaf `name`. Pure → unit-tested.
+// Returns { dirs: [{ name, path, dirs, files }], files: [{ ...file, name }] }.
+export function buildFileTree(files) {
+  const root = { dirs: new Map(), files: [] };
+  for (const f of files || []) {
+    const parts = String(f.path || "").split("/").filter(Boolean);
+    const name = parts.pop() || String(f.path || "");
+    let node = root;
+    for (const p of parts) {
+      if (!node.dirs.has(p)) node.dirs.set(p, { dirs: new Map(), files: [] });
+      node = node.dirs.get(p);
+    }
+    node.files.push({ ...f, name });
+  }
+  const toArr = (node, prefix) => {
+    const dirs = [...node.dirs.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([name, child]) => {
+        let path = prefix ? prefix + "/" + name : name;
+        let n = child, nm = name;
+        while (n.files.length === 0 && n.dirs.size === 1) {   // collapse a/b/c chains
+          const [cn, cc] = [...n.dirs.entries()][0];
+          nm += "/" + cn; path += "/" + cn; n = cc;
+        }
+        return { name: nm, path, ...toArr(n, path) };
+      });
+    const files = node.files.sort((a, b) => a.name.localeCompare(b.name));
+    return { dirs, files };
+  };
+  return toArr(root, "");
+}
+
 // CLI tool registry — how each supported command-line tool is invoked. v1:
 // claude (Claude Code) and opencode. API tools come later behind the same
 // interface. `model` (optional) overrides the tool's own default — set per run,
@@ -771,6 +806,31 @@ export const CLI_TOOLS = [
     args: ({ prompt, system, model }) => [
       "run", "--format", "json", "--dangerously-skip-permissions",
       ...(model ? ["-m", model] : []),
+      (system ? "System instructions:\n" + system + "\n\n" : "") + prompt,
+    ],
+  },
+  {
+    id: "codex",
+    label: "Codex CLI",
+    bin: "codex",
+    // `codex exec` = non-interactive. --skip-git-repo-check: Bridza runs it inside
+    // a worktree that git already tracks; --dangerously-bypass-approvals-and-sandbox:
+    // unattended runs must not block on approval prompts (same rationale as opencode).
+    // No system-prompt flag — fold it into the message.
+    args: ({ prompt, system, model }) => [
+      "exec", "--skip-git-repo-check", "--dangerously-bypass-approvals-and-sandbox",
+      ...(model ? ["-m", model] : []),
+      (system ? "System instructions:\n" + system + "\n\n" : "") + prompt,
+    ],
+  },
+  {
+    id: "gemini",
+    label: "Gemini CLI",
+    bin: "gemini",
+    // -p = non-interactive prompt, -y/--yolo = auto-approve tool calls (unattended).
+    // No system-prompt flag — fold it into the message.
+    args: ({ prompt, system, model }) => [
+      "-y", ...(model ? ["-m", model] : []), "-p",
       (system ? "System instructions:\n" + system + "\n\n" : "") + prompt,
     ],
   },

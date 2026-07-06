@@ -44,6 +44,8 @@ export const getDiff = (dir, commit) => get(`/diff?commit=${encodeURIComponent(c
 export const getBranchDiff = (dir, pipeline, task) => get(`/branch-diff?pipeline=${encodeURIComponent(pipeline)}&task=${encodeURIComponent(task)}`, dir);
 export const getBlast = (dir, pipeline, task) => get(`/blast?pipeline=${encodeURIComponent(pipeline)}&task=${encodeURIComponent(task)}`, dir);
 export const getWorkingDiff = (dir) => get(`/working-diff`, dir);
+export const getFile = (dir, pipeline, task, path) => get(`/file?pipeline=${encodeURIComponent(pipeline)}&task=${encodeURIComponent(task)}&path=${encodeURIComponent(path)}`, dir);
+export const saveFile = (dir, body) => post("/file/save", dir, body);
 export const fetchTime = (dir, pipeline, task) => get(`/time?pipeline=${encodeURIComponent(pipeline)}&task=${encodeURIComponent(task)}`, dir);
 export const saveTime = (dir, pipeline, task, time) => post("/time", dir, { pipeline, task, time });
 

@@ -6,7 +6,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { DATA_DIR, rel, safeRef, pipelineFlows, flattenFlows } from "../src/app/store/bridza.js";
+import { DATA_DIR, rel, safeRef, pipelineFlows, flattenFlows } from "../core/domain.js";
 import { git, isGitRepo, branchExists, ensureTaskBranch, taskBranchName, removeTaskWorktree, stopRuns } from "./bridza-run.js";
 
 const BIDENT = ["-c", "user.name=bridza", "-c", "user.email=bridza@local"];
@@ -97,32 +97,68 @@ a stage first runs. Do not write a \`ref\` number — Bridza assigns it.
 Create one task per sub-feature as above (type: "subtask"), each with its own
 context.md. Then record ordering in \`.bridza/plan.json\` under \`deps\`.
 
-## Wire dependencies (the AND & OR network) <!-- plan-guide-v2 -->
+## The model in one picture (read this first) <!-- plan-guide-v3 -->
 
-\`.bridza/plan.json\` \`deps\` is the gate network the plan board renders and
-ENFORCES (a task's stages refuse to run until its gate opens):
+The plan board is a NETWORK DIAGRAM. Think of it as:
+- Each TASK is a node.
+- A DEPENDENCY is a directed edge "B waits on A" (A must finish before B runs).
+  Where several edges meet a task, they pass through an AND gate (all required)
+  or an OR gate (any one is enough).
+- A MILESTONE is a box drawn around a set of tasks; \`needs\` sequences boxes.
+- An ESTIMATE (hours) is the weight on a node; it sizes the critical path.
+
+You only ever describe THREE things per task: what it waits on (deps), how big
+it is (est), and which milestone it belongs to. Bridza draws the whole diagram,
+computes the critical path, and enforces the gates automatically — you never
+lay out or connect anything by hand.
+
+## Wire dependencies (the AND & OR network)
+
+\`.bridza/plan.json\` \`deps\` is the gate network the board renders and ENFORCES
+(a task's stages refuse to run until its gate opens):
 \`{ "deps": { "<pipeline>/<task>": { "all": ["<key>", …], "any": ["<key>", …] } } }\`
 - \`all\` = AND: every listed task must be done first.
 - \`any\` = OR: at least one listed task must be done (use for alternatives).
-- Keys may CROSS pipelines freely — dependencies are not limited to one
-  pipeline. Independent work gets NO deps; never invent ordering that the work
-  doesn't require.
+- Keys are "<pipeline>/<task>" and may CROSS pipelines freely. Independent work
+  gets NO deps; never invent ordering the work doesn't require.
 Merge into the existing file — never overwrite entries you didn't create.
 
 ## Estimate the cost of each task
 
 \`.bridza/plan.json\` \`est\` maps task → estimated HOURS of work (numbers):
 \`{ "est": { "<pipeline>/<task>": 4, … } }\`
-Estimate every task you create. The plan board shows the cost on each node and
-weights the critical path with it.
+Estimate every task you create; the board weights the critical path with it.
 
 ## Create a milestone
 
 Append to \`milestones\` in \`.bridza/plan.json\`:
 \`{ "id": "ms-<slug>", "title": "<title>", "due": "YYYY-MM-DD or empty", "tasks": ["<pipeline>/<task>", …], "needs": ["<other-milestone-id>", …] }\`
-A task may belong to at most ONE milestone, but a milestone's tasks may SPAN
-several pipelines — use that for initiatives that cut across (e.g. a launch
-touching engineering + content + marketing). \`needs\` orders milestones.
+A task belongs to at most ONE milestone, but a milestone's tasks may SPAN
+pipelines (a launch touching engineering + content + marketing). \`needs\` orders
+milestones. Bridza keeps the one-milestone-per-task rule for you.
+
+## Worked example — three tasks, one milestone
+
+\`\`\`json
+{
+  "deps": {
+    "eng/build-api":  { "all": ["eng/design-schema"], "any": [] },
+    "eng/build-ui":   { "all": ["eng/design-schema"], "any": [] },
+    "eng/ship":       { "all": ["eng/build-api", "eng/build-ui"], "any": [] }
+  },
+  "est": { "eng/design-schema": 4, "eng/build-api": 8, "eng/build-ui": 8, "eng/ship": 2 },
+  "milestones": [
+    { "id": "ms-v1", "title": "v1 launch", "due": "", "tasks": ["eng/build-api", "eng/build-ui", "eng/ship"], "needs": [] }
+  ]
+}
+\`\`\`
+This renders as: schema → (api, ui in parallel) → AND gate → ship, all inside the
+"v1 launch" box; the critical path is schema→build→ship (14h).
+
+Tip: when the follow-on relationship is simple, you don't need to touch
+plan.json at all — creating a task with a \`dependsOn\` key auto-wires the AND-dep,
+the context link, its \`est\`, and its \`milestone\`. Use plan.json directly only for
+the richer multi-parent / OR / cross-pipeline structure above.
 
 ## Pipeline-level sequence (only when truly ordered)
 
@@ -152,7 +188,7 @@ export function ensureDataDir(root) {
   // refresh the guide when it predates the plan-board contract (v2 marker)
   const guide = path.join(dir, ".metadata", "creation-guide.md");
   let guideCur = ""; try { guideCur = fs.readFileSync(guide, "utf8"); } catch (e) { /* absent */ }
-  if (!guideCur.includes("plan-guide-v2")) writeText(guide, CREATION_GUIDE);
+  if (!guideCur.includes("plan-guide-v3")) writeText(guide, CREATION_GUIDE);
   // .bridza/.cache holds the live wall-clock store — local, never committed.
   const gi = path.join(dir, ".gitignore");
   if (!fs.existsSync(gi)) writeText(gi, ".cache/\n");
@@ -176,9 +212,20 @@ export function mergeTime(root, pipeline, task, map) {
   if (!pipeline || !task) return { ok: false, error: "pipeline + task required" };
   const cur = readTime(root);
   const key = timeKey(pipeline, task);
+  const prev = cur.tasks[key] || {};
+  // #14 — total wall-clock per stage lives at the top level; the IDLE portion
+  // (stage open, no typing, no run) rides along under a reserved __idle sub-map,
+  // so work = total − idle. Extra keys are ignored by the per-stage readers.
   const clean = {};
-  for (const [k, v] of Object.entries(map || {})) { const n = Math.floor(Number(v)); if (Number.isFinite(n) && n > 0) clean[k] = n; }
-  cur.tasks[key] = { ...(cur.tasks[key] || {}), ...clean };
+  let idleIn = null;
+  for (const [k, v] of Object.entries(map || {})) {
+    if (k === "__idle") { if (v && typeof v === "object") idleIn = v; continue; }
+    const n = Math.floor(Number(v)); if (Number.isFinite(n) && n > 0) clean[k] = n;
+  }
+  const nextIdle = { ...(prev.__idle || {}) };
+  if (idleIn) for (const [k, v] of Object.entries(idleIn)) { const n = Math.floor(Number(v)); if (Number.isFinite(n) && n > 0) nextIdle[k] = n; }
+  cur.tasks[key] = { ...prev, ...clean };
+  if (Object.keys(nextIdle).length) cur.tasks[key].__idle = nextIdle;   // keep the common case clean
   writeJSON(timeFile(root), cur);
   return { ok: true, time: cur.tasks[key] };
 }
@@ -461,7 +508,7 @@ export function archivePipeline(root, { id, archived = true }) {
   return { ok: true, id: pid, archived: !!archived, committed: commit.committed };
 }
 
-export function createTask(root, { pipeline, id, title = "", type = "", outputMode = "docs", stages, flow = "", template = "", dependsOn = "" }) {
+export function createTask(root, { pipeline, id, title = "", type = "", outputMode = "docs", stages, flow = "", template = "", dependsOn = "", dependsOnAny = [], est = 0, milestone = null }) {
   const bad = !pipeline ? "pipeline required" : !id ? "task id required" : null;
   if (bad) return { ok: false, error: bad };
   const pid = safeRef(pipeline), tid = safeRef(id);
@@ -493,10 +540,16 @@ export function createTask(root, { pipeline, id, title = "", type = "", outputMo
     branch: taskBranchName(pid, tid), stages: stageIds, routing: {},
     status: "in-progress", finalized: false, tracking: {},
   });
+  // #17 — dependencies can be auto-wired at creation: dependsOn (string OR
+  // array → AND gate) and dependsOnAny (array → OR gate). The FIRST AND-dep also
+  // seeds the handoff manifest below. A valid key is "<pipeline>/<task>", ≠ self.
+  const isKey = (d) => /^[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+$/.test(d) && d !== pid + "/" + tid;
+  const andKeys = [...new Set((Array.isArray(dependsOn) ? dependsOn : [dependsOn]).map((d) => String(d || "").trim()).filter(isKey))];
+  const anyKeys = [...new Set((Array.isArray(dependsOnAny) ? dependsOnAny : []).map((d) => String(d || "").trim()).filter(isKey))];
   // handoff manifest: a follow-on task's context.md opens with WHO it follows
   // and the files that task produced — the concrete inputs to this one.
-  const dep = String(dependsOn || "").trim();
-  const depOk = /^[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+$/.test(dep) && dep !== pid + "/" + tid;
+  const dep = andKeys[0] || "";
+  const depOk = !!dep;
   let manifest = "";
   if (depOk) {
     const [up, ut] = dep.split("/");
@@ -533,8 +586,23 @@ export function createTask(root, { pipeline, id, title = "", type = "", outputMo
   const plan = readPlan(root);
   const g = plan.deps[key] || { all: [], any: [] };
   let planTouched = false;
-  if (depOk && !g.all.includes(dep)) { g.all.push(dep); planTouched = true; }
+  for (const d of andKeys) if (!g.all.includes(d)) { g.all.push(d); planTouched = true; }
+  for (const d of anyKeys) if (!g.any.includes(d)) { g.any.push(d); planTouched = true; }
   if (depOk && !(plan.links[key] || []).includes(dep)) { plan.links[key] = [...(plan.links[key] || []), dep]; planTouched = true; }
+  // #17 — cost estimate + milestone assignment, wired the same automatic way
+  if (Number(est) > 0) { plan.est = { ...(plan.est || {}), [key]: Number(est) }; planTouched = true; }
+  if (milestone) {
+    const mid = safeRef(typeof milestone === "string" ? milestone : (milestone.id || ""));
+    const mtitle = typeof milestone === "object" ? String(milestone.title || mid) : mid;
+    if (mid) {
+      let m = plan.milestones.find((x) => safeRef(x.id) === mid);
+      if (!m) { m = { id: mid, title: mtitle, due: "", tasks: [], needs: [] }; plan.milestones.push(m); }
+      // one milestone per task — drop the key from every other milestone first
+      plan.milestones.forEach((x) => { if (safeRef(x.id) !== mid) x.tasks = (x.tasks || []).filter((k) => k !== key); });
+      if (!(m.tasks || []).includes(key)) m.tasks = [...(m.tasks || []), key];
+      planTouched = true;
+    }
+  }
   for (const e of plan.pipeDeps.filter((d) => d && d.to === pid)) {
     if (readPipelineDef(root, e.from).archived) continue;   // hidden pipelines don't gate new work
     for (const ut of listDirs(path.join(root, rel.pipeline(e.from)))) {
@@ -630,13 +698,14 @@ export function readPlan(root) {
     deps: (j && j.deps && typeof j.deps === "object") ? j.deps : {},
     milestones: (j && Array.isArray(j.milestones)) ? j.milestones : [],
     pos: (j && j.pos && typeof j.pos === "object") ? j.pos : {},
+    sizes: (j && j.sizes && typeof j.sizes === "object") ? j.sizes : {},
     links: (j && j.links && typeof j.links === "object") ? j.links : {},
     pipeDeps: (j && Array.isArray(j.pipeDeps)) ? j.pipeDeps : [],
     est: (j && j.est && typeof j.est === "object") ? j.est : {},
   };
 }
 
-export function savePlan(root, { deps, milestones, pos, links, pipeDeps, est } = {}) {
+export function savePlan(root, { deps, milestones, pos, sizes, links, pipeDeps, est } = {}) {
   ensureDataDir(root);
   const cur = readPlan(root);
   const nextDeps = {};
@@ -660,6 +729,13 @@ export function savePlan(root, { deps, milestones, pos, links, pipeDeps, est } =
   for (const [k, v] of Object.entries(pos != null ? pos : cur.pos)) {
     if (KEY_RE.test(k) && v && Number.isFinite(+v.x) && Number.isFinite(+v.y)) nextPos[k] = { x: Math.round(+v.x), y: Math.round(+v.y) };
   }
+  // per-task card sizes on the plan board (#13) — bounded so a bad drag can't
+  // make a node vanish or swallow the canvas
+  const nextSizes = {};
+  for (const [k, v] of Object.entries(sizes != null ? sizes : cur.sizes)) {
+    if (KEY_RE.test(k) && v && Number.isFinite(+v.w) && Number.isFinite(+v.h))
+      nextSizes[k] = { w: Math.min(600, Math.max(120, Math.round(+v.w))), h: Math.min(240, Math.max(38, Math.round(+v.h))) };
+  }
   // focused-context links: task → the tickets attached to it as context
   const nextLinks = {};
   for (const [k, list] of Object.entries(links != null ? links : cur.links)) {
@@ -680,7 +756,7 @@ export function savePlan(root, { deps, milestones, pos, links, pipeDeps, est } =
     const h = Number(v);
     if (KEY_RE.test(k) && Number.isFinite(h) && h > 0) nextEst[k] = Math.round(h * 10) / 10;
   }
-  const next = { v: 1, deps: nextDeps, milestones: nextMs, pos: nextPos, links: nextLinks, pipeDeps: nextPD, est: nextEst };
+  const next = { v: 1, deps: nextDeps, milestones: nextMs, pos: nextPos, sizes: nextSizes, links: nextLinks, pipeDeps: nextPD, est: nextEst };
   writeJSON(path.join(root, rel.plan()), next);
   const nD = Object.keys(nextDeps).length, nM = nextMs.length, nL = Object.keys(nextLinks).length;
   const msg = [

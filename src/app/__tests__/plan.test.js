@@ -7,7 +7,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { readPlan, savePlan, readTaskMeta, createPipeline, createTask } from "../../../server/bridza-store.js";
 import { git, extractImports, resolveImport, buildReverseImportGraph, reverseClosure, runStage, reopenStage } from "../../../server/bridza-run.js";
-import { gateSatisfied, criticalPath, rel } from "../store/bridza.js";
+import { gateSatisfied, criticalPath, rel } from "../../../core/domain.js";
 
 // generous: the reopen/failed-run tests do several real runStage rounds (git
 // worktrees + subprocesses) and slow down when the whole suite runs in parallel
@@ -50,7 +50,7 @@ describe("gateSatisfied — AND/OR dependency gate", () => {
 
 describe("plan store — .bridza/plan.json", () => {
   it("reads an empty plan when none exists", () => {
-    expect(readPlan(root)).toEqual({ v: 1, deps: {}, milestones: [], pos: {}, links: {}, pipeDeps: [], est: {} });
+    expect(readPlan(root)).toEqual({ v: 1, deps: {}, milestones: [], pos: {}, sizes: {}, links: {}, pipeDeps: [], est: {} });
   });
   it("round-trips focused-context links, dropping self/bad keys", () => {
     savePlan(root, { links: { "dev/build": ["dev/spec", "dev/build", "bad key!"], "nope!": ["dev/spec"] } });
@@ -72,6 +72,36 @@ describe("plan store — .bridza/plan.json", () => {
     expect(back.pos["dev/build"]).toEqual({ x: 121, y: 80 });   // rounded
     expect(git(root, ["log", "-1", "--format=%s"]).trim()).toMatch(/bridza: edit plan/);
     expect(fs.existsSync(path.join(root, rel.plan()))).toBe(true);
+  });
+  it("#17 — createTask auto-wires AND/OR deps, estimate and milestone into the plan", () => {
+    createPipeline(root, { id: "eng", label: "Eng", stages: [{ id: "spec", name: "Spec" }] });
+    createTask(root, { pipeline: "eng", id: "a", title: "A" });
+    createTask(root, { pipeline: "eng", id: "b", title: "B" });
+    createTask(root, { pipeline: "eng", id: "c", title: "C",
+      dependsOn: ["eng/a", "eng/b"], dependsOnAny: ["eng/b"], est: 6, milestone: { id: "ms-v1", title: "v1 launch" } });
+    const plan = readPlan(root);
+    expect(plan.deps["eng/c"].all).toEqual(expect.arrayContaining(["eng/a", "eng/b"]));
+    expect(plan.deps["eng/c"].any).toEqual(["eng/b"]);
+    expect(plan.est["eng/c"]).toBe(6);
+    const ms = plan.milestones.find((m) => m.id === "ms-v1");
+    expect(ms.title).toBe("v1 launch");
+    expect(ms.tasks).toContain("eng/c");
+    // a single dependsOn string still works (handoff path) + seeds a context link
+    createTask(root, { pipeline: "eng", id: "d", title: "D", dependsOn: "eng/a" });
+    const p2 = readPlan(root);
+    expect(p2.deps["eng/d"].all).toEqual(["eng/a"]);
+    expect(p2.links["eng/d"]).toContain("eng/a");
+  });
+
+  it("#13 — round-trips per-task card sizes, clamped to bounds", () => {
+    savePlan(root, { sizes: { "dev/build": { w: 260.6, h: 70.2 }, "dev/huge": { w: 9999, h: 9999 }, "dev/tiny": { w: 10, h: 5 }, "bad key!": { w: 200, h: 60 } } });
+    const back = readPlan(root);
+    expect(back.sizes["dev/build"]).toEqual({ w: 261, h: 70 });   // rounded
+    expect(back.sizes["dev/huge"]).toEqual({ w: 600, h: 240 });   // clamped to max
+    expect(back.sizes["dev/tiny"]).toEqual({ w: 120, h: 38 });    // clamped to min
+    expect(back.sizes["bad key!"]).toBeUndefined();               // bad key dropped
+    savePlan(root, { deps: {} });   // partial save keeps sizes
+    expect(readPlan(root).sizes["dev/build"]).toEqual({ w: 261, h: 70 });
   });
   it("sanitizes: drops self-deps, bad keys, empty gates, untitled milestones", () => {
     savePlan(root, {
@@ -227,7 +257,10 @@ describe("reopenStage — hard rollback: commits after the stage are removed", (
 });
 
 describe("failed runs carry their reason", () => {
-  it("stores error + output tail on the run record (committed to the branch)", async () => {
+  // #6 — a failed run reports its reason LIVE (end event + streamed output) but
+  // is NOT committed: no error commit, and nothing about the failure is written
+  // to the branch. The timeline stays a clean sequence of done stages.
+  it("reports the failure reason on the end event and commits nothing", async () => {
     const wtBase = fs.mkdtempSync(path.join(os.tmpdir(), "bridza-fail-wt-"));
     dirs.push(wtBase);
     process.env.BRIDZA_WORKTREE_DIR = wtBase;
@@ -235,15 +268,18 @@ describe("failed runs carry their reason", () => {
     try {
       createPipeline(root, { id: "dev", label: "Dev", stages: [{ id: "spec", name: "Spec" }] });
       createTask(root, { pipeline: "dev", id: "t2", title: "T2" });
-      const end = await runStage(root, { pipeline: "dev", task: "t2", stage: "spec", tool: "opencode", prompt: "go" }, () => {});
+      const events = [];
+      const end = await runStage(root, { pipeline: "dev", task: "t2", stage: "spec", tool: "opencode", prompt: "go" }, (e) => events.push(e));
       expect(end.status).toBe("failed");
       expect(end.exit).toBe(3);
-      const meta = readTaskMeta(root, "dev", "t2");
-      const run = meta.tracking.spec.runs[0];
-      expect(run.status).toBe("failed");
-      expect(run.error).toMatch(/exited with code 3/);
-      expect(run.log).toMatch(/^\$ sh -c /);   // the EXACT command line is the log's first line
-      expect(run.log).toMatch(/not authenticated/);
+      expect(end.resultCommit).toBe(null);            // no commit for the failure
+      expect(end.error).toMatch(/exited with code 3/); // reason is on the end event…
+      // …and the tool's stderr streamed live to the client
+      expect(events.some((e) => e.t === "out" && /not authenticated/.test(e.d))).toBe(true);
+      // nothing about the failure reached the branch: no stage commit at all
+      const branch = "bridza/dev/t2";
+      const log = git(root, ["log", "--format=%s", "main.." + branch]).trim();
+      expect(log).not.toMatch(/spec/);
     } finally {
       delete process.env.BRIDZA_WORKTREE_DIR;
       delete process.env.BRIDZA_TOOL_OVERRIDE;
@@ -266,10 +302,11 @@ describe("opencode error events (exit 0) mark the run failed", () => {
       expect(end.status).toBe("failed");
       expect(end.errorKind).toBe("tool-error");
       expect(end.error).toMatch(/DeepSeek/);
-      const run = readTaskMeta(root, "dev", "t3").tracking.spec.runs[0];
-      expect(run.status).toBe("failed");
-      expect(run.error).toMatch(/missing field name/);
-      expect(run.sessionId).toBe("ses_test");
+      expect(end.error).toMatch(/missing field name/);   // provider message surfaced on the end event
+      expect(end.sessionId).toBe("ses_test");            // session captured even on failure
+      expect(end.resultCommit).toBe(null);               // #6 — failure is not committed
+      // the failure left no spec run on the branch
+      expect((readTaskMeta(root, "dev", "t3").tracking || {}).spec).toBeUndefined();
     } finally {
       delete process.env.BRIDZA_WORKTREE_DIR;
       delete process.env.BRIDZA_TOOL_OVERRIDE;

@@ -16,8 +16,9 @@ vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
 import {
   ensureTaskBranch, ensureTaskWorktree, taskWorktree, runStage, finalizeTask,
   taskTimeline, branchExists, currentBranch, git, taskBranchName, parseDiff, commitDiff, branchDiff, workingDiff,
+  resolveRunnableTool, DEFAULT_STAGE_PROMPT, readTaskFile, saveTaskFile,
 } from "../../../server/bridza-run.js";
-import { rel } from "../store/bridza.js";
+import { rel, CLI_TOOLS } from "../../../core/domain.js";
 
 let root, wtBase;
 const dirs = [];
@@ -141,13 +142,21 @@ describe("runStage — one commit per stage", () => {
     expect(meta.tracking.research.runs).toHaveLength(2);
   });
 
-  it("a failed run still commits its stage commit (status failed) so the timeline is honest", async () => {
+  // #6 — only a fully-complete stage is committed. A failed run must NOT add a
+  // commit; the timeline stays a clean sequence of done stages (no error commits).
+  it("a failed run adds NO commit — the timeline only carries done stages", async () => {
     stub("echo partial > junk.txt; exit 3");
     const { end } = await run({});
-    expect(end).toMatchObject({ exit: 3, status: "failed", errorKind: "exit" });
+    expect(end).toMatchObject({ exit: 3, status: "failed", errorKind: "exit", resultCommit: null });
+    // no commit ahead of main for this task branch (the failure left no trace)
+    const log = git(root, ["log", "--format=%s", "main..bridza/marketing/task-506"]).trim();
+    expect(log).toBe("");
+    // a subsequent SUCCESSFUL run commits exactly one done stage commit
+    stub("echo good > out.txt");
+    const { end: ok } = await run({});
+    expect(ok.status).toBe("done");
     const subjects = git(root, ["log", "--format=%s", "main..bridza/marketing/task-506"]).trim().split("\n");
-    expect(subjects[0]).toBe("bridza(marketing/task-506/research): failed · claude · exit 3 · 1 file");
-    expect(git(root, ["ls-tree", "-r", "--name-only", "bridza/marketing/task-506"])).toContain("junk.txt");
+    expect(subjects).toEqual(["bridza(marketing/task-506/research): done · claude · exit 0 · 1 file"]);
   });
 
   it("cmd.shell gates run in the worktree after the tool; their changes are committed", async () => {
@@ -172,6 +181,94 @@ describe("runStage — one commit per stage", () => {
     expect((await run({ tool: "nope" })).end.errorKind).toBe("unknown-tool");
     stub("true");
     expect((await run({ task: "!!" })).end.errorKind).toBe("bad-ref");
+  });
+
+  // #11 — a stage with no typed prompt must still run (off its system prompt +
+  // upstream outputs), never error on empty input.
+  it("an empty prompt still runs the stage instead of erroring", async () => {
+    stub(`echo x > ${rel.stageOutputs("marketing", "task-506", "research")}/out.md`);
+    const { end } = await run({ prompt: "" });
+    expect(end).toMatchObject({ exit: 0, status: "done" });
+    const plog = git(root, ["show", `bridza/marketing/task-506:${rel.stage("marketing", "task-506", "research")}/prompts.md`]);
+    expect(plog).toContain("no prompt text");   // record still notes the empty input…
+    expect(DEFAULT_STAGE_PROMPT.trim().length).toBeGreaterThan(0);  // …but a real default is sent to the tool
+  });
+});
+
+// #4/#5 — the configured tool may not be installed; fall back to an installed
+// CLI agent rather than dying with ENOENT and stopping the Automate chain.
+describe("tool resolution + fallback", () => {
+  afterEach(() => { delete process.env.BRIDZA_TOOL_OVERRIDE; });
+
+  it("registry ships codex and gemini, and each folds prompt + system into its args", () => {
+    for (const id of ["opencode", "codex", "gemini"]) {
+      const t = CLI_TOOLS.find((x) => x.id === id);
+      expect(t, id).toBeTruthy();
+      const args = t.args({ prompt: "PROMPTBODY", system: "SYS", model: "" });
+      expect(args.join(" ")).toContain("PROMPTBODY");
+      expect(args.join(" ")).toContain("SYS");   // no --system flag → folded into the message
+    }
+  });
+
+  it("keeps the configured tool when it is installed", () => {
+    delete process.env.BRIDZA_TOOL_OVERRIDE;
+    const r = resolveRunnableTool("opencode", () => true);
+    expect(r).toMatchObject({ toolId: "opencode" });
+    expect(r.fellBackFrom).toBeUndefined();
+  });
+
+  it("falls back to an installed tool when the configured one is missing", () => {
+    delete process.env.BRIDZA_TOOL_OVERRIDE;
+    // opencode missing, claude present → substitute claude, remember the origin
+    const r = resolveRunnableTool("opencode", (bin) => bin === "claude");
+    expect(r.toolId).toBe("claude");
+    expect(r.fellBackFrom).toBe("opencode");
+  });
+
+  it("reports no-tool (not ENOENT) when nothing is installed", () => {
+    delete process.env.BRIDZA_TOOL_OVERRIDE;
+    const r = resolveRunnableTool("opencode", () => false);
+    expect(r.tool).toBeUndefined();
+    expect(r.error).toMatch(/no CLI agent installed/);
+  });
+
+  it("unknown tool ids report an unknown-tool error", () => {
+    delete process.env.BRIDZA_TOOL_OVERRIDE;
+    expect(resolveRunnableTool("nope", () => true).error).toMatch(/unknown tool/);
+  });
+});
+
+// #1 — read + edit an output file, committing as a new commit or an amend.
+describe("file editor — read + save", () => {
+  const P = `${rel.stageOutputs("marketing", "task-506", "research")}/note.md`;
+  const count = () => Number(git(root, ["rev-list", "--count", "bridza/marketing/task-506"]).trim());
+
+  it("reads a file, saves it as a NEW commit, then AMENDS the tip", async () => {
+    stub(`echo hello > ${P}`);
+    await run({});   // one done commit carrying note.md
+    expect(readTaskFile(root, { pipeline: "marketing", task: "task-506", path: P })).toMatchObject({ ok: true, exists: true });
+    expect(readTaskFile(root, { pipeline: "marketing", task: "task-506", path: P }).content).toMatch(/hello/);
+
+    const before = count();
+    const sv = saveTaskFile(root, { pipeline: "marketing", task: "task-506", path: P, content: "edited body\n", message: "edit note" });
+    expect(sv).toMatchObject({ ok: true, committed: true, amended: false });
+    expect(count()).toBe(before + 1);                 // NEW commit added
+    expect(git(root, ["show", `bridza/marketing/task-506:${P}`])).toMatch(/edited body/);
+
+    const at = count();
+    const sv2 = saveTaskFile(root, { pipeline: "marketing", task: "task-506", path: P, content: "amended body\n", amend: true });
+    expect(sv2).toMatchObject({ ok: true, committed: true, amended: true });
+    expect(count()).toBe(at);                          // amend keeps the commit count
+    expect(git(root, ["show", `bridza/marketing/task-506:${P}`])).toMatch(/amended body/);
+  });
+
+  it("rejects path traversal and no-ops an unchanged save", async () => {
+    stub("echo x > a.txt");
+    await run({});
+    expect(readTaskFile(root, { pipeline: "marketing", task: "task-506", path: "../../etc/passwd" }).ok).toBe(false);
+    expect(saveTaskFile(root, { pipeline: "marketing", task: "task-506", path: "/etc/passwd", content: "x" }).ok).toBe(false);
+    expect(saveTaskFile(root, { pipeline: "marketing", task: "task-506", path: "a.txt", content: "x\n" }))
+      .toMatchObject({ ok: true, committed: false, unchanged: true });
   });
 });
 
