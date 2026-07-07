@@ -108,9 +108,10 @@ function FileList({ files, commit, onDiff, onOpenFile }) {
 // run-history selector + a tabbed inspector over the selected run. Reused by
 // Inspector (right pane) and Canvas (side sheet).
 function StageDetail({ rec, runner, onDiff, onOpenFile }) {
-  const [runIdx, setRunIdx] = useState(rec.runs.length - 1);
+  const [pinned, setPinned] = useState(null);   // null = follow the newest run; a number = the user parked on an older one
   const [tab, setTab] = useState("files");
-  const run = rec.runs.length ? rec.runs[Math.min(Math.max(runIdx, 0), rec.runs.length - 1)] : null;
+  const runIdx = pinned == null ? rec.runs.length - 1 : Math.min(Math.max(pinned, 0), rec.runs.length - 1);
+  const run = rec.runs.length ? rec.runs[runIdx] : null;
   const TABS = run ? [["files", `Files ${run.files.length ? "· " + run.files.length : ""}`], ["response", "Response"], ["summary", "Summary"], ["raw", "Raw JSON"]] : [];
   return (
     <div className="uxv-detail">
@@ -135,7 +136,7 @@ function StageDetail({ rec, runner, onDiff, onOpenFile }) {
             {rec.runs.length > 1 && (
               <span className="uxv-runsel">
                 {rec.runs.map((r, i) => (
-                  <button key={i} className={"uxv-runpin " + r.status + (i === runIdx ? " on" : "")} title={`run #${r.seq} · ${r.status}`} onClick={() => setRunIdx(i)}>#{r.seq}</button>
+                  <button key={i} className={"uxv-runpin " + r.status + (i === runIdx ? " on" : "")} title={`run #${r.seq} · ${r.status}`} onClick={() => setPinned(i)}>#{r.seq}</button>
                 ))}
               </span>
             )}

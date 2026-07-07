@@ -321,6 +321,38 @@ test("Inspector: run-history pins appear on a re-run stage", async ({ page }) =>
   await expect(page.locator(".uxv-runpin").first()).toBeVisible();
 });
 
+test("a completed stage stays fully re-runnable: change the model, re-run, change it again", async ({ page }) => {
+  await openTask(page);
+  await setView(page, "Stages");
+  const stage1 = page.locator(".stage").first();
+  const openIt = async () => { if (!(await stage1.locator(".stage-body").first().isVisible().catch(() => false))) await stage1.locator(".stage-hd").click(); };
+  await openIt();
+  // the stage already ran, yet the agent + model are editable and Run is live
+  await expect(stage1.locator("select.input")).toBeEnabled();
+  await expect(stage1.locator("input.model-pick")).toBeEnabled();
+  await expect(stage1.getByRole("button", { name: /Run again/ })).toBeEnabled();
+
+  // change the model AFTER it already ran, and re-run
+  await stage1.locator("input.model-pick").fill("opus-e2e");
+  await stage1.getByRole("button", { name: /Run/ }).click();
+  await expect(stage1.locator(".tag.done")).toBeVisible({ timeout: 45_000 });
+  await expect(stage1.locator("input.model-pick")).toHaveValue("opus-e2e");   // it stuck, not reset
+  // the run actually used that model (shown in the Inspector audit line)
+  await setView(page, "Inspector");
+  await page.locator(".uxv-stagerow").first().click();
+  await expect(page.locator(".uxv-audit")).toContainText("opus-e2e");
+
+  // change the model AGAIN for another re-run — proves it's not one-shot
+  await setView(page, "Stages");
+  await openIt();
+  await stage1.locator("input.model-pick").fill("sonnet-e2e");
+  await stage1.getByRole("button", { name: /Run/ }).click();
+  await expect(stage1.locator(".tag.done")).toBeVisible({ timeout: 45_000 });
+  await setView(page, "Inspector");
+  await page.locator(".uxv-stagerow").first().click();
+  await expect(page.locator(".uxv-audit")).toContainText("sonnet-e2e");
+});
+
 test("revise rolls a stage back to idle", async ({ page }) => {
   await openTask(page);
   const revise = page.getByRole("button", { name: /Revise/ }).first();
