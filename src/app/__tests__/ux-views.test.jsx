@@ -109,24 +109,28 @@ describe("layout engine", () => {
   });
 });
 
-describe("the three views render without crashing", () => {
+describe("the three views render without crashing (with an operable runner)", () => {
   const recs = buildStageRecords(pipeline, task, timeline);
   const noop = () => {};
-  const shared = { onDiff: noop, onOpenFile: noop, onRunStage: noop };
+  const runner = { dir: "/x", pipeline, task, tools: [{ id: "claude", label: "Claude", available: true }, { id: "opencode", label: "opencode", available: true }], flash: noop, onLog: noop, onActivity: noop, onDone: noop, runningStages: new Set() };
+  const shared = { onDiff: noop, onOpenFile: noop, runner };
 
-  it("Inspector shows the selected stage's response tab", () => {
+  it("Inspector shows the response tab and the agent runner", () => {
     const h = renderToStaticMarkup(<InspectorView records={recs} activeId="build" setActiveId={noop} {...shared} />);
     expect(h).toContain("Build");
     expect(h).toContain("Response");
+    expect(h).toContain("system prompt");   // StageRunner is present
+    expect(h).toContain("Run again");
   });
   it("Canvas shows the layout switcher and nodes", () => {
     const h = renderToStaticMarkup(<CanvasView records={recs} activeId="build" setActiveId={noop} {...shared} />);
     expect(h).toContain("layout");
     expect(h).toContain("Research");
   });
-  it("Chat shows the assistant turn and user prompt", () => {
+  it("Chat shows the assistant turn, user prompt and a per-stage runner", () => {
     const h = renderToStaticMarkup(<ChatView records={recs} {...shared} />);
     expect(h).toContain("assistant");
     expect(h).toContain("fix the type");
+    expect(h).toContain("continue / re-run");
   });
 });

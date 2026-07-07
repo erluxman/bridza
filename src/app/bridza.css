@@ -601,3 +601,12 @@ textarea.input { resize: vertical; min-height: 64px; }
 
 /* the view switcher (reuses the .seg look) lives in task.jsx */
 @media (max-width: 720px) { .uxv-inspector { grid-template-columns: 1fr; } }
+
+/* shared StageRunner — the agent picker + prompts + Run, used by every view */
+.stage-run { display: flex; flex-direction: column; gap: 8px; }
+.stage-run .row { flex-wrap: wrap; }
+.uxv-syslink { align-self: flex-start; background: none; border: none; color: var(--txt-3); font-size: 11.5px; font-weight: 600; padding: 0; }
+.uxv-syslink:hover { color: var(--txt-2); }
+.uxv-detail .stage-run, .uxv-thread-run .stage-run { margin: 4px 0 2px; }
+.uxv-thread-run { border-top: 1px dashed var(--line); padding: 12px 14px; background: #0f131980; }
+.uxv-thread-run .uxv-role { color: var(--txt-3); }

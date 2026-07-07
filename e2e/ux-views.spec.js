@@ -89,25 +89,26 @@ test("Inspector: split pane lists every stage; selecting one shows its detail", 
   await expect(page.locator(".uxv-tab", { hasText: "Response" })).toBeVisible();
 });
 
-test("Inspector: all five detail tabs render (Prompt / Files / Response / Summary / Raw)", async ({ page }) => {
+test("Inspector: the run-history tabs render (Files / Response / Summary / Raw)", async ({ page }) => {
   await openTask(page);
   await setView(page, "Inspector");
   await page.locator(".uxv-stagerow").first().click();
   const tab = (name) => page.locator(".uxv-tab", { hasText: name });
-  await tab("Prompts").click();  await expect(page.locator(".uxv-pre.sys")).toBeVisible();
   await tab("Files").click();    await expect(page.locator(".uxv-tabbody").locator(".uxv-files, .uxv-dim").first()).toBeVisible();
   await tab("Response").click(); await expect(page.locator(".uxv-pre.resp")).toBeVisible();
   await tab("Summary").click();  await expect(page.locator(".uxv-summary")).toBeVisible();
   await tab("Raw JSON").click(); await expect(page.locator(".uxv-pre.raw")).toContainText("userPrompt");
 });
 
-test("Inspector: system + user prompts are both visible (not hidden as before)", async ({ page }) => {
+test("Inspector: the stage is operable — agent picker, system prompt, editable instructions", async ({ page }) => {
   await openTask(page);
   await setView(page, "Inspector");
   await page.locator(".uxv-stagerow").first().click();
-  await page.locator(".uxv-tab", { hasText: "Prompts" }).click();
-  await expect(page.locator(".uxv-plabel", { hasText: "System prompt" })).toBeVisible();
-  await expect(page.locator(".uxv-plabel", { hasText: "User prompt" })).toBeVisible();
+  const runner = page.locator(".uxv-detail .stage-run");
+  await expect(runner.locator("select.input")).toBeVisible();            // agent picker
+  await expect(runner.locator("textarea")).toBeVisible();                // editable instructions
+  await runner.locator(".uxv-syslink").click();                          // reveal the system prompt
+  await expect(runner.locator(".uxv-pre.sys")).toBeVisible();
 });
 
 test("Inspector: clicking a changed file opens its diff", async ({ page }) => {
@@ -185,13 +186,34 @@ test("the selected view persists across re-opening the task", async ({ page }) =
   await setView(page, "Stages");   // reset for later tests
 });
 
-test("Run from a view jumps back to Stages with that stage open", async ({ page }) => {
+test("Inspector: the agent is changeable and instructions run in place", async ({ page }) => {
   await openTask(page);
   await setView(page, "Inspector");
   await page.locator(".uxv-stagerow").first().click();
-  await page.locator(".uxv-detail .uxv-run", { hasText: "Run" }).click();
-  await expect(seg(page, "Stages")).toHaveClass(/on/);
-  await expect(page.locator(".stage-body textarea").first()).toBeVisible();
+  const runner = page.locator(".uxv-detail .stage-run");
+  // the agent picker offers the other tools (opencode/codex/gemini), not just claude
+  await expect(runner.locator("select.input option")).not.toHaveCount(1);
+  await runner.locator("textarea").fill("tighten the spec — in-place run from Inspector");
+  await runner.getByRole("button", { name: /Run/ }).click();
+  // completes without leaving the Inspector view
+  await expect(seg(page, "Inspector")).toHaveClass(/on/);
+  await expect(page.locator(".uxv-runpin").first()).toBeVisible({ timeout: 45_000 });
+});
+
+test("Canvas: the side sheet exposes the same operable runner", async ({ page }) => {
+  await openTask(page);
+  await setView(page, "Canvas");
+  await page.locator(".uxv-node").first().click();
+  const runner = page.locator(".uxv-sheet .stage-run");
+  await expect(runner.locator("select.input")).toBeVisible();
+  await expect(runner.locator("textarea")).toBeVisible();
+});
+
+test("Chat: every stage thread has its own continue/run box", async ({ page }) => {
+  await openTask(page);
+  await setView(page, "Chat");
+  await expect(page.locator(".uxv-thread-run")).toHaveCount(3);
+  await expect(page.locator(".uxv-thread-run .stage-run select.input").first()).toBeVisible();
 });
 
 test("Terminal view replaces the stage list with the worktree shell", async ({ page }) => {
@@ -292,7 +314,7 @@ test("Inspector: run-history pins appear on a re-run stage", async ({ page }) =>
   const stage1 = page.locator(".stage").first();
   await stage1.locator(".stage-hd").click();               // open it
   await stage1.locator("textarea").fill("re-run the first stage");
-  await stage1.getByRole("button", { name: /Run stage/ }).click();
+  await stage1.getByRole("button", { name: /Run/ }).click();   // "Run again" — it has a prior run
   await expect(stage1.locator(".tag.done")).toBeVisible({ timeout: 45_000 });
   await setView(page, "Inspector");
   await page.locator(".uxv-stagerow").first().click();

@@ -1,14 +1,89 @@
 // features/views.jsx — the three task-detail views that all read the ONE unified
 // stage record (lib/record.js): Inspector (devtools split-pane), Canvas (spatial
-// node graph with 5 layouts), and Chat (conversation thread). Running a stage
-// stays in the classic Stages view — these three are for reading, auditing and
-// navigating what each stage did. Every file, commit chip and node is clickable.
-import { useState } from "react";
-import { fmt, ago } from "../lib/format.js";
+// node graph with 5 layouts), and Chat (conversation thread). Every view can now
+// OPERATE a stage — pick/change the agent, see the system prompt, edit the user
+// prompt and run — via the shared StageRunner, so you can queue instructions on
+// one stage while another runs. Every file, commit chip and node is clickable.
+import { useState, useEffect, useRef } from "react";
+import * as api from "../api/client.js";
+import { fmt, ago, runPrompt } from "../lib/format.js";
+import { lastRunTool } from "../lib/record.js";
 import { layoutNodes, LAYOUTS } from "../lib/layout.js";
 
 const STATUS = ["idle", "running", "done", "failed", "interrupted", "stopped"];
 const led = (s) => "uxv-led " + (STATUS.includes(s) ? s : "idle");
+
+// The run controls for one stage, shared by the classic Stages view AND all three
+// new views: agent (tool) picker, optional model, the stage's system prompt
+// (viewable), an editable user prompt, Run, and live output. Self-contained — it
+// owns its own tool/model/prompt/output state and calls api.runStage directly.
+export function StageRunner({ dir, pipeline, task, def, track, tools = [], live, seconds = 0, onDone, flash, onLog, onActivity, onRunning }) {
+  const runs = track.runs || [];
+  const lastPrompt = runs.length ? (runs[runs.length - 1].prompt || "") : "";
+  const remembered = () => lastRunTool(runs) || def.tool || (tools[0] && tools[0].id) || "claude";
+  const [tool, setTool] = useState(remembered);
+  const [model, setModel] = useState("");
+  const [models, setModels] = useState([]);
+  const [prompt, setPrompt] = useState(lastPrompt);
+  const [out, setOut] = useState("");
+  const [running, setRunning] = useState(false);
+  const [sysOpen, setSysOpen] = useState(false);
+  const termRef = useRef(null);
+  // switching task/stage re-seeds from that stage's last run (prompt + agent);
+  // the model is deliberately NOT carried over (tool default unless picked now).
+  useEffect(() => { setPrompt(lastPrompt); setTool(remembered()); setModel(""); setOut(""); }, [task.id, def.id]);
+  useEffect(() => { if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight; }, [out]);
+  useEffect(() => { let on = true; api.getModels(dir, tool).then((r) => { if (on) setModels((r && r.models) || []); }); return () => { on = false; }; }, [dir, tool]);
+
+  const run = async () => {
+    if (onActivity) onActivity();
+    setOut(""); setRunning(true); if (onRunning) onRunning(true);
+    const append = (s) => { setOut((o) => (o + s).slice(-12000)); if (onLog) onLog(s); };
+    if (onLog) onLog(`\n━━ ${def.name} · run ━━\n`);
+    const end = await api.runStage(dir, {
+      pipeline: pipeline.id, task: task.id, stage: def.id, tool, model: model.trim(),
+      prompt: runPrompt(pipeline, task, def, prompt), system: def.systemPrompt || "", shell: def.shell || [], workingDir: pipeline.workingDir || ".",
+      stageName: def.name, taskTitle: task.title, wallSeconds: seconds,
+    }, (e) => {
+      if (e.t === "out") append(e.d);
+      else if (e.t === "cmd") append("\n$ " + e.cmd + "\n");
+      else if (e.t === "commit") append(`\n● ${e.phase} commit ${e.sha.slice(0, 7)}\n`);
+      else if (e.t === "meta") append(`⎇ ${e.branch}\n`);
+    });
+    setRunning(false); if (onRunning) onRunning(false);
+    if (end && end.status === "done") flash(`${def.name}: done`); else if (end) flash(`${def.name}: ${end.error || end.status}`);
+    if (onDone) onDone();
+  };
+
+  return (
+    <div className="stage-run">
+      <div className="row" style={{ marginBottom: 8 }}>
+        <select className="input" style={{ width: 150 }} value={tool} onChange={(e) => { setTool(e.target.value); setModel(""); }} title="Which agent runs this stage — remembered from its last run">
+          {tools.map((t) => <option key={t.id} value={t.id} disabled={!t.available}>{t.label}{t.available ? "" : " (n/a)"}{t.stub ? " · stub" : ""}</option>)}
+        </select>
+        <input className="input mono model-pick" list={"models-run-" + def.id} placeholder="model · tool default"
+          title="Leave empty to use the tool's own default model; pick or type to override for this run"
+          value={model} onChange={(e) => setModel(e.target.value)} />
+        <datalist id={"models-run-" + def.id}>{models.map((m) => <option key={m} value={m} />)}</datalist>
+        {model.trim() && <button className="btn ghost sm" title="Back to the tool's default model" onClick={() => setModel("")}>×</button>}
+        <button className="btn primary" onClick={run} disabled={running}>{running ? "Running…" : (runs.length ? "▸ Run again" : "▸ Run stage")}</button>
+      </div>
+      <button className="uxv-syslink" onClick={() => setSysOpen((o) => !o)} title="The stage's system prompt — applied automatically every run">{sysOpen ? "▾" : "▸"} system prompt</button>
+      {sysOpen && <pre className="uxv-pre sys">{def.systemPrompt || "— none —"}</pre>}
+      <textarea className="input" placeholder={`What should ${def.name} do? (the system prompt is applied automatically)`}
+        value={prompt} onChange={(e) => { setPrompt(e.target.value); onActivity && onActivity(); }} />
+      {(out || running) && <div className="term" ref={termRef} style={{ marginTop: 10 }}>{out || "…"}</div>}
+    </div>
+  );
+}
+
+// Resolve the StageRunner props for a record from the shared `runner` context.
+function runnerFor(runner, rec) {
+  const def = (runner.pipeline.stages || []).find((s) => s.id === rec.id) || { id: rec.id, name: rec.name };
+  const track = runner.task.tracking[rec.id] || { status: "idle" };
+  const live = runner.runningStages ? runner.runningStages.has(runner.pipeline.id + "/" + runner.task.id + "/" + rec.id) : false;
+  return { dir: runner.dir, pipeline: runner.pipeline, task: runner.task, def, track, tools: runner.tools, live, onDone: runner.onDone, flash: runner.flash, onLog: runner.onLog, onActivity: runner.onActivity };
+}
 
 // A run's changed-file list — each file opens its diff (via its result commit)
 // or the file itself. Shared by every view.
@@ -29,82 +104,61 @@ function FileList({ files, commit, onDiff, onOpenFile }) {
   );
 }
 
-// The full detail of one stage: its run history selector + a tabbed inspector
-// over the selected run (Prompt / Files / Response / Summary / Raw). Reused by
+// The full detail of one stage: the runner (agent + prompts + Run) on top, then a
+// run-history selector + a tabbed inspector over the selected run. Reused by
 // Inspector (right pane) and Canvas (side sheet).
-function StageDetail({ rec, onDiff, onOpenFile, onRunStage }) {
+function StageDetail({ rec, runner, onDiff, onOpenFile }) {
   const [runIdx, setRunIdx] = useState(rec.runs.length - 1);
-  const [tab, setTab] = useState("prompt");
-  if (!rec.runs.length) {
-    return (
-      <div className="uxv-detail empty">
-        <div className="uxv-detail-hd"><span className={led(rec.status)} /><b>{rec.name}</b><span className={"uxv-tag " + rec.status}>{rec.status}</span></div>
-        <p className="uxv-dim">This stage hasn't run yet.</p>
-        <button className="uxv-run" onClick={() => onRunStage(rec.id)}>▸ Run in Stages view</button>
-      </div>
-    );
-  }
-  const run = rec.runs[Math.min(Math.max(runIdx, 0), rec.runs.length - 1)];
-  const TABS = [["prompt", "Prompts"], ["files", `Files ${run.files.length ? "· " + run.files.length : ""}`], ["response", "Response"], ["summary", "Summary"], ["raw", "Raw JSON"]];
+  const [tab, setTab] = useState("files");
+  const run = rec.runs.length ? rec.runs[Math.min(Math.max(runIdx, 0), rec.runs.length - 1)] : null;
+  const TABS = run ? [["files", `Files ${run.files.length ? "· " + run.files.length : ""}`], ["response", "Response"], ["summary", "Summary"], ["raw", "Raw JSON"]] : [];
   return (
     <div className="uxv-detail">
       <div className="uxv-detail-hd">
         <span className={led(rec.status)} />
         <b>{rec.name}</b>
         {rec.gate && <span className="uxv-dim">· {rec.gate}</span>}
-        <span className={"uxv-tag " + run.status}>{run.status}{run.exit != null ? " · exit " + run.exit : ""}</span>
-        <span className="uxv-sp" />
-        <button className="uxv-run sm" onClick={() => onRunStage(rec.id)} title="Open this stage in the Stages view to run it">▸ Run</button>
+        <span className={"uxv-tag " + rec.status}>{rec.status}</span>
       </div>
 
-      {/* audit cue: who / when / duration / session — and the run selector */}
-      <div className="uxv-audit">
-        <span title="tool + model">{run.tool}{run.model ? " · " + run.model : ""}</span>
-        {run.durationSec ? <span title="run duration">{fmt(run.durationSec)}</span> : null}
-        {run.finishedAt && <span title={new Date(run.finishedAt).toLocaleString()}>{ago(run.finishedAt)}</span>}
-        <span title="recorded author">by {run.by}</span>
-        {run.commit && <button className="uxv-sha" onClick={() => onDiff(run.commit)} title="View this run's diff">{run.commit.slice(0, 7)}</button>}
-        {rec.runs.length > 1 && (
-          <span className="uxv-runsel">
-            {rec.runs.map((r, i) => (
-              <button key={i} className={"uxv-runpin " + r.status + (i === runIdx ? " on" : "")} title={`run #${r.seq} · ${r.status}`}
-                onClick={() => setRunIdx(i)}>#{r.seq}</button>
-            ))}
-          </span>
-        )}
-      </div>
+      {runner && <StageRunner {...runnerFor(runner, rec)} />}
 
-      <div className="uxv-tabs">
-        {TABS.map(([id, label]) => (
-          <button key={id} className={"uxv-tab" + (tab === id ? " on" : "")} onClick={() => setTab(id)}>{label}</button>
-        ))}
-      </div>
-
-      <div className="uxv-tabbody">
-        {tab === "prompt" && (
-          <>
-            <div className="uxv-plabel">System prompt <span className="uxv-dim">— snapshot, applied every run</span></div>
-            <pre className="uxv-pre sys">{run.systemPrompt || "—"}</pre>
-            <div className="uxv-plabel">User prompt</div>
-            <pre className="uxv-pre">{run.userPrompt || "—"}</pre>
-          </>
-        )}
-        {tab === "files" && <FileList files={run.files} commit={run.commit} onDiff={onDiff} onOpenFile={onOpenFile} />}
-        {tab === "response" && <pre className="uxv-pre resp">{run.response || (run.error ? "⚠ " + run.error : "no response captured for this run")}</pre>}
-        {tab === "summary" && (
-          <div className="uxv-summary">
-            <p>{run.summary || "—"}</p>
-            <FileList files={run.files} commit={run.commit} onDiff={onDiff} onOpenFile={onOpenFile} />
+      {!run && <p className="uxv-dim">No runs yet — set the agent and instructions above, then Run.</p>}
+      {run && (
+        <>
+          <div className="uxv-audit">
+            <span title="tool + model">{run.tool}{run.model ? " · " + run.model : ""}</span>
+            {run.durationSec ? <span title="run duration">{fmt(run.durationSec)}</span> : null}
+            {run.finishedAt && <span title={new Date(run.finishedAt).toLocaleString()}>{ago(run.finishedAt)}</span>}
+            <span title="recorded author">by {run.by}</span>
+            {run.commit && <button className="uxv-sha" onClick={() => onDiff(run.commit)} title="View this run's diff">{run.commit.slice(0, 7)}</button>}
+            {rec.runs.length > 1 && (
+              <span className="uxv-runsel">
+                {rec.runs.map((r, i) => (
+                  <button key={i} className={"uxv-runpin " + r.status + (i === runIdx ? " on" : "")} title={`run #${r.seq} · ${r.status}`} onClick={() => setRunIdx(i)}>#{r.seq}</button>
+                ))}
+              </span>
+            )}
           </div>
-        )}
-        {tab === "raw" && <pre className="uxv-pre raw">{JSON.stringify(run, null, 2)}</pre>}
-      </div>
+          <div className="uxv-tabs">
+            {TABS.map(([id, label]) => <button key={id} className={"uxv-tab" + (tab === id ? " on" : "")} onClick={() => setTab(id)}>{label}</button>)}
+          </div>
+          <div className="uxv-tabbody">
+            {tab === "files" && <FileList files={run.files} commit={run.commit} onDiff={onDiff} onOpenFile={onOpenFile} />}
+            {tab === "response" && <pre className="uxv-pre resp">{run.response || (run.error ? "⚠ " + run.error : "no response captured for this run")}</pre>}
+            {tab === "summary" && (
+              <div className="uxv-summary"><p>{run.summary || "—"}</p><FileList files={run.files} commit={run.commit} onDiff={onDiff} onOpenFile={onOpenFile} /></div>
+            )}
+            {tab === "raw" && <pre className="uxv-pre raw">{JSON.stringify(run, null, 2)}</pre>}
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 // ── Inspector: a stage list on the left, the detail inspector on the right ────
-export function InspectorView({ records, activeId, setActiveId, onDiff, onOpenFile, onRunStage }) {
+export function InspectorView({ records, activeId, setActiveId, runner, onDiff, onOpenFile }) {
   const rec = records.find((r) => r.id === activeId) || records[0];
   return (
     <div className="uxv-inspector">
@@ -119,13 +173,13 @@ export function InspectorView({ records, activeId, setActiveId, onDiff, onOpenFi
           </button>
         ))}
       </div>
-      {rec && <StageDetail key={rec.id} rec={rec} onDiff={onDiff} onOpenFile={onOpenFile} onRunStage={onRunStage} />}
+      {rec && <StageDetail key={rec.id} rec={rec} runner={runner} onDiff={onDiff} onOpenFile={onOpenFile} />}
     </div>
   );
 }
 
 // ── Canvas: a spatial node graph, 5 layouts, click a node → side sheet ────────
-export function CanvasView({ records, activeId, setActiveId, onDiff, onOpenFile, onRunStage }) {
+export function CanvasView({ records, activeId, setActiveId, runner, onDiff, onOpenFile }) {
   const [mode, setMode] = useState(() => localStorage.getItem("bridza.canvasLayout") || "linear");
   const pick = (m) => { setMode(m); try { localStorage.setItem("bridza.canvasLayout", m); } catch (e) { /* ignore */ } };
   const { nodes, width, height } = layoutNodes(records.length, mode, { cell: { w: 230, h: 168 }, nodeW: 190, nodeH: 104 });
@@ -136,23 +190,19 @@ export function CanvasView({ records, activeId, setActiveId, onDiff, onOpenFile,
     <div className="uxv-canvaswrap">
       <div className="uxv-layoutbar">
         <span className="uxv-dim" style={{ marginRight: 4 }}>layout</span>
-        {LAYOUTS.map((l) => (
-          <button key={l.id} className={"uxv-chip" + (mode === l.id ? " on" : "")} title={l.hint} onClick={() => pick(l.id)}>{l.label}</button>
-        ))}
+        {LAYOUTS.map((l) => <button key={l.id} className={"uxv-chip" + (mode === l.id ? " on" : "")} title={l.hint} onClick={() => pick(l.id)}>{l.label}</button>)}
       </div>
       <div className="uxv-canvas" style={{ minHeight: height }}>
         <div className="uxv-canvasinner" style={{ width, height }}>
           <svg className="uxv-edges" width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
             {records.slice(1).map((r, i) => {
-              const a = center(i), b = center(i + 1);
-              const mx = (a.x + b.x) / 2;
+              const a = center(i), b = center(i + 1), mx = (a.x + b.x) / 2;
               return <path key={r.id} className="uxv-edge" d={`M ${a.x} ${a.y} C ${mx} ${a.y}, ${mx} ${b.y}, ${b.x} ${b.y}`} />;
             })}
           </svg>
           {records.map((r, i) => (
             <button key={r.id} className={"uxv-node " + r.status + (rec && rec.id === r.id ? " on" : "")}
-              style={{ left: nodes[i].x, top: nodes[i].y, width: NW, height: NH }}
-              onClick={() => setActiveId(r.id)}>
+              style={{ left: nodes[i].x, top: nodes[i].y, width: NW, height: NH }} onClick={() => setActiveId(r.id)}>
               <span className="uxv-node-hd"><span className={led(r.status)} /><b>{r.name}</b><span className="uxv-ord">{String(r.order + 1).padStart(2, "0")}</span></span>
               <span className="uxv-node-sum">{r.summary || "—"}</span>
               <span className="uxv-node-ft">
@@ -167,7 +217,7 @@ export function CanvasView({ records, activeId, setActiveId, onDiff, onOpenFile,
       {rec && (
         <div className="uxv-sheet">
           <button className="uxv-sheet-x" onClick={() => setActiveId("")} title="Close">×</button>
-          <StageDetail key={rec.id} rec={rec} onDiff={onDiff} onOpenFile={onOpenFile} onRunStage={onRunStage} />
+          <StageDetail key={rec.id} rec={rec} runner={runner} onDiff={onDiff} onOpenFile={onOpenFile} />
         </div>
       )}
     </div>
@@ -175,7 +225,7 @@ export function CanvasView({ records, activeId, setActiveId, onDiff, onOpenFile,
 }
 
 // ── Chat: the task as a threaded conversation across stages ───────────────────
-export function ChatView({ records, onDiff, onOpenFile, onRunStage }) {
+export function ChatView({ records, runner, onDiff, onOpenFile }) {
   return (
     <div className="uxv-chat">
       {records.map((r) => (
@@ -184,10 +234,8 @@ export function ChatView({ records, onDiff, onOpenFile, onRunStage }) {
             <span className={led(r.status)} />
             <b>{String(r.order + 1).padStart(2, "0")} · {r.name}</b>
             <span className={"uxv-tag " + r.status}>{r.status}</span>
-            <span className="uxv-sp" />
-            <button className="uxv-run sm" onClick={() => onRunStage(r.id)}>▸ Run</button>
           </div>
-          {!r.runs.length && <div className="uxv-msg note">Not run yet.</div>}
+          {!r.runs.length && <div className="uxv-msg note">Not run yet — set the agent and instructions below, then Run.</div>}
           {r.runs.map((run) => (
             <div className="uxv-turn" key={run.seq}>
               <div className="uxv-turn-meta"><span className="uxv-runpin static">#{run.seq}</span><span className={"uxv-tag " + run.status}>{run.status}</span>
@@ -203,6 +251,12 @@ export function ChatView({ records, onDiff, onOpenFile, onRunStage }) {
               </div>
             </div>
           ))}
+          {runner && (
+            <div className="uxv-thread-run">
+              <div className="uxv-role" style={{ padding: "0 0 6px" }}>continue / re-run</div>
+              <StageRunner {...runnerFor(runner, r)} />
+            </div>
+          )}
         </section>
       ))}
     </div>

@@ -6,7 +6,7 @@ import * as api from "../api/client.js";
 import { pipelineFlows, specLabel } from "../../../core/domain.js";
 import { slug, runPrompt, fmt, workFiles, base, ago } from "../lib/format.js";
 import { buildStageRecords, lastRunTool } from "../lib/record.js";
-import { InspectorView, CanvasView, ChatView } from "./views.jsx";
+import { InspectorView, CanvasView, ChatView, StageRunner } from "./views.jsx";
 import { Hamburger, ColGrip, useColWidth, Kv } from "../ui.jsx";
 import { DiffView, FileModal } from "./diff.jsx";
 import { TermDrawer } from "./term.jsx";
@@ -281,7 +281,8 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
           <div className="stages">
             {(() => {
               const records = buildStageRecords(pipeline, task, timeline, runningStages, stageTime);
-              const shared = { onDiff: setDiffCommit, onOpenFile: setFileOpen, onRunStage: (id) => { setTaskView("stages"); setOpenStage(id); setActiveStage(id); } };
+              const runner = { dir, pipeline, task, tools, flash, onLog: appendLog, onActivity: markActivity, onDone: () => { onChange(); loadTimeline(); }, runningStages };
+              const shared = { onDiff: setDiffCommit, onOpenFile: setFileOpen, runner };
               const activeId = activeStage || openStage || (records[0] && records[0].id);
               if (view === "inspector") return <InspectorView records={records} activeId={activeId} setActiveId={setActiveStage} {...shared} />;
               if (view === "canvas") return <CanvasView records={records} activeId={activeStage} setActiveId={setActiveStage} {...shared} />;
@@ -557,30 +558,8 @@ function BlastRadius({ dir, pipeline, task, refreshKey, onOpen }) {
 
 function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle, onDone, flash, onDiff, resultFor, live, onLog, inputFiles = [], onOpenFile, onActivity }) {
   const runs = track.runs || [];
-  const lastPrompt = runs.length ? (runs[runs.length - 1].prompt || "") : "";
-  // per-stage agent memory: default to the tool this stage LAST ran on, so it
-  // doesn't fall back to the pipeline default (usually claude) every time.
-  const rememberedTool = () => lastRunTool(runs) || def.tool || (tools[0] && tools[0].id) || "claude";
-  const [tool, setTool] = useState(rememberedTool);
-  const [prompt, setPrompt] = useState(lastPrompt);
-  // empty model = the TOOL'S OWN default. ALWAYS starts empty — a model is only
-  // passed when explicitly picked for THIS run, never remembered from earlier
-  // runs (a sticky model once made every run inherit a bad earlier choice).
-  const [model, setModel] = useState("");
-  const [models, setModels] = useState([]);
-  const [out, setOut] = useState("");
-  const [running, setRunning] = useState(false);
+  const [running, setRunning] = useState(false);   // lifted from StageRunner for the header (stop/tag)
   const [histOpen, setHistOpen] = useState(false);
-  const termRef = useRef(null);
-  // autofill the prompt with the stage's last run when switching task/stage
-  // (the model is deliberately NOT carried over — tool default unless picked now)
-  useEffect(() => { setPrompt(lastPrompt); setTool(rememberedTool()); setModel(""); setOut(""); }, [task.id, def.id]);
-  useEffect(() => { if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight; }, [out]);
-  useEffect(() => {
-    let on = true;
-    api.getModels(dir, tool).then((r) => { if (on) setModels((r && r.models) || []); });
-    return () => { on = false; };
-  }, [dir, tool]);
 
   // Roll the BRANCH back to before this stage: its commit and every later
   // stage's commit are removed (hard reset) — HEAD moves to the last valid
@@ -589,27 +568,6 @@ function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle
     e.stopPropagation();
     const r = await api.reopenStage(dir, { pipeline: pipeline.id, task: task.id, stage: def.id });
     flash(r.ok ? `${def.name} reopened — ${r.removed || 0} commit${(r.removed || 0) === 1 ? "" : "s"} rolled back, HEAD is at the last valid stage` : r.error, 4600);
-    onDone();
-  };
-
-  const run = async () => {
-    if (onActivity) onActivity();
-    setOut(""); setRunning(true);
-    // mirror into the task-level terminal too, so the Terminal view has it all
-    const append = (s) => { setOut((o) => (o + s).slice(-12000)); if (onLog) onLog(s); };
-    if (onLog) onLog(`\n━━ ${def.name} · run ━━\n`);
-    const end = await api.runStage(dir, {
-      pipeline: pipeline.id, task: task.id, stage: def.id, tool, model: model.trim(),
-      prompt: runPrompt(pipeline, task, def, prompt), system: def.systemPrompt || "", shell: def.shell || [], workingDir: pipeline.workingDir || ".",
-      stageName: def.name, taskTitle: task.title, wallSeconds: seconds,
-    }, (e) => {
-      if (e.t === "out") append(e.d);
-      else if (e.t === "cmd") append("\n$ " + e.cmd + "\n");
-      else if (e.t === "commit") append(`\n● ${e.phase} commit ${e.sha.slice(0, 7)}\n`);
-      else if (e.t === "meta") append(`⎇ ${e.branch}\n`);
-    });
-    setRunning(false);
-    if (end && end.status === "done") flash(`${def.name}: done`); else if (end) flash(`${def.name}: ${end.error || end.status}`);
     onDone();
   };
 
@@ -636,21 +594,8 @@ function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle
       </div>
       {open && (
         <div className="stage-body">
-          <div className="row" style={{ marginBottom: 8 }}>
-            <select className="input" style={{ width: 150 }} value={tool} onChange={(e) => { setTool(e.target.value); setModel(""); }}>
-              {tools.map((t) => <option key={t.id} value={t.id} disabled={!t.available}>{t.label}{t.available ? "" : " (n/a)"}{t.stub ? " · stub" : ""}</option>)}
-            </select>
-            <input className="input mono model-pick" list={"models-" + def.id} placeholder="model · tool default"
-              title="Leave empty to use the tool's own default model; pick or type to override for this run"
-              value={model} onChange={(e) => setModel(e.target.value)} />
-            <datalist id={"models-" + def.id}>
-              {models.map((m) => <option key={m} value={m} />)}
-            </datalist>
-            {model.trim() && <button className="btn ghost sm" title="Back to the tool's default model" onClick={() => setModel("")}>×</button>}
-            <button className="btn primary" onClick={run} disabled={running}>{running ? "Running…" : "▸ Run stage"}</button>
-          </div>
-          <textarea className="input" placeholder={`What should ${def.name} do? (the stage system prompt is applied automatically)`} value={prompt} onChange={(e) => { setPrompt(e.target.value); onActivity && onActivity(); }} />
-          {(out || running) && <div className="term" ref={termRef} style={{ marginTop: 10 }}>{out || "…"}</div>}
+          <StageRunner dir={dir} pipeline={pipeline} task={task} def={def} track={track} tools={tools} live={live} seconds={seconds}
+            onDone={onDone} flash={flash} onLog={onLog} onActivity={onActivity} onRunning={setRunning} />
           {def.specs && def.specs.filter((v) => v.key && String(v.value || "").trim()).length > 0 && (
             <div className="muted" style={{ fontSize: 12, marginTop: 8 }} title="Appended to every run's prompt as hard requirements">
               specs: {def.specs.filter((v) => v.key && String(v.value || "").trim()).map((v, k) => <code key={k} className="iochip" style={{ marginRight: 4 }}>{specLabel(v.key)}: {v.value}</code>)}
