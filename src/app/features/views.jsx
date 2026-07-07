@@ -44,7 +44,7 @@ function StageDetail({ rec, onDiff, onOpenFile, onRunStage }) {
       </div>
     );
   }
-  const run = rec.runs[Math.min(runIdx, rec.runs.length - 1)];
+  const run = rec.runs[Math.min(Math.max(runIdx, 0), rec.runs.length - 1)];
   const TABS = [["prompt", "Prompts"], ["files", `Files ${run.files.length ? "· " + run.files.length : ""}`], ["response", "Response"], ["summary", "Summary"], ["raw", "Raw JSON"]];
   return (
     <div className="uxv-detail">
@@ -119,7 +119,7 @@ export function InspectorView({ records, activeId, setActiveId, onDiff, onOpenFi
           </button>
         ))}
       </div>
-      {rec && <StageDetail rec={rec} onDiff={onDiff} onOpenFile={onOpenFile} onRunStage={onRunStage} />}
+      {rec && <StageDetail key={rec.id} rec={rec} onDiff={onDiff} onOpenFile={onOpenFile} onRunStage={onRunStage} />}
     </div>
   );
 }
@@ -167,7 +167,7 @@ export function CanvasView({ records, activeId, setActiveId, onDiff, onOpenFile,
       {rec && (
         <div className="uxv-sheet">
           <button className="uxv-sheet-x" onClick={() => setActiveId("")} title="Close">×</button>
-          <StageDetail rec={rec} onDiff={onDiff} onOpenFile={onOpenFile} onRunStage={onRunStage} />
+          <StageDetail key={rec.id} rec={rec} onDiff={onDiff} onOpenFile={onOpenFile} onRunStage={onRunStage} />
         </div>
       )}
     </div>
