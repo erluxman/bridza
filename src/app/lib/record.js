@@ -109,6 +109,12 @@ export function buildStageRecords(pipeline, task, timeline = [], liveSet = null,
   }));
 }
 
+// The agent (tool) a stage last actually ran on — the per-stage "which agent"
+// memory. Empty string when the stage has never run. Callers append their own
+// fallback (def.tool → first available → claude) so a stage that ran on
+// opencode doesn't silently snap back to the pipeline default next time.
+export const lastRunTool = (runs) => (runs && runs.length ? (runs[runs.length - 1].tool || "") : "");
+
 // The stage graph: nodes + the sequential edges of the flow. Views feed the
 // nodes to the layout engine; edges are the flow order (i → i+1). Kept separate
 // so a future branching flow only changes this function.

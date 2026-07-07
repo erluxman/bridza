@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import * as api from "../api/client.js";
 import { pipelineFlows, specLabel } from "../../../core/domain.js";
 import { slug, runPrompt, fmt, workFiles, base, ago } from "../lib/format.js";
-import { buildStageRecords } from "../lib/record.js";
+import { buildStageRecords, lastRunTool } from "../lib/record.js";
 import { InspectorView, CanvasView, ChatView } from "./views.jsx";
 import { Hamburger, ColGrip, useColWidth, Kv } from "../ui.jsx";
 import { DiffView, FileModal } from "./diff.jsx";
@@ -156,7 +156,10 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
     // one by re-checking the branch tip per stage (this client snapshot can be
     // stale). NO model is ever passed — each tool runs with its own default.
     const bodies = stageObjs.map((def) => ({
-      pipeline: pipeline.id, task: task.id, stage: def.id, tool: def.tool || "opencode",
+      pipeline: pipeline.id, task: task.id, stage: def.id,
+      // remember the agent each stage last ran on (falls back to the stage
+      // default, then opencode) so auto-advance doesn't reset every stage
+      tool: lastRunTool((task.tracking[def.id] || {}).runs) || def.tool || "opencode",
       prompt: runPrompt(pipeline, task, def, [task.title && ("Task: " + task.title), task.context, def.hint].filter(Boolean).join("\n\n") || ("Complete the " + (def.name || def.id) + " stage.")),
       system: def.systemPrompt || "", shell: def.shell || [], workingDir: pipeline.workingDir || ".",
       stageName: def.name || def.id, taskTitle: task.title,
@@ -555,7 +558,10 @@ function BlastRadius({ dir, pipeline, task, refreshKey, onOpen }) {
 function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle, onDone, flash, onDiff, resultFor, live, onLog, inputFiles = [], onOpenFile, onActivity }) {
   const runs = track.runs || [];
   const lastPrompt = runs.length ? (runs[runs.length - 1].prompt || "") : "";
-  const [tool, setTool] = useState(def.tool || (tools[0] && tools[0].id) || "claude");
+  // per-stage agent memory: default to the tool this stage LAST ran on, so it
+  // doesn't fall back to the pipeline default (usually claude) every time.
+  const rememberedTool = () => lastRunTool(runs) || def.tool || (tools[0] && tools[0].id) || "claude";
+  const [tool, setTool] = useState(rememberedTool);
   const [prompt, setPrompt] = useState(lastPrompt);
   // empty model = the TOOL'S OWN default. ALWAYS starts empty — a model is only
   // passed when explicitly picked for THIS run, never remembered from earlier
@@ -568,7 +574,7 @@ function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle
   const termRef = useRef(null);
   // autofill the prompt with the stage's last run when switching task/stage
   // (the model is deliberately NOT carried over — tool default unless picked now)
-  useEffect(() => { setPrompt(lastPrompt); setModel(""); setOut(""); }, [task.id, def.id]);
+  useEffect(() => { setPrompt(lastPrompt); setTool(rememberedTool()); setModel(""); setOut(""); }, [task.id, def.id]);
   useEffect(() => { if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight; }, [out]);
   useEffect(() => {
     let on = true;

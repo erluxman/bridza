@@ -3,7 +3,7 @@
 // layout engine (5 arrangements). Pure functions, no repo/subprocess needed.
 import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { buildStageRecords, buildGraph } from "../lib/record.js";
+import { buildStageRecords, buildGraph, lastRunTool } from "../lib/record.js";
 import { layoutNodes, LAYOUTS } from "../lib/layout.js";
 import { InspectorView, CanvasView, ChatView } from "../features/views.jsx";
 
@@ -65,6 +65,18 @@ describe("unified stage record", () => {
     const g = buildGraph(recs);
     expect(g.nodes.length).toBe(2);
     expect(g.edges).toEqual([{ from: "research", to: "build" }]);
+  });
+});
+
+describe("per-stage agent memory", () => {
+  it("returns the tool of the last run", () => {
+    expect(lastRunTool([{ tool: "claude" }, { tool: "opencode" }])).toBe("opencode");
+  });
+  it("is empty for a stage that never ran (caller supplies the fallback)", () => {
+    expect(lastRunTool([])).toBe("");
+    expect(lastRunTool(undefined)).toBe("");
+    expect(lastRunTool([{ tool: "gemini" }]) || "claude").toBe("gemini");
+    expect(lastRunTool([]) || "claude").toBe("claude");
   });
 });
 
