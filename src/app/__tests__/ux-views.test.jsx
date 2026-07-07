@@ -3,7 +3,7 @@
 // layout engine (5 arrangements). Pure functions, no repo/subprocess needed.
 import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
-import { buildStageRecords, buildGraph, lastRunTool } from "../lib/record.js";
+import { buildStageRecords, buildGraph, lastRunTool, lastRunModel } from "../lib/record.js";
 import { layoutNodes, LAYOUTS } from "../lib/layout.js";
 import { InspectorView, CanvasView, ChatView } from "../features/views.jsx";
 
@@ -75,8 +75,14 @@ describe("per-stage agent memory", () => {
   it("is empty for a stage that never ran (caller supplies the fallback)", () => {
     expect(lastRunTool([])).toBe("");
     expect(lastRunTool(undefined)).toBe("");
-    expect(lastRunTool([{ tool: "gemini" }]) || "claude").toBe("gemini");
-    expect(lastRunTool([]) || "claude").toBe("claude");
+    expect(lastRunTool([{ tool: "gemini" }]) || "opencode").toBe("gemini");
+    expect(lastRunTool([]) || "opencode").toBe("opencode");
+  });
+  it("restores the last-run model so it isn't reset to the tool default", () => {
+    expect(lastRunModel([{ tool: "opencode", model: "grok-code" }])).toBe("grok-code");
+    expect(lastRunModel([{ tool: "opencode", model: "a" }, { tool: "opencode", model: "b" }])).toBe("b");
+    expect(lastRunModel([{ tool: "opencode" }])).toBe(""); // tool default → empty
+    expect(lastRunModel([])).toBe("");
   });
 });
 

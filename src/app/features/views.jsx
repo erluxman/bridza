@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef } from "react";
 import * as api from "../api/client.js";
 import { fmt, ago, runPrompt } from "../lib/format.js";
-import { lastRunTool } from "../lib/record.js";
+import { lastRunTool, lastRunModel } from "../lib/record.js";
 import { layoutNodes, LAYOUTS } from "../lib/layout.js";
 
 const STATUS = ["idle", "running", "done", "failed", "interrupted", "stopped"];
@@ -20,18 +20,18 @@ const led = (s) => "uxv-led " + (STATUS.includes(s) ? s : "idle");
 export function StageRunner({ dir, pipeline, task, def, track, tools = [], live, seconds = 0, onDone, flash, onLog, onActivity, onRunning }) {
   const runs = track.runs || [];
   const lastPrompt = runs.length ? (runs[runs.length - 1].prompt || "") : "";
-  const remembered = () => lastRunTool(runs) || def.tool || (tools[0] && tools[0].id) || "claude";
+  const remembered = () => lastRunTool(runs) || def.tool || (tools[0] && tools[0].id) || "opencode";
   const [tool, setTool] = useState(remembered);
-  const [model, setModel] = useState("");
+  const [model, setModel] = useState(lastRunModel(runs));
   const [models, setModels] = useState([]);
   const [prompt, setPrompt] = useState(lastPrompt);
   const [out, setOut] = useState("");
   const [running, setRunning] = useState(false);
   const [sysOpen, setSysOpen] = useState(false);
   const termRef = useRef(null);
-  // switching task/stage re-seeds from that stage's last run (prompt + agent);
-  // the model is deliberately NOT carried over (tool default unless picked now).
-  useEffect(() => { setPrompt(lastPrompt); setTool(remembered()); setModel(""); setOut(""); }, [task.id, def.id]);
+  // switching task/stage re-seeds from that stage's last run: prompt, agent AND
+  // model — so you resume with exactly what you last used, not the tool default.
+  useEffect(() => { setPrompt(lastPrompt); setTool(remembered()); setModel(lastRunModel(runs)); setOut(""); }, [task.id, def.id]);
   useEffect(() => { if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight; }, [out]);
   useEffect(() => { let on = true; api.getModels(dir, tool).then((r) => { if (on) setModels((r && r.models) || []); }); return () => { on = false; }; }, [dir, tool]);
 

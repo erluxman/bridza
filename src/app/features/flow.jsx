@@ -9,8 +9,8 @@ import { layoutNodes, LAYOUTS } from "../lib/layout.js";
 import { Hamburger, Modal } from "../ui.jsx";
 
 const OUT_TYPES = ["doc", "data", "code", "media", "value", "text", "asset", "git", "issue"];
-const mkStage = () => ({ id: "stage-" + Math.random().toString(36).slice(2, 7), name: "New stage", hint: "", tool: "claude", systemPrompt: "Operate only on the previous stage's outputs. Produce only this stage's outputs.", outputs: [{ name: "out.md", type: "doc", note: "" }], specs: [], shell: [], gate: "Output reviewed", auto: false, judge: false });
-const normStage = (s, i) => ({ id: s.id || "stage-" + (i + 1), name: s.name || s.id || "Stage " + (i + 1), hint: s.hint || "", tool: s.tool || "claude", systemPrompt: s.systemPrompt || "", outputs: (s.outputs || []).map((o) => ({ name: o.name || "", type: o.type || "doc", note: o.note || "" })), specs: (s.specs || []).map((v) => ({ key: v.key || "", value: v.value || "" })), shell: s.shell || [], gate: s.gate || "", auto: !!s.auto, judge: !!s.judge });
+const mkStage = () => ({ id: "stage-" + Math.random().toString(36).slice(2, 7), name: "New stage", hint: "", tool: "opencode", systemPrompt: "Operate only on the previous stage's outputs. Produce only this stage's outputs.", outputs: [{ name: "out.md", type: "doc", note: "" }], specs: [], shell: [], gate: "Output reviewed", auto: false, judge: false });
+const normStage = (s, i) => ({ id: s.id || "stage-" + (i + 1), name: s.name || s.id || "Stage " + (i + 1), hint: s.hint || "", tool: s.tool || "opencode", systemPrompt: s.systemPrompt || "", outputs: (s.outputs || []).map((o) => ({ name: o.name || "", type: o.type || "doc", note: o.note || "" })), specs: (s.specs || []).map((v) => ({ key: v.key || "", value: v.value || "" })), shell: s.shell || [], gate: s.gate || "", auto: !!s.auto, judge: !!s.judge });
 
 export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, flash, collapsed, onExpandSide }) {
   // one designer PER FLOW, side by side — a pipeline can carry several named
@@ -225,7 +225,7 @@ function FlowCanvasView({ flows, layoutMode, pickLayout, onEditStage }) {
                   <button key={s.id} className="uxv-node" style={{ left: nodes[i].x, top: nodes[i].y, width: NW, height: NH }} onClick={onEditStage} title="Edit this stage in Cards view">
                     <span className="uxv-node-hd"><span className="uxv-ord">{String(i + 1).padStart(2, "0")}</span><b>{s.name}</b></span>
                     <span className="uxv-node-sum">{s.systemPrompt ? s.systemPrompt.slice(0, 90) : "no system prompt"}</span>
-                    <span className="uxv-node-ft"><span className="uxv-tag">{s.tool || "claude"}</span>{s.judge && <span className="uxv-tag running">⚖ judge</span>}{s.auto && <span className="uxv-dim">⚡ auto</span>}</span>
+                    <span className="uxv-node-ft"><span className="uxv-tag">{s.tool || "opencode"}</span>{s.judge && <span className="uxv-tag running">⚖ judge</span>}{s.auto && <span className="uxv-dim">⚡ auto</span>}</span>
                   </button>
                 ))}
               </div>
@@ -240,7 +240,7 @@ function FlowCanvasView({ flows, layoutMode, pickLayout, onEditStage }) {
 function FlowNode({ s, i, total, tools, inputs, patch, onJudge, onUp, onDown, onDup, onDel, onInsert }) {
   const setOut = (oi, p) => patch({ outputs: s.outputs.map((o, k) => k === oi ? { ...o, ...p } : o) });
   const setSpec = (si, p) => patch({ specs: s.specs.map((v, k) => k === si ? { ...v, ...p } : v) });
-  const toolOpts = tools.length ? tools.map((t) => t.id) : ["claude", "opencode"];
+  const toolOpts = tools.length ? tools.map((t) => t.id) : ["opencode", "claude"];
   return (
     <div className="fnode">
       <div className="fnode-h">
