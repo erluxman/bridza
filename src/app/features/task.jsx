@@ -5,6 +5,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import * as api from "../api/client.js";
 import { pipelineFlows, specLabel } from "../../../core/domain.js";
 import { slug, runPrompt, fmt, workFiles, base, ago } from "../lib/format.js";
+import { buildStageRecords } from "../lib/record.js";
+import { InspectorView, CanvasView, ChatView } from "./views.jsx";
 import { Hamburger, ColGrip, useColWidth, Kv } from "../ui.jsx";
 import { DiffView, FileModal } from "./diff.jsx";
 import { TermDrawer } from "./term.jsx";
@@ -49,6 +51,11 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   const [taskLog, setTaskLog] = useState("");
   const appendLog = useCallback((s) => setTaskLog((o) => (o + s).slice(-64000)), []);
   const [showTerm, setShowTerm] = useState(false);   // full-height PTY replaces the stage list
+  // task-detail view mode: the classic stacked Stages, or one of the three new
+  // read/audit views (Inspector / Canvas / Chat) — all read the unified record.
+  const [view, setView] = useState(() => { const v = localStorage.getItem("bridza.taskView"); return ["stages", "inspector", "canvas", "chat"].includes(v) ? v : "stages"; });
+  const [activeStage, setActiveStage] = useState("");   // selection for inspector/canvas
+  const setTaskView = useCallback((v) => { setShowTerm(false); setView(v); try { localStorage.setItem("bridza.taskView", v); } catch (e) { /* ignore */ } }, []);
   const [railW, railGrip] = useColWidth("bridza.railW", 332, { min: 240, max: 560, side: "right" });   // #3
   const [railHidden, setRailHidden] = useState(() => localStorage.getItem("bridza.railHidden") === "1");
   const toggleRail = () => setRailHidden((h) => { const n = !h; try { localStorage.setItem("bridza.railHidden", n ? "1" : "0"); } catch (e) { /* ignore */ } return n; });
@@ -228,8 +235,11 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
           <h1 style={{ marginLeft: 6 }}>{task.ref ? <span className="tref">#{task.ref}</span> : null}{task.title}</h1>
         </div>
         <div className="row">
-          <div className="seg" title="Stages: the pipeline steps · Terminal: a real shell in this task's worktree, full-height">
-            <button className={!showTerm ? "on" : ""} onClick={() => setShowTerm(false)}>Stages</button>
+          <div className="seg" title="How to view this task's stages. Stages: the classic runner. Inspector / Canvas / Chat: read & audit what each stage did. Terminal: a real shell in this task's worktree.">
+            <button className={!showTerm && view === "stages" ? "on" : ""} onClick={() => setTaskView("stages")}>Stages</button>
+            <button className={!showTerm && view === "inspector" ? "on" : ""} onClick={() => setTaskView("inspector")}>Inspector</button>
+            <button className={!showTerm && view === "canvas" ? "on" : ""} onClick={() => setTaskView("canvas")}>Canvas</button>
+            <button className={!showTerm && view === "chat" ? "on" : ""} onClick={() => setTaskView("chat")}>Chat</button>
             <button className={showTerm ? "on" : ""} onClick={() => setShowTerm(true)}>⌨ Terminal</button>
           </div>
           {taskLive && (
@@ -263,6 +273,17 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
         {showTerm ? (
           <div className="stages">
             <TermDrawer full dir={dir} pipeline={pipeline.id} task={task.id} onClose={() => setShowTerm(false)} />
+          </div>
+        ) : view !== "stages" ? (
+          <div className="stages">
+            {(() => {
+              const records = buildStageRecords(pipeline, task, timeline, runningStages, stageTime);
+              const shared = { onDiff: setDiffCommit, onOpenFile: setFileOpen, onRunStage: (id) => { setTaskView("stages"); setOpenStage(id); setActiveStage(id); } };
+              const activeId = activeStage || openStage || (records[0] && records[0].id);
+              if (view === "inspector") return <InspectorView records={records} activeId={activeId} setActiveId={setActiveStage} {...shared} />;
+              if (view === "canvas") return <CanvasView records={records} activeId={activeStage} setActiveId={setActiveStage} {...shared} />;
+              return <ChatView records={records} {...shared} />;
+            })()}
           </div>
         ) : (
         <div className="stages">
