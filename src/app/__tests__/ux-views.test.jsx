@@ -2,8 +2,13 @@
 // (task.tracking + git timeline → the one shape all 3 views read) and the node
 // layout engine (5 arrangements). Pure functions, no repo/subprocess needed.
 import { describe, it, expect } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
 import { buildStageRecords, buildGraph } from "../lib/record.js";
 import { layoutNodes, LAYOUTS } from "../lib/layout.js";
+import { InspectorView, CanvasView, ChatView } from "../features/views.jsx";
+
+// the Canvas view reads localStorage for its saved layout — stub it for SSR
+globalThis.localStorage = globalThis.localStorage || { getItem: () => null, setItem: () => {} };
 
 const pipeline = {
   id: "eng",
@@ -89,5 +94,27 @@ describe("layout engine", () => {
     expect(layoutNodes(0, "radial").nodes).toEqual([]);
     const one = layoutNodes(1, "radial").nodes[0];
     expect(Number.isFinite(one.x) && Number.isFinite(one.y)).toBe(true);
+  });
+});
+
+describe("the three views render without crashing", () => {
+  const recs = buildStageRecords(pipeline, task, timeline);
+  const noop = () => {};
+  const shared = { onDiff: noop, onOpenFile: noop, onRunStage: noop };
+
+  it("Inspector shows the selected stage's response tab", () => {
+    const h = renderToStaticMarkup(<InspectorView records={recs} activeId="build" setActiveId={noop} {...shared} />);
+    expect(h).toContain("Build");
+    expect(h).toContain("Response");
+  });
+  it("Canvas shows the layout switcher and nodes", () => {
+    const h = renderToStaticMarkup(<CanvasView records={recs} activeId="build" setActiveId={noop} {...shared} />);
+    expect(h).toContain("layout");
+    expect(h).toContain("Research");
+  });
+  it("Chat shows the assistant turn and user prompt", () => {
+    const h = renderToStaticMarkup(<ChatView records={recs} {...shared} />);
+    expect(h).toContain("assistant");
+    expect(h).toContain("fix the type");
   });
 });
