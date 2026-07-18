@@ -160,6 +160,51 @@ test("Canvas: the chosen layout persists across re-opening the task", async ({ p
   await expect(page.locator(".uxv-chip.on", { hasText: "Radial" })).toBeVisible();
 });
 
+const dragBy = async (page, locator, dx, dy) => {
+  const b = await locator.boundingBox();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2 + dx, b.y + b.height / 2 + dy, { steps: 8 });
+  await page.mouse.up();
+};
+
+test("Canvas: a stage node can be dragged, and the position persists", async ({ page }) => {
+  await openTask(page);
+  await setView(page, "Canvas");
+  const node = page.locator(".uxv-node").first();
+  const before = await node.evaluate((el) => el.style.left);
+  await dragBy(page, node, -140, 110);
+  const after = await node.evaluate((el) => el.style.left);
+  expect(after).not.toBe(before);
+  await expect(page.locator(".uxv-chip.reset")).toBeVisible();   // manual positions now in effect
+  // survives re-opening the task (persisted to localStorage)
+  await openTask(page);
+  await setView(page, "Canvas");
+  expect(await page.locator(".uxv-node").first().evaluate((el) => el.style.left)).toBe(after);
+});
+
+test("Canvas: a stage node can be resized via the corner handle", async ({ page }) => {
+  await openTask(page);
+  await setView(page, "Canvas");
+  const node = page.locator(".uxv-node").first();
+  const w0 = await node.evaluate((el) => el.getBoundingClientRect().width);
+  await dragBy(page, node.locator(".uxv-resize"), 80, 50);
+  const w1 = await node.evaluate((el) => el.getBoundingClientRect().width);
+  expect(w1).toBeGreaterThan(w0 + 40);
+});
+
+test("Canvas: reset positions snaps every stage back to the layout", async ({ page }) => {
+  await openTask(page);
+  await setView(page, "Canvas");
+  const node = page.locator(".uxv-node").first();
+  const orig = await node.evaluate((el) => el.style.left);
+  await dragBy(page, node, -120, 90);                            // create a manual position
+  await expect(page.locator(".uxv-chip.reset")).toBeVisible();
+  await page.locator(".uxv-chip.reset").click();
+  await expect(page.locator(".uxv-chip.reset")).toHaveCount(0);
+  expect(await node.evaluate((el) => el.style.left)).toBe(orig);   // snapped back to the layout
+});
+
 /* ── 5 · Chat ──────────────────────────────────────────────────────────────*/
 test("Chat: the task reads as system / user / assistant turns per run", async ({ page }) => {
   await openTask(page);
@@ -280,6 +325,16 @@ test("planner: the layout choice survives toggling Cards ↔ Canvas", async ({ p
   await seg(page, "Cards").click();
   await seg(page, "Canvas").click();
   await expect(page.locator(".uxv-chip.on", { hasText: "Grid" }).first()).toBeVisible();
+});
+
+test("planner: a canvas node drags without triggering click-to-edit", async ({ page }) => {
+  await openPlanner(page);
+  await seg(page, "Canvas").click();
+  const node = page.locator(".uxv-node").first();
+  const before = await node.evaluate((el) => el.style.left);
+  await dragBy(page, node, -110, 90);
+  expect(await node.evaluate((el) => el.style.left)).not.toBe(before);
+  await expect(seg(page, "Canvas")).toHaveClass(/on/);   // a real drag did NOT jump to Cards
 });
 
 /* ── 8 · surrounding major flows / configs ─────────────────────────────────*/

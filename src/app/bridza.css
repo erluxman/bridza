@@ -571,8 +571,17 @@ textarea.input { resize: vertical; min-height: 64px; }
 .uxv-canvasinner { position: relative; }
 .uxv-edges { position: absolute; inset: 0; pointer-events: none; }
 .uxv-edge { fill: none; stroke: var(--line-2); stroke-width: 2; }
-.uxv-node { position: absolute; display: flex; flex-direction: column; gap: 6px; text-align: left; background: var(--bg-1); border: 1px solid var(--line-2); border-radius: 11px; padding: 10px 12px; overflow: hidden; transition: border-color .12s, transform .12s; }
-.uxv-node:hover { transform: translateY(-2px); border-color: var(--accent); }
+.uxv-node { position: absolute; display: flex; flex-direction: column; gap: 6px; text-align: left; background: var(--bg-1); border: 1px solid var(--line-2); border-radius: 11px; padding: 10px 12px; overflow: hidden; transition: border-color .12s, box-shadow .12s; cursor: grab; }
+.uxv-node:hover { border-color: var(--accent); }
+.uxv-node:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+body.uxv-dragging, body.uxv-dragging .uxv-node { cursor: grabbing !important; user-select: none; }
+body.uxv-dragging .uxv-node { transition: none; }
+.uxv-resize { position: absolute; right: 2px; bottom: 2px; width: 15px; height: 15px; cursor: nwse-resize; opacity: .35;
+  background: linear-gradient(135deg, transparent 42%, var(--txt-3) 42%, var(--txt-3) 52%, transparent 52%, transparent 66%, var(--txt-3) 66%, var(--txt-3) 76%, transparent 76%);
+  border-bottom-right-radius: 9px; }
+.uxv-node:hover .uxv-resize, .uxv-node.on .uxv-resize { opacity: .85; }
+.uxv-chip.reset { color: var(--warn); border-color: #d8a03a44; background: transparent; }
+.uxv-chip.reset:hover { background: #d8a03a1a; }
 .uxv-node.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .uxv-node.running { border-color: #4f9cf288; }
 .uxv-node.failed { border-color: #e0625f66; }

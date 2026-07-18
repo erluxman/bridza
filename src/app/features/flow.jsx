@@ -6,6 +6,7 @@ import * as api from "../api/client.js";
 import { pipelineFlows, exportFlow, parseFlowFile, exportPipeline, parsePipelineFile, SPEC_CATALOG, specLabel, specValues } from "../../../core/domain.js";
 import { slug, downloadJSON } from "../lib/format.js";
 import { layoutNodes, LAYOUTS } from "../lib/layout.js";
+import { useCanvasOverrides, effLayout, CanvasNode } from "../lib/canvas.jsx";
 import { Hamburger, Modal } from "../ui.jsx";
 
 const OUT_TYPES = ["doc", "data", "code", "media", "value", "text", "asset", "git", "issue"];
@@ -130,7 +131,7 @@ export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, fla
           <div className="field" style={{ flex: 1, minWidth: 240 }}><label>Working dir (sparse scope; '.' = whole repo)</label><input className="input" value={workingDir} onChange={(e) => { setWorkingDir(e.target.value); setDirty(true); }} /></div>
         </div>
 
-        {planner === "canvas" && <FlowCanvasView flows={flows} layoutMode={layoutMode} pickLayout={pickLayout} onEditStage={() => setPlanner("cards")} />}
+        {planner === "canvas" && <FlowCanvasView flows={flows} layoutMode={layoutMode} pickLayout={pickLayout} onEditStage={() => setPlanner("cards")} keyPrefix={pipeline.id} />}
 
         {planner === "cards" && <div className="flows-row">
           {flows.map((f, fi) => (
@@ -194,11 +195,10 @@ export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, fla
   );
 }
 
-// Read-only node-graph overview of the pipeline's flows, arranged by the chosen
-// layout (reuses the task Canvas styles + the shared layout engine). Each node
-// clicks through to the Cards editor. One canvas per flow.
-function FlowCanvasView({ flows, layoutMode, pickLayout, onEditStage }) {
-  const NW = 190, NH = 98;
+// Node-graph overview of the pipeline's flows, arranged by the chosen layout and
+// freely draggable/resizable (reuses the task Canvas engine). Each node clicks
+// through to the Cards editor. One canvas per flow, each with its own positions.
+function FlowCanvasView({ flows, layoutMode, pickLayout, onEditStage, keyPrefix }) {
   return (
     <div style={{ marginTop: 4 }}>
       <div className="uxv-layoutbar">
@@ -206,33 +206,43 @@ function FlowCanvasView({ flows, layoutMode, pickLayout, onEditStage }) {
         {LAYOUTS.map((l) => (
           <button key={l.id} className={"uxv-chip" + (layoutMode === l.id ? " on" : "")} title={l.hint} onClick={() => pickLayout(l.id)}>{l.label}</button>
         ))}
+        <span className="uxv-dim" style={{ marginLeft: "auto" }}>drag to move · corner to resize</span>
       </div>
-      {flows.map((f) => {
-        const { nodes, width, height } = layoutNodes(f.stages.length, layoutMode, { cell: { w: 230, h: 158 }, nodeW: NW, nodeH: NH });
-        const center = (i) => ({ x: nodes[i].x + NW / 2, y: nodes[i].y + NH / 2 });
-        return (
-          <div key={f.id} style={{ marginTop: 16 }}>
-            <div className="side-label" style={{ padding: "0 0 8px" }}>{f.name || "Flow"} · {f.stages.length} stage{f.stages.length === 1 ? "" : "s"}</div>
-            <div className="uxv-canvas" style={{ minHeight: height }}>
-              <div className="uxv-canvasinner" style={{ width, height }}>
-                <svg className="uxv-edges" width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-                  {f.stages.slice(1).map((s, i) => {
-                    const a = center(i), b = center(i + 1), mx = (a.x + b.x) / 2;
-                    return <path key={s.id} className="uxv-edge" d={`M ${a.x} ${a.y} C ${mx} ${a.y}, ${mx} ${b.y}, ${b.x} ${b.y}`} />;
-                  })}
-                </svg>
-                {f.stages.map((s, i) => (
-                  <button key={s.id} className="uxv-node" style={{ left: nodes[i].x, top: nodes[i].y, width: NW, height: NH }} onClick={onEditStage} title="Edit this stage in Cards view">
-                    <span className="uxv-node-hd"><span className="uxv-ord">{String(i + 1).padStart(2, "0")}</span><b>{s.name}</b></span>
-                    <span className="uxv-node-sum">{s.systemPrompt ? s.systemPrompt.slice(0, 90) : "no system prompt"}</span>
-                    <span className="uxv-node-ft"><span className="uxv-tag">{s.tool || "opencode"}</span>{s.judge && <span className="uxv-tag running">⚖ judge</span>}{s.auto && <span className="uxv-dim">⚡ auto</span>}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      })}
+      {flows.map((f) => <FlowCanvasOne key={f.id} flow={f} layoutMode={layoutMode} onEditStage={onEditStage} storageKey={"bridza.plannerPos:" + keyPrefix + "/" + f.id} />)}
+    </div>
+  );
+}
+
+function FlowCanvasOne({ flow, layoutMode, onEditStage, storageKey }) {
+  const NW = 190, NH = 98;
+  const base = layoutNodes(flow.stages.length, layoutMode, { cell: { w: 230, h: 158 }, nodeW: NW, nodeH: NH });
+  const { over, setNode, clear, count } = useCanvasOverrides(storageKey);
+  const { eff, width, height } = effLayout(base, flow.stages.map((s) => s.id), over, NW, NH);
+  const center = (i) => ({ x: eff[i].x + eff[i].w / 2, y: eff[i].y + eff[i].h / 2 });
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div className="spread" style={{ padding: "0 0 8px" }}>
+        <span className="side-label" style={{ padding: 0 }}>{flow.name || "Flow"} · {flow.stages.length} stage{flow.stages.length === 1 ? "" : "s"}</span>
+        {count > 0 && <button className="uxv-chip reset" title="Clear manual positions for this flow" onClick={clear}>↺ reset positions</button>}
+      </div>
+      <div className="uxv-canvas" style={{ minHeight: height }}>
+        <div className="uxv-canvasinner" style={{ width, height }}>
+          <svg className="uxv-edges" width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+            {flow.stages.slice(1).map((s, i) => {
+              const a = center(i), b = center(i + 1), mx = (a.x + b.x) / 2;
+              return <path key={s.id} className="uxv-edge" d={`M ${a.x} ${a.y} C ${mx} ${a.y}, ${mx} ${b.y}, ${b.x} ${b.y}`} />;
+            })}
+          </svg>
+          {flow.stages.map((s, i) => (
+            <CanvasNode key={s.id} x={eff[i].x} y={eff[i].y} w={eff[i].w} h={eff[i].h} title="Drag to arrange · click to edit in Cards"
+              onMove={(x, y) => setNode(s.id, { x, y })} onResize={(w, h) => setNode(s.id, { w, h })} onSelect={onEditStage}>
+              <span className="uxv-node-hd"><span className="uxv-ord">{String(i + 1).padStart(2, "0")}</span><b>{s.name}</b></span>
+              <span className="uxv-node-sum">{s.systemPrompt ? s.systemPrompt.slice(0, 90) : "no system prompt"}</span>
+              <span className="uxv-node-ft"><span className="uxv-tag">{s.tool || "opencode"}</span>{s.judge && <span className="uxv-tag running">⚖ judge</span>}{s.auto && <span className="uxv-dim">⚡ auto</span>}</span>
+            </CanvasNode>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

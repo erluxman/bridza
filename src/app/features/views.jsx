@@ -9,6 +9,7 @@ import * as api from "../api/client.js";
 import { fmt, ago, runPrompt } from "../lib/format.js";
 import { lastRunTool, lastRunModel } from "../lib/record.js";
 import { layoutNodes, LAYOUTS } from "../lib/layout.js";
+import { useCanvasOverrides, effLayout, CanvasNode } from "../lib/canvas.jsx";
 
 const STATUS = ["idle", "running", "done", "failed", "interrupted", "stopped"];
 const led = (s) => "uxv-led " + (STATUS.includes(s) ? s : "idle");
@@ -183,15 +184,19 @@ export function InspectorView({ records, activeId, setActiveId, runner, onDiff, 
 export function CanvasView({ records, activeId, setActiveId, runner, onDiff, onOpenFile }) {
   const [mode, setMode] = useState(() => localStorage.getItem("bridza.canvasLayout") || "linear");
   const pick = (m) => { setMode(m); try { localStorage.setItem("bridza.canvasLayout", m); } catch (e) { /* ignore */ } };
-  const { nodes, width, height } = layoutNodes(records.length, mode, { cell: { w: 230, h: 168 }, nodeW: 190, nodeH: 104 });
-  const rec = records.find((r) => r.id === activeId);
   const NW = 190, NH = 104;
-  const center = (i) => ({ x: nodes[i].x + NW / 2, y: nodes[i].y + NH / 2 });
+  const base = layoutNodes(records.length, mode, { cell: { w: 230, h: 168 }, nodeW: NW, nodeH: NH });
+  const { over, setNode, clear, count } = useCanvasOverrides("bridza.canvasPos:" + (runner ? runner.pipeline.id + "/" + runner.task.id : "t"));
+  const { eff, width, height } = effLayout(base, records.map((r) => r.id), over, NW, NH);
+  const rec = records.find((r) => r.id === activeId);
+  const center = (i) => ({ x: eff[i].x + eff[i].w / 2, y: eff[i].y + eff[i].h / 2 });
   return (
     <div className="uxv-canvaswrap">
       <div className="uxv-layoutbar">
         <span className="uxv-dim" style={{ marginRight: 4 }}>layout</span>
         {LAYOUTS.map((l) => <button key={l.id} className={"uxv-chip" + (mode === l.id ? " on" : "")} title={l.hint} onClick={() => pick(l.id)}>{l.label}</button>)}
+        {count > 0 && <button className="uxv-chip reset" title="Clear manual positions — snap every stage back to the layout" onClick={clear}>↺ reset positions</button>}
+        <span className="uxv-dim" style={{ marginLeft: "auto" }}>drag to move · corner to resize</span>
       </div>
       <div className="uxv-canvas" style={{ minHeight: height }}>
         <div className="uxv-canvasinner" style={{ width, height }}>
@@ -202,8 +207,8 @@ export function CanvasView({ records, activeId, setActiveId, runner, onDiff, onO
             })}
           </svg>
           {records.map((r, i) => (
-            <button key={r.id} className={"uxv-node " + r.status + (rec && rec.id === r.id ? " on" : "")}
-              style={{ left: nodes[i].x, top: nodes[i].y, width: NW, height: NH }} onClick={() => setActiveId(r.id)}>
+            <CanvasNode key={r.id} x={eff[i].x} y={eff[i].y} w={eff[i].w} h={eff[i].h} className={r.status} selected={rec && rec.id === r.id}
+              onMove={(x, y) => setNode(r.id, { x, y })} onResize={(w, h) => setNode(r.id, { w, h })} onSelect={() => setActiveId(r.id)}>
               <span className="uxv-node-hd"><span className={led(r.status)} /><b>{r.name}</b><span className="uxv-ord">{String(r.order + 1).padStart(2, "0")}</span></span>
               <span className="uxv-node-sum">{r.summary || "—"}</span>
               <span className="uxv-node-ft">
@@ -211,7 +216,7 @@ export function CanvasView({ records, activeId, setActiveId, runner, onDiff, onO
                 {r.runCount > 1 && <span className="uxv-rr">×{r.runCount}</span>}
                 {r.files.length > 0 && <span className="uxv-dim">{r.files.length} file{r.files.length === 1 ? "" : "s"}</span>}
               </span>
-            </button>
+            </CanvasNode>
           ))}
         </div>
       </div>
