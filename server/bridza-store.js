@@ -180,7 +180,7 @@ export function ensureDataDir(root) {
   const dir = path.join(root, DATA_DIR);
   const created = !fs.existsSync(dir);
   if (!fs.existsSync(path.join(root, rel.business())))
-    writeJSON(path.join(root, rel.business()), { v: 1, name: path.basename(root), merge: "merge", defaults: { tool: "claude" } });
+    writeJSON(path.join(root, rel.business()), { v: 1, name: path.basename(root), merge: "merge", defaults: { tool: "opencode" } });
   for (const [f, seed] of [[rel.principles(), "# Company principles\n"], [rel.rules(), "# Universal rules\n"]])
     if (!fs.existsSync(path.join(root, f))) writeText(path.join(root, f), seed);
   const readme = path.join(dir, "README.md");
@@ -439,7 +439,7 @@ const normStageDef = (s, i) => ({
   id: safeRef(s.id || "stage-" + (i + 1)),
   name: s.name || s.id || "Stage " + (i + 1),
   hint: s.hint || "",
-  tool: s.tool || "claude",
+  tool: s.tool || "opencode",
   systemPrompt: s.systemPrompt || "",
   outputs: Array.isArray(s.outputs) ? s.outputs.map((o) => ({ name: o.name || "", type: o.type || "doc", note: o.note || "" })) : [],
   specs: Array.isArray(s.specs) ? s.specs.map((v) => ({ key: String((v && v.key) || "").trim(), value: String((v && v.value) || "") })).filter((v) => v.key) : [],

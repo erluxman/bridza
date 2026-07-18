@@ -5,11 +5,13 @@ import { useState, useRef } from "react";
 import * as api from "../api/client.js";
 import { pipelineFlows, exportFlow, parseFlowFile, exportPipeline, parsePipelineFile, SPEC_CATALOG, specLabel, specValues } from "../../../core/domain.js";
 import { slug, downloadJSON } from "../lib/format.js";
+import { layoutNodes, LAYOUTS } from "../lib/layout.js";
+import { useCanvasOverrides, effLayout, CanvasNode } from "../lib/canvas.jsx";
 import { Hamburger, Modal } from "../ui.jsx";
 
 const OUT_TYPES = ["doc", "data", "code", "media", "value", "text", "asset", "git", "issue"];
-const mkStage = () => ({ id: "stage-" + Math.random().toString(36).slice(2, 7), name: "New stage", hint: "", tool: "claude", systemPrompt: "Operate only on the previous stage's outputs. Produce only this stage's outputs.", outputs: [{ name: "out.md", type: "doc", note: "" }], specs: [], shell: [], gate: "Output reviewed", auto: false, judge: false });
-const normStage = (s, i) => ({ id: s.id || "stage-" + (i + 1), name: s.name || s.id || "Stage " + (i + 1), hint: s.hint || "", tool: s.tool || "claude", systemPrompt: s.systemPrompt || "", outputs: (s.outputs || []).map((o) => ({ name: o.name || "", type: o.type || "doc", note: o.note || "" })), specs: (s.specs || []).map((v) => ({ key: v.key || "", value: v.value || "" })), shell: s.shell || [], gate: s.gate || "", auto: !!s.auto, judge: !!s.judge });
+const mkStage = () => ({ id: "stage-" + Math.random().toString(36).slice(2, 7), name: "New stage", hint: "", tool: "opencode", systemPrompt: "Operate only on the previous stage's outputs. Produce only this stage's outputs.", outputs: [{ name: "out.md", type: "doc", note: "" }], specs: [], shell: [], gate: "Output reviewed", auto: false, judge: false });
+const normStage = (s, i) => ({ id: s.id || "stage-" + (i + 1), name: s.name || s.id || "Stage " + (i + 1), hint: s.hint || "", tool: s.tool || "opencode", systemPrompt: s.systemPrompt || "", outputs: (s.outputs || []).map((o) => ({ name: o.name || "", type: o.type || "doc", note: o.note || "" })), specs: (s.specs || []).map((v) => ({ key: v.key || "", value: v.value || "" })), shell: s.shell || [], gate: s.gate || "", auto: !!s.auto, judge: !!s.judge });
 
 export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, flash, collapsed, onExpandSide }) {
   // one designer PER FLOW, side by side — a pipeline can carry several named
@@ -19,6 +21,11 @@ export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, fla
   const [workingDir, setWorkingDir] = useState(pipeline.workingDir || ".");
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  // planner view: the editable Cards, or a read-only node-graph overview (with
+  // the same 5 layouts as the task Canvas). Nodes click through to Cards to edit.
+  const [planner, setPlanner] = useState("cards");
+  const [layoutMode, setLayoutMode] = useState(() => localStorage.getItem("bridza.plannerLayout") || "linear");
+  const pickLayout = (m) => { setLayoutMode(m); try { localStorage.setItem("bridza.plannerLayout", m); } catch (e) { /* ignore */ } };
   const mut = (fn) => { setFlows(fn); setDirty(true); };
   const mutStages = (fi, fn) => mut((fl) => fl.map((f, k) => k === fi ? { ...f, stages: fn(f.stages) } : f));
   const patch = (fi, i, p) => mutStages(fi, (st) => st.map((s, k) => k === i ? { ...s, ...p } : s));
@@ -108,6 +115,10 @@ export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, fla
         </div>
         <div className="row">
           {dirty && <span className="tag">unsaved</span>}
+          <div className="seg" title="Cards: edit each stage. Canvas: see the flow as a node graph (5 layouts).">
+            <button className={planner === "cards" ? "on" : ""} onClick={() => setPlanner("cards")}>Cards</button>
+            <button className={planner === "canvas" ? "on" : ""} onClick={() => setPlanner("canvas")}>Canvas</button>
+          </div>
           <button className="btn" onClick={downloadPipeline} title="Export the WHOLE pipeline (all flows) as a JSON file">⤓ Export pipeline</button>
           <button className="btn" onClick={toggleArchive} title={pipeline.archived ? "Bring this pipeline back to the list" : "Hide this pipeline from the list — all data and history are kept"}>{pipeline.archived ? "⇱ Unarchive" : "📦 Archive"}</button>
           <button className="btn primary" onClick={save} disabled={!dirty || saving}>{saving ? "Saving…" : "Save flows"}</button>
@@ -120,7 +131,9 @@ export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, fla
           <div className="field" style={{ flex: 1, minWidth: 240 }}><label>Working dir (sparse scope; '.' = whole repo)</label><input className="input" value={workingDir} onChange={(e) => { setWorkingDir(e.target.value); setDirty(true); }} /></div>
         </div>
 
-        <div className="flows-row">
+        {planner === "canvas" && <FlowCanvasView flows={flows} layoutMode={layoutMode} pickLayout={pickLayout} onEditStage={() => setPlanner("cards")} keyPrefix={pipeline.id} />}
+
+        {planner === "cards" && <div className="flows-row">
           {flows.map((f, fi) => (
             <div className="flow-col" key={f.id}>
               <div className="row flow-col-hd">
@@ -158,7 +171,7 @@ export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, fla
             <input ref={importRef} type="file" accept=".json,application/json" style={{ display: "none" }}
               onChange={(e) => { const file = e.target.files && e.target.files[0]; if (file) importFlowFile(file); e.target.value = ""; }} />
           </div>
-        </div>
+        </div>}
       </div>
       {pickFrom && (
         <Modal title={`Import flows from “${pickFrom.label}”`} onClose={() => setPickFrom(null)} confirm={`Import ${pickFrom.sel.length} flow${pickFrom.sel.length === 1 ? "" : "s"}`}
@@ -182,10 +195,62 @@ export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, fla
   );
 }
 
+// Node-graph overview of the pipeline's flows, arranged by the chosen layout and
+// freely draggable/resizable (reuses the task Canvas engine). Each node clicks
+// through to the Cards editor. One canvas per flow, each with its own positions.
+function FlowCanvasView({ flows, layoutMode, pickLayout, onEditStage, keyPrefix }) {
+  return (
+    <div style={{ marginTop: 4 }}>
+      <div className="uxv-layoutbar">
+        <span className="uxv-dim" style={{ marginRight: 4 }}>layout</span>
+        {LAYOUTS.map((l) => (
+          <button key={l.id} className={"uxv-chip" + (layoutMode === l.id ? " on" : "")} title={l.hint} onClick={() => pickLayout(l.id)}>{l.label}</button>
+        ))}
+        <span className="uxv-dim" style={{ marginLeft: "auto" }}>drag to move · corner to resize</span>
+      </div>
+      {flows.map((f) => <FlowCanvasOne key={f.id} flow={f} layoutMode={layoutMode} onEditStage={onEditStage} storageKey={"bridza.plannerPos:" + keyPrefix + "/" + f.id} />)}
+    </div>
+  );
+}
+
+function FlowCanvasOne({ flow, layoutMode, onEditStage, storageKey }) {
+  const NW = 190, NH = 98;
+  const base = layoutNodes(flow.stages.length, layoutMode, { cell: { w: 230, h: 158 }, nodeW: NW, nodeH: NH });
+  const { over, setNode, clear, count } = useCanvasOverrides(storageKey);
+  const { eff, width, height } = effLayout(base, flow.stages.map((s) => s.id), over, NW, NH);
+  const center = (i) => ({ x: eff[i].x + eff[i].w / 2, y: eff[i].y + eff[i].h / 2 });
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div className="spread" style={{ padding: "0 0 8px" }}>
+        <span className="side-label" style={{ padding: 0 }}>{flow.name || "Flow"} · {flow.stages.length} stage{flow.stages.length === 1 ? "" : "s"}</span>
+        {count > 0 && <button className="uxv-chip reset" title="Clear manual positions for this flow" onClick={clear}>↺ reset positions</button>}
+      </div>
+      <div className="uxv-canvas" style={{ minHeight: height }}>
+        <div className="uxv-canvasinner" style={{ width, height }}>
+          <svg className="uxv-edges" width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+            {flow.stages.slice(1).map((s, i) => {
+              const a = center(i), b = center(i + 1), mx = (a.x + b.x) / 2;
+              return <path key={s.id} className="uxv-edge" d={`M ${a.x} ${a.y} C ${mx} ${a.y}, ${mx} ${b.y}, ${b.x} ${b.y}`} />;
+            })}
+          </svg>
+          {flow.stages.map((s, i) => (
+            <CanvasNode key={s.id} x={eff[i].x} y={eff[i].y} w={eff[i].w} h={eff[i].h} title="Drag to arrange · click to edit in Cards"
+              onMove={(x, y) => setNode(s.id, { x, y })} onResize={(w, h) => setNode(s.id, { w, h })} onSelect={onEditStage}>
+              <span className="uxv-node-hd"><span className="uxv-ord">{String(i + 1).padStart(2, "0")}</span><b>{s.name}</b></span>
+              <span className="uxv-node-sum">{s.systemPrompt ? s.systemPrompt.slice(0, 90) : "no system prompt"}</span>
+              <span className="uxv-node-ft"><span className="uxv-tag">{s.tool || "opencode"}</span>{s.judge && <span className="uxv-tag running">⚖ judge</span>}{s.auto && <span className="uxv-dim">⚡ auto</span>}</span>
+            </CanvasNode>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FlowNode({ s, i, total, tools, inputs, patch, onJudge, onUp, onDown, onDup, onDel, onInsert }) {
   const setOut = (oi, p) => patch({ outputs: s.outputs.map((o, k) => k === oi ? { ...o, ...p } : o) });
   const setSpec = (si, p) => patch({ specs: s.specs.map((v, k) => k === si ? { ...v, ...p } : v) });
-  const toolOpts = tools.length ? tools.map((t) => t.id) : ["claude", "opencode"];
+  const toolOpts = tools.length ? tools.map((t) => t.id) : ["opencode", "claude"];
   return (
     <div className="fnode">
       <div className="fnode-h">
