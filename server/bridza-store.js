@@ -508,6 +508,65 @@ export function archivePipeline(root, { id, archived = true }) {
   return { ok: true, id: pid, archived: !!archived, committed: commit.committed };
 }
 
+// Permanently removes a whole pipeline (all its flows + tasks) from the
+// database, MAINTAINING git history the same way deleteTask does: the removal
+// is a commit, and each task's branch is kept. Refs are retired, and the
+// project plan is unwired from every one of its tasks.
+export function deletePipeline(root, { id }) {
+  if (!id) return { ok: false, error: "pipeline id required" };
+  const pid = safeRef(id);
+  const metaPath = rel.pipelineMeta(pid);
+  if (!fs.existsSync(path.join(root, metaPath))) return { ok: false, error: "pipeline not found" };
+  const def = readPipelineDef(root, pid);
+  const who = `"${def.label || pid}" (${pid})`;
+  const pipeDir = path.join(root, rel.pipeline(pid));
+  const taskIds = fs.existsSync(pipeDir) ? listDirs(pipeDir) : [];
+  for (const tid of taskIds) {
+    try { stopRuns(pid, tid); } catch (e) { /* nothing running */ }
+    try { removeTaskWorktree(root, pid, tid); } catch (e) { /* no worktree */ }
+  }
+
+  // 1) drop the whole pipeline dir — committed so history shows the delete
+  let committed = false;
+  if (fs.existsSync(pipeDir)) {
+    fs.rmSync(pipeDir, { recursive: true, force: true });
+    committed = commitPaths(root, [rel.pipeline(pid)], [
+      `bridza: delete pipeline ${who} — all flows & tasks removed`,
+      "",
+      "Removed from the database (.bridza). Git history is kept on task branches,",
+      "and this commit itself records the deletion.",
+    ].join("\n")).committed;
+  }
+
+  // 2) retire every task's #ref (never reused) + tombstone so branch scans
+  //    can't resurrect them
+  const refs = readRefs(root);
+  let refsTouched = false;
+  for (const tid of taskIds) {
+    const key = pid + "/" + tid;
+    if (refs.refs[key] != null) { delete refs.refs[key]; refsTouched = true; }
+    if (!refs.deleted.includes(key)) { refs.deleted.push(key); refsTouched = true; }
+  }
+  if (refsTouched) { writeJSON(refsFile(root), refs); commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: retire #refs of deleted pipeline ${who} — numbers are never reused`); }
+
+  // 3) unwire from the plan (deps both ways, links, milestones, pos, pipeDeps)
+  const plan = readPlan(root);
+  const mine = (k) => k === pid || (typeof k === "string" && k.startsWith(pid + "/"));
+  let planTouched = false;
+  const scrub = (arr) => { const n = (arr || []).filter((k) => !mine(k)); if (n.length !== (arr || []).length) planTouched = true; return n; };
+  for (const k of Object.keys(plan.deps)) if (mine(k)) { delete plan.deps[k]; planTouched = true; }
+  for (const g of Object.values(plan.deps)) { g.all = scrub(g.all); g.any = scrub(g.any); }
+  for (const k of Object.keys(plan.links)) if (mine(k)) { delete plan.links[k]; planTouched = true; }
+  for (const [k, list] of Object.entries(plan.links)) plan.links[k] = scrub(list);
+  plan.milestones.forEach((m) => { m.tasks = scrub(m.tasks); });
+  for (const k of Object.keys(plan.pos || {})) if (mine(k)) { delete plan.pos[k]; planTouched = true; }
+  const pd = (plan.pipeDeps || []).filter((e) => e.from !== pid && e.to !== pid);
+  if (pd.length !== (plan.pipeDeps || []).length) { plan.pipeDeps = pd; planTouched = true; }
+  if (planTouched) savePlan(root, plan);
+
+  return { ok: true, id: pid, committed, tasks: taskIds.length };
+}
+
 export function createTask(root, { pipeline, id, title = "", type = "", outputMode = "docs", stages, flow = "", template = "", dependsOn = "", dependsOnAny = [], est = 0, milestone = null }) {
   const bad = !pipeline ? "pipeline required" : !id ? "task id required" : null;
   if (bad) return { ok: false, error: bad };

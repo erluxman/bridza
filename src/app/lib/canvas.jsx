@@ -36,14 +36,14 @@ export function effLayout(base, ids, over, nodeW, nodeH, pad = 40) {
 // A draggable + resizable absolutely-positioned node. Drag the body to move
 // (a real drag past a small threshold suppresses the click-to-select); drag the
 // corner handle to resize. Keyboard: Enter/Space selects.
-export function CanvasNode({ x, y, w, h, minW = 150, minH = 74, className = "", selected, title, onMove, onResize, onSelect, children }) {
+export function CanvasNode({ x, y, w, h, minW = 150, minH = 74, scale = 1, className = "", selected, title, onMove, onResize, onSelect, children }) {
   const startDrag = (e) => {
     if (e.button !== 0 || (e.target.closest && e.target.closest(".uxv-resize"))) return;
     e.preventDefault();
     const sx = e.clientX, sy = e.clientY, ox = x, oy = y;
     let moved = false;
     const move = (ev) => {
-      const dx = ev.clientX - sx, dy = ev.clientY - sy;
+      const dx = (ev.clientX - sx) / scale, dy = (ev.clientY - sy) / scale;   // undo zoom so drag tracks the cursor
       if (!moved && Math.abs(dx) + Math.abs(dy) > 4) moved = true;
       if (moved) onMove(Math.max(0, Math.round(ox + dx)), Math.max(0, Math.round(oy + dy)));
     };
@@ -59,7 +59,7 @@ export function CanvasNode({ x, y, w, h, minW = 150, minH = 74, className = "", 
     if (e.button !== 0) return;
     e.preventDefault(); e.stopPropagation();
     const sx = e.clientX, sy = e.clientY, ow = w, oh = h;
-    const move = (ev) => onResize(Math.max(minW, Math.round(ow + ev.clientX - sx)), Math.max(minH, Math.round(oh + ev.clientY - sy)));
+    const move = (ev) => onResize(Math.max(minW, Math.round(ow + (ev.clientX - sx) / scale)), Math.max(minH, Math.round(oh + (ev.clientY - sy) / scale)));
     const up = () => { document.removeEventListener("mousemove", move); document.removeEventListener("mouseup", up); document.body.classList.remove("uxv-dragging"); };
     document.addEventListener("mousemove", move); document.addEventListener("mouseup", up);
     document.body.classList.add("uxv-dragging");

@@ -23,7 +23,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { DATA_DIR, CLI_TOOLS, pipelineFlows } from "../core/domain.js";
-import { readProject, createPipeline, savePipeline, archivePipeline, createTask, deleteTask, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan, assignRefs, readPipelineDef } from "./bridza-store.js";
+import { readProject, createPipeline, savePipeline, archivePipeline, deletePipeline, createTask, deleteTask, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan, assignRefs, readPipelineDef } from "./bridza-store.js";
 import { runStage, automateTask, finalizeTask, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, retargetTask, setTaskReuse, listModels, termRun, ensureTaskWorktree, recommendPipelines, readTaskFile, saveTaskFile } from "./bridza-run.js";
 
 function resolveDir(raw) {
@@ -196,6 +196,10 @@ export async function handleApi(req, res) {
     if (M === "POST" && P === "/api/bridza/pipeline/archive") {
       if (!root) return void need(), true;
       res.end(JSON.stringify(archivePipeline(root, (await json(req)) || {}))); return true;
+    }
+    if (M === "POST" && P === "/api/bridza/pipeline/delete") {
+      if (!root) return void need(), true;
+      res.end(JSON.stringify(deletePipeline(root, (await json(req)) || {}))); return true;
     }
     if (M === "POST" && P === "/api/bridza/task") {
       if (!root) return void need(), true;

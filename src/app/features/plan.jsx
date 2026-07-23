@@ -7,7 +7,7 @@ import * as api from "../api/client.js";
 import { gateSatisfied, criticalPath } from "../../../core/domain.js";
 import { Hamburger } from "../ui.jsx";
 
-const PN = { H: 50, ROW: 86, GW: 34, GH: 18 };
+const PN = { H: 50, ROW: 86, GW: 34, GH: 18, SLOT: 15 };   // SLOT = vertical room per gate input
 // #16 — palette assigned to pipelines by order; nodes carry their pipeline's colour
 const PIPE_COLORS = ["#5ad18b", "#e0726f", "#4f9cf2", "#d8a24a", "#a97bd6", "#4ec9c9", "#e59abf", "#8bbf5a", "#f0a860", "#7aa2f7"];
 const trunc = (s, n) => (s || "").length > n ? s.slice(0, n - 1) + "…" : (s || "");
@@ -344,31 +344,45 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
     // (all-group) AND (any-group), exactly what gateSatisfied evaluates. With a
     // single group the gate wires straight to the task as before.
     const both = groups.length === 2;
-    const joinX = tx - PN.GW - 16, joinY = inY - PN.GH / 2;
+    // Each gate box grows to fit its inputs so every dependency line lands on a
+    // DISTINCT point of the box's left edge — the box itself gathers the lines,
+    // instead of them merging into one trunk before a tiny fixed gate.
+    // ponytail: box height = inputs × SLOT; very wide fan-in (>5) can spill into
+    // the neighbouring row — bump PN.ROW if that shows up in practice.
+    const ghOf = (n) => Math.max(PN.GH, n * PN.SLOT);
+    const joinH = ghOf(2);
+    const joinX = tx - PN.GW - 16;
     const groupColX = both ? joinX - PN.GW - 16 : tx - PN.GW - 16;
+    const gh0 = both ? ghOf(groups[0][1].length) : 0;
+    const gh1 = both ? ghOf(groups[1][1].length) : 0;
+    const stackTop = inY - (gh0 + gh1 + 14) / 2;   // stack both group boxes, 14px gap
     const openOf = {};
     groups.forEach(([kind, list], gi) => {
-      const gy = inY - PN.GH / 2 + (both ? (gi === 0 ? -13 : 13) : 0);
+      const gh = ghOf(list.length);
+      const cy = both ? (gi === 0 ? stackTop + gh0 / 2 : stackTop + gh0 + 14 + gh1 / 2) : inY;
+      const gy = cy - gh / 2;
       const gx = groupColX;
       const useGate = !single;
       const open = kind === "all" ? list.every((k) => doneSet.has(k)) : list.some((k) => doneSet.has(k));
       openOf[kind] = open;
       if (useGate) {
-        gates.push({ id: t.key + ":" + kind, kind, x: gx, y: gy, open });
-        const to = both ? { x: joinX, y: joinY + PN.GH / 2 } : { x: tx, y: inY };
-        edges.push({ id: t.key + ":" + kind + ":out", from: null, hot: open, crit: list.some((dep) => critPairs.has(dep + ">" + t.key)), ...tracePath(gx + PN.GW, gy + PN.GH / 2, to.x, to.y) });
+        gates.push({ id: t.key + ":" + kind, kind, x: gx, y: gy, h: gh, open });
+        // out of this gate → its own slot on the join box, or straight to the task
+        const to = both ? { x: joinX, y: inY - joinH / 2 + (gi + 0.5) * joinH / 2 } : { x: tx, y: inY };
+        edges.push({ id: t.key + ":" + kind + ":out", from: null, hot: open, crit: list.some((dep) => critPairs.has(dep + ">" + t.key)), ...tracePath(gx + PN.GW, cy, to.x, to.y) });
       }
-      list.forEach((dep) => {
+      list.forEach((dep, di) => {
         const dp = pos[dep];
         const src = { x: dp.x + wOf(dep), y: dp.y + hOf(dep) / 2 };
-        const dst = useGate ? { x: gx, y: gy + PN.GH / 2 } : { x: tx, y: inY };
+        // land on the gate's left edge at this input's own slot (box converges them)
+        const dst = useGate ? { x: gx, y: gy + (di + 0.5) * gh / list.length } : { x: tx, y: inY };
         edges.push({ id: t.key + ":" + kind + ":" + dep, hot: doneSet.has(dep), run: runningTasks.has(dep), crit: critPairs.has(dep + ">" + t.key), ...tracePath(src.x, src.y, dst.x, dst.y) });
       });
     });
     if (both) {
       const jOpen = !!openOf.all && !!openOf.any;                          // the series AND
-      gates.push({ id: t.key + ":join", kind: "all", x: joinX, y: joinY, open: jOpen });
-      edges.push({ id: t.key + ":join:out", from: null, hot: jOpen, ...tracePath(joinX + PN.GW, joinY + PN.GH / 2, tx, inY) });
+      gates.push({ id: t.key + ":join", kind: "all", x: joinX, y: inY - joinH / 2, h: joinH, open: jOpen });
+      edges.push({ id: t.key + ":join:out", from: null, hot: jOpen, ...tracePath(joinX + PN.GW, inY, tx, inY) });
     }
   });
 
@@ -465,8 +479,8 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
               ))}
               {gates.map((g) => (
                 <g key={g.id} className={"plan-gate" + (g.open ? " open" : "")} transform={`translate(${g.x},${g.y})`}>
-                  <rect width={PN.GW} height={PN.GH} rx="4" />
-                  <text x={PN.GW / 2} y={PN.GH / 2 + 3.5} textAnchor="middle">{g.kind === "all" ? "AND" : "OR"}</text>
+                  <rect width={PN.GW} height={g.h || PN.GH} rx="4" />
+                  <text x={PN.GW / 2} y={(g.h || PN.GH) / 2 + 3.5} textAnchor="middle">{g.kind === "all" ? "AND" : "OR"}</text>
                 </g>
               ))}
               {tasks.map((t) => {

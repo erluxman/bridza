@@ -6,9 +6,25 @@ import * as api from "../api/client.js";
 import { base } from "../lib/format.js";
 import { Hamburger } from "../ui.jsx";
 
-export function Sidebar({ proj, running, runningTasks, active, onPipe, onNewPipe, onClose, onPick, recents, onOpen, onOpenTask, onCollapse, inboxCount, inboxActive, onInbox, planActive, onPlan }) {
+export function Sidebar({ proj, running, runningTasks, active, onPipe, onNewPipe, onClose, onPick, recents, onOpen, onOpenTask, onCollapse, inboxCount, inboxActive, onInbox, planActive, onPlan, dir, onChange, flash }) {
   const [menu, setMenu] = useState(false);
   const [showArch, setShowArch] = useState(false);
+  // right-click a pipeline → our own menu (native browser menu suppressed)
+  const [ctx, setCtx] = useState(null);   // { id, label, archived, x, y }
+  const openCtx = (e, p) => { e.preventDefault(); setCtx({ id: p.id, label: p.label, archived: !!p.archived, x: e.clientX, y: e.clientY }); };
+  const doArchive = async () => {
+    const c = ctx; setCtx(null);
+    const r = await api.archivePipeline(dir, { id: c.id, archived: !c.archived });
+    if (r && r.ok) { flash && flash(r.archived ? `"${c.label}" archived — data kept, hidden` : `"${c.label}" restored`); onChange && onChange(); }
+    else flash && flash((r && r.error) || "archive failed");
+  };
+  const doDelete = async () => {
+    const c = ctx; setCtx(null);
+    if (!window.confirm(`Delete pipeline "${c.label}" and ALL its flows & tasks?\n\nThe entry is removed from the database; git history stays on task branches. This can't be undone from here.`)) return;
+    const r = await api.deletePipeline(dir, { id: c.id });
+    if (r && r.ok) { flash && flash(`"${c.label}" deleted — git history kept`, 4500); onChange && onChange(); }
+    else flash && flash((r && r.error) || "delete failed");
+  };
   // one entry per running TASK across ALL pipelines (a task may have several
   // live stage runs during auto-advance — collapse to the task)
   const liveTasks = [];
@@ -68,7 +84,7 @@ export function Sidebar({ proj, running, runningTasks, active, onPipe, onNewPipe
         {proj.pipelines.filter((p) => !p.archived).map((p) => {
           const nLive = (p.tasks || []).filter((t) => runningTasks.has(p.id + "/" + t.id)).length;
           return (
-            <button key={p.id} className={"pipe" + (p.id === active ? " on" : "")} onClick={() => onPipe(p.id)}>
+            <button key={p.id} className={"pipe" + (p.id === active ? " on" : "")} onClick={() => onPipe(p.id)} onContextMenu={(e) => openCtx(e, p)}>
               <span className="dot" /> {p.label} <span className="n">{p.tasks.length}</span>
               {nLive > 0 && <span className="run-badge" title={`${nLive} running`}>🔄 {nLive}</span>}
             </button>
@@ -85,7 +101,7 @@ export function Sidebar({ proj, running, runningTasks, active, onPipe, onNewPipe
                 {showArch ? "▾" : "▸"} 📦 Archived <span className="n">{arch.length}</span>
               </button>
               {showArch && arch.map((p) => (
-                <button key={p.id} className={"pipe archived" + (p.id === active ? " on" : "")} onClick={() => onPipe(p.id)}>
+                <button key={p.id} className={"pipe archived" + (p.id === active ? " on" : "")} onClick={() => onPipe(p.id)} onContextMenu={(e) => openCtx(e, p)}>
                   <span className="dot" /> {p.label} <span className="n">{p.tasks.length}</span>
                 </button>
               ))}
@@ -93,6 +109,15 @@ export function Sidebar({ proj, running, runningTasks, active, onPipe, onNewPipe
           );
         })()}
       </div>
+      {ctx && (
+        <>
+          <div className="ctx-backdrop" onClick={() => setCtx(null)} onContextMenu={(e) => { e.preventDefault(); setCtx(null); }} />
+          <div className="proj-menu ctx-menu" style={{ left: ctx.x, top: ctx.y }}>
+            <button className="item" onClick={doArchive}>{ctx.archived ? "⇱ Unarchive" : "📦 Archive"} <span className="path">data kept</span></button>
+            <button className="item danger" onClick={doDelete}>🗑 Delete <span className="path">git history kept</span></button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
