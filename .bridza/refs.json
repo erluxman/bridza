@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 22,
+  "next": 23,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -15,7 +15,8 @@
     "engineering/kanban-archive-issue-cards": 18,
     "engineering/kanban-columns-drag-reorder": 19,
     "engineering/ok-when-i-press-command-and-mouse-will": 20,
-    "engineering/highlight-selected-task-or-work-item-if": 21
+    "engineering/highlight-selected-task-or-work-item-if": 21,
+    "engineering/auto-advance-seems-to-only-works-at-the": 22
   },
   "deleted": [
     "engineering/truncation-check-idea",
