@@ -111,6 +111,10 @@
     "engineering/ok-when-i-press-command-and-mouse-will": {
       "x": -69,
       "y": 623
+    },
+    "engineering/highlight-selected-task-or-work-item-if": {
+      "x": -74,
+      "y": 696
     }
   },
   "sizes": {
