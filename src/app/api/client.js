@@ -27,6 +27,7 @@ export const reveal = (p) => post("/reveal", null, { path: p });
 export const createPipeline = (dir, body) => post("/pipeline", dir, body);
 export const savePipeline = (dir, body) => post("/pipeline/save", dir, body);
 export const archivePipeline = (dir, body) => post("/pipeline/archive", dir, body);
+export const saveKanbanOrder = (dir, body) => post("/pipeline/kanban-order", dir, body);
 export const deletePipeline = (dir, body) => post("/pipeline/delete", dir, body);
 export const createTask = (dir, body) => post("/task", dir, body);
 export const deleteTask = (dir, body) => post("/task/delete", dir, body);

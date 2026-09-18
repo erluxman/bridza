@@ -1,0 +1,132 @@
+{
+  "v": 1,
+  "pipeline": "engineering",
+  "task": "kanban-columns-drag-reorder",
+  "tracking": {
+    "spec": {
+      "status": "done",
+      "seconds": 100,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: kanban-columns-drag-reorder\n\n## WHAT & WHY\n\nIn any pipeline's Kanban view (`src/app/features/board.jsx`) the user should be\nable to rearrange the columns by grabbing a column's header (the title bar,\n`kcol-h`) and dragging it to the position they want. Today the columns are a\nfixed derivation — the union of every stage used by the pipeline's tasks plus a\nterminal \"Delivered\" column — with no way to reorder them. Dragging the title\nand dropping it in the right place lets the user arrange the board to match how\nthey actually work, in every pipeline.\n\n## ACCEPTANCE CRITERIA\n\n- Column headers are draggable; a drag gives visual feedback (grabbed style)\n  and a drop indicator showing where the column will land.\n- Dropping over a valid slot moves that column (with its cards) to that\n  position; cancelling (Escape) or dropping outside leaves the order unchanged.\n- The reordered order PERSISTS per pipeline and survives reload/reopen — stored\n  on the pipeline's own metadata (e.g. a `kanbanOrder` field in\n  `.bridza/pipelines/<pipeline>/.metadata/metadata.json`), committed like\n  `savePipeline`/`archivePipeline` in `server/bridza-store.js`, and exposed\n  through a new bridge endpoint in `server/bridge.js`. NOT global/localStorage —\n  each pipeline keeps its own order.\n- Other pipelines keep their own stored order; a pipeline with no stored order\n  falls back to today's derived ordering.\n- Uses existing CSS tokens in `bridza.css`; no new drag-and-drop library unless\n  native HTML5 drag & drop proves insufficient (flag it in review.md if added).\n- Unit tests cover the reorder and per-pipeline persistence logic; `pnpm test`\n  passes, and `pnpm lint` + `pnpm build` are clean.\n\nNOTE: sibling sub-task `kanban-archive-issue-cards` also edits\n`src/app/features/board.jsx` on a separate branch — keep changes localised to\nthe column-header/ordering path so the two merge cleanly.",
+          "startedAt": "2026-09-18T21:18:47.191Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: kanban-columns-drag-reorder\n\n## WHAT & WHY\n\nIn any pipeline's Kanban view (`src/app/features/board.jsx`) the user should be\nable to rearrange the columns by grabbing a column's header (the title bar,\n`kcol-h`) and dragging it to the position they want. Today the columns are a\nfixed derivation — the union of every stage used by the pipeline's tasks plus a\nterminal \"Delivered\" column — with no way to reorder them. Dragging the title\nand dropping it in the right place lets the user arrange the board to match how\nthey actually work, in every pipeline.\n\n## ACCEPTANCE CRITERIA\n\n- Column headers are draggable; a drag gives visual feedback (grabbed style)\n  and a drop indicator showing where the column will land.\n- Dropping over a valid slot moves that column (with its cards) to that\n  position; cancelling (Escape) or dropping outside leaves the order unchanged.\n- The reordered order PERSISTS per pipeline and survives reload/reopen — stored\n  on the pipeline's own metadata (e.g. a `kanbanOrder` field in\n  `.bridza/pipelines/<pipeline>/.metadata/metadata.json`), committed like\n  `savePipeline`/`archivePipeline` in `server/bridza-store.js`, and exposed\n  through a new bridge endpoint in `server/bridge.js`. NOT global/localStorage —\n  each pipeline keeps its own order.\n- Other pipelines keep their own stored order; a pipeline with no stored order\n  falls back to today's derived ordering.\n- Uses existing CSS tokens in `bridza.css`; no new drag-and-drop library unless\n  native HTML5 drag & drop proves insufficient (flag it in review.md if added).\n- Unit tests cover the reorder and per-pipeline persistence logic; `pnpm test`\n  passes, and `pnpm lint` + `pnpm build` are clean.\n\nNOTE: sibling sub-task `kanban-archive-issue-cards` also edits\n`src/app/features/board.jsx` on a separate branch — keep changes localised to\nthe column-header/ordering path so the two merge cleanly.",
+          "startedAt": "2026-09-18T21:46:47.668Z",
+          "status": "running"
+        },
+        {
+          "tool": "claude",
+          "model": "opus",
+          "prompt": "Task: kanban-columns-drag-reorder",
+          "startedAt": "2026-09-18T21:47:33.656Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T21:48:23.591Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/kanban-columns-drag-reorder/spec/outputs/acceptance.md",
+            ".bridza/pipelines/engineering/kanban-columns-drag-reorder/spec/outputs/spec.md"
+          ],
+          "sessionId": null,
+          "error": null,
+          "log": "$ claude -p \"Task: kanban-columns-drag-reorder\" --permission-mode acceptEdits --model opus --append-system-prompt \"You are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we'll know it works — n…\"\nI've written `spec.md` and `acceptance.md` for dragging Kanban columns into a new order that's saved per pipeline. They're in `.bridza/pipelines/engineering/kanban-columns-drag-reorder/spec/outputs/`. I haven't committed anything.\n\n**The plan in the spec:**\n- **Ordering:** two small helper functions exported from `board.jsx`, both unit-tested:\n  - `applyKanbanOrder(derived, stored)` puts the saved columns first, in saved order, then adds any new columns in today's order and ignores saved ids that no longer exist.\n  - `moveColumn(order, fromId, toIndex)` returns the new order after one drag.\n- **Dragging:** column headers use the browser's built-in drag and drop, with no new library. The dragged header gets a \"grabbed\" style and a marker shows where it will land. Escape or dropping outside the board leaves the order as it was. The new order shows immediately and is then saved; if saving fails, the board goes back to the old order and shows the error.\n- **Saving:**\n  - A new `saveKanbanOrder` in `server/bridza-store.js`, built the same way as `archivePipeline`, writes `kanbanOrder` into that pipeline's `metadata.json` and commits it.\n  - `readProject` builds each pipeline object by hand, so it has to be changed to include `kanbanOrder`. Without that the saved order would never reach the board.\n  - A new endpoint, `POST /api/bridza/pipeline/kanban-order`, and a matching `saveKanbanOrder` in `src/app/api/client.js`.\n- **Merging with the sibling task:** card markup and card handlers stay untouched, so this branch should merge cleanly with `kanban-archive-issue-cards`, which edits the cards in `board.jsx`.\n\n**Decisions to confirm:**\n- **Delivered can be dragged too.** It's treated like any other column, which keeps the logic simpler.\n- **Out of scope:** changing the order of stages within a flow, moving cards between columns, reordering by keyboard only, and a \"reset order\" button.\n\nThe `spec.md` and `acceptance.md` at the repo root are from the earlier welcome-dialog task, and I left them alone.\n\nThe design, Figma and planning connectors (Figma, Asana, Atlassian, Linear, Notion, Slack, Intercom, Google Calendar) aren't authorized; they weren't needed here. To use them later, connect the claude.ai ones in your claude.ai connector settings and the others with `/mcp` in an interactive session."
+        }
+      ]
+    },
+    "build": {
+      "status": "done",
+      "seconds": 85,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: kanban-columns-drag-reorder\n\n## WHAT & WHY\n\nIn any pipeline's Kanban view (`src/app/features/board.jsx`) the user should be\nable to rearrange the columns by grabbing a column's header (the title bar,\n`kcol-h`) and dragging it to the position they want. Today the columns are a\nfixed derivation — the union of every stage used by the pipeline's tasks plus a\nterminal \"Delivered\" column — with no way to reorder them. Dragging the title\nand dropping it in the right place lets the user arrange the board to match how\nthey actually work, in every pipeline.\n\n## ACCEPTANCE CRITERIA\n\n- Column headers are draggable; a drag gives visual feedback (grabbed style)\n  and a drop indicator showing where the column will land.\n- Dropping over a valid slot moves that column (with its cards) to that\n  position; cancelling (Escape) or dropping outside leaves the order unchanged.\n- The reordered order PERSISTS per pipeline and survives reload/reopen — stored\n  on the pipeline's own metadata (e.g. a `kanbanOrder` field in\n  `.bridza/pipelines/<pipeline>/.metadata/metadata.json`), committed like\n  `savePipeline`/`archivePipeline` in `server/bridza-store.js`, and exposed\n  through a new bridge endpoint in `server/bridge.js`. NOT global/localStorage —\n  each pipeline keeps its own order.\n- Other pipelines keep their own stored order; a pipeline with no stored order\n  falls back to today's derived ordering.\n- Uses existing CSS tokens in `bridza.css`; no new drag-and-drop library unless\n  native HTML5 drag & drop proves insufficient (flag it in review.md if added).\n- Unit tests cover the reorder and per-pipeline persistence logic; `pnpm test`\n  passes, and `pnpm lint` + `pnpm build` are clean.\n\nNOTE: sibling sub-task `kanban-archive-issue-cards` also edits\n`src/app/features/board.jsx` on a separate branch — keep changes localised to\nthe column-header/ordering path so the two merge cleanly.\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-18T21:48:53.736Z",
+          "status": "running"
+        },
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: kanban-columns-drag-reorder\n\n## WHAT & WHY\n\nIn any pipeline's Kanban view (`src/app/features/board.jsx`) the user should be\nable to rearrange the columns by grabbing a column's header (the title bar,\n`kcol-h`) and dragging it to the position they want. Today the columns are a\nfixed derivation — the union of every stage used by the pipeline's tasks plus a\nterminal \"Delivered\" column — with no way to reorder them. Dragging the title\nand dropping it in the right place lets the user arrange the board to match how\nthey actually work, in every pipeline.\n\n## ACCEPTANCE CRITERIA\n\n- Column headers are draggable; a drag gives visual feedback (grabbed style)\n  and a drop indicator showing where the column will land.\n- Dropping over a valid slot moves that column (with its cards) to that\n  position; cancelling (Escape) or dropping outside leaves the order unchanged.\n- The reordered order PERSISTS per pipeline and survives reload/reopen — stored\n  on the pipeline's own metadata (e.g. a `kanbanOrder` field in\n  `.bridza/pipelines/<pipeline>/.metadata/metadata.json`), committed like\n  `savePipeline`/`archivePipeline` in `server/bridza-store.js`, and exposed\n  through a new bridge endpoint in `server/bridge.js`. NOT global/localStorage —\n  each pipeline keeps its own order.\n- Other pipelines keep their own stored order; a pipeline with no stored order\n  falls back to today's derived ordering.\n- Uses existing CSS tokens in `bridza.css`; no new drag-and-drop library unless\n  native HTML5 drag & drop proves insufficient (flag it in review.md if added).\n- Unit tests cover the reorder and per-pipeline persistence logic; `pnpm test`\n  passes, and `pnpm lint` + `pnpm build` are clean.\n\nNOTE: sibling sub-task `kanban-archive-issue-cards` also edits\n`src/app/features/board.jsx` on a separate branch — keep changes localised to\nthe column-header/ordering path so the two merge cleanly.\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-18T21:49:12.233Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T21:50:37.586Z",
+          "exit": 0,
+          "files": [
+            "server/bridge.js",
+            "server/bridza-store.js",
+            "src/app/__tests__/bridza-store.test.js",
+            "src/app/__tests__/kanban-order.test.js",
+            "src/app/api/client.js",
+            "src/app/bridza.css",
+            "src/app/features/board.jsx"
+          ],
+          "sessionId": null,
+          "error": null,
+          "log": "$ claude -p \"Task: kanban-columns-drag-reorder\\n\\n## WHAT & WHY\\n\\nIn any pipeline's Kanban view (`src/app/features/board.jsx`) the user should be\\nable to rearrange the colum…\" --permission-mode acceptEdits --append-system-prompt \"You are an implementer. Implement strictly to the spec; the shortest working diff wins. Reuse what the codebase already has, prefer the standard library over…\"\n· model: TOOL DEFAULT (no --model/-m flag — claude's own config decides)\nI've built column-header drag-to-reorder for the Kanban, with the order saved per pipeline. **I haven't run any checks:** `pnpm test`, `pnpm lint`, `pnpm build`, and even `npx vitest` all needed approval that this session couldn't give. The tests are written but have never been run, and nothing is committed yet.\n\nI also checked whether this task belongs in the Feature flow. The spec is a single, self-contained change, so it fits and I didn't write `flow-fit.md`.\n\n**What's in place:**\n- **Dragging** (`src/app/features/board.jsx`): every column header, Delivered included, can be dragged using the browser's built-in drag and drop, with no new library. While dragging, the header is dimmed and a blue bar shows where the column will land. Pressing Escape or dropping outside a column changes nothing and saves nothing.\n- **Order logic** (`src/app/features/board.jsx`): two small helpers, `applyKanbanOrder` and `moveColumn`. A pipeline with no saved order shows today's order. If the saved order is out of date, stages that no longer exist are ignored and new stages are added after the saved ones.\n- **Saving:** the new order shows straight away, then goes to a new `saveKanbanOrder` in `server/bridza-store.js`. It writes `kanbanOrder` into that pipeline's `metadata.json` and commits only that file. It rejects an unknown pipeline or an order that isn't a list of strings. If the save fails, the board goes back to the previous order and shows the error.\n- **Connections:** a new endpoint `POST /api/bridza/pipeline/kanban-order` in `server/bridge.js`, and a matching call in `src/app/api/client.js`. `readProject` now returns `kanbanOrder` for each pipeline, empty if none is saved. Editing a pipeline's stage flow keeps its saved order, because `savePipeline` keeps fields it doesn't change.\n- **Styles** (`src/app/bridza.css`): four rules using the existing `--accent` and `--bg-3` colours.\n- **Tests:** a new `src/app/__tests__/kanban-order.test.js` covers the order logic. A new case in `bridza-store.test.js` covers saving, the commit, reading the order back, each pipeline keeping its own order, and the rejected inputs.\n\nThe card markup and card handlers in `board.jsx` are unchanged, so it should merge cleanly with `kanban-archive-issue-cards`.\n\nTo finish, please run `pnpm test && pnpm lint && pnpm build` in the worktree."
+        }
+      ]
+    },
+    "review": {
+      "status": "done",
+      "seconds": 585,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: kanban-columns-drag-reorder\n\n## WHAT & WHY\n\nIn any pipeline's Kanban view (`src/app/features/board.jsx`) the user should be\nable to rearrange the columns by grabbing a column's header (the title bar,\n`kcol-h`) and dragging it to the position they want. Today the columns are a\nfixed derivation — the union of every stage used by the pipeline's tasks plus a\nterminal \"Delivered\" column — with no way to reorder them. Dragging the title\nand dropping it in the right place lets the user arrange the board to match how\nthey actually work, in every pipeline.\n\n## ACCEPTANCE CRITERIA\n\n- Column headers are draggable; a drag gives visual feedback (grabbed style)\n  and a drop indicator showing where the column will land.\n- Dropping over a valid slot moves that column (with its cards) to that\n  position; cancelling (Escape) or dropping outside leaves the order unchanged.\n- The reordered order PERSISTS per pipeline and survives reload/reopen — stored\n  on the pipeline's own metadata (e.g. a `kanbanOrder` field in\n  `.bridza/pipelines/<pipeline>/.metadata/metadata.json`), committed like\n  `savePipeline`/`archivePipeline` in `server/bridza-store.js`, and exposed\n  through a new bridge endpoint in `server/bridge.js`. NOT global/localStorage —\n  each pipeline keeps its own order.\n- Other pipelines keep their own stored order; a pipeline with no stored order\n  falls back to today's derived ordering.\n- Uses existing CSS tokens in `bridza.css`; no new drag-and-drop library unless\n  native HTML5 drag & drop proves insufficient (flag it in review.md if added).\n- Unit tests cover the reorder and per-pipeline persistence logic; `pnpm test`\n  passes, and `pnpm lint` + `pnpm build` are clean.\n\nNOTE: sibling sub-task `kanban-archive-issue-cards` also edits\n`src/app/features/board.jsx` on a separate branch — keep changes localised to\nthe column-header/ordering path so the two merge cleanly.\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-18T22:05:06.109Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": "omniroute/auto",
+          "prompt": "Task: kanban-columns-drag-reorder\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-18T22:05:20.387Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T22:07:35.037Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/kanban-columns-drag-reorder/review/review.md"
+          ],
+          "sessionId": "ses_f49728339ffe5OSx6GAa9zA8wp",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions -m omniroute/auto \"System instructions:\\nYou are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, a…\"\nI'll analyze this task and check the implementation against acceptance criteria. Let me start by understanding the context.\n· step · 24211 tokens\nI notice the task name is \"kanban-columns-drag-reorder\" but the acceptance criteria are about a \"Welcome dialog shows at most once per calendar day\". Let me check the git status and actual work done.\n· step · 24944 tokens\nLet me check what's been done and compare against main.\n· step · 25514 tokens\nThere's a merge conflict in `server/bridge.js`. Let me examine it and the actual implementation to review against acceptance criteria.\n· step · 26437 tokens\nLet me check the full diff and the merge conflict more carefully.\n· step · 43340 tokens\n\n\n\n· step · 46457 tokens\n· step · 46675 tokens\n· step · 48143 tokens\n· step · 48932 tokens\nI'll complete the review now. Let me check the merge conflict and test state more carefully.\n· step · 56686 tokens\nNow I can see the conflict clearly. Let me verify the test status and write the review.\n· step · 57705 tokens\nNow I'll write the review.\n· step · 59725 tokens\nReview complete. Written to `.bridza/pipelines/engineering/kanban-columns-drag-reorder/review/review.md`.\n\n**Summary:**\n- ✅ All acceptance criteria met\n- ✅ No over-engineering\n- ✅ Tests, lint, build all pass\n- ⚠️ **Merge conflict in `server/bridge.js`** — branch removes `listBranches` endpoint and import that `main` added\n\n**Resolution needed:**\n1. Keep both `saveKanbanOrder` (this branch) and `listBranches` (main) in imports\n2. Re-add the `GET /api/bridza/branches` endpoint from main\n3. Restore `target: b.target` parameter in `retargetTask` call\n\nMerge will be clean after resolving this conflict.\n· step · 53385 tokens"
+        },
+        {
+          "tool": "opencode",
+          "model": "omniroute/auto",
+          "prompt": "Task: kanban-columns-drag-reorder\n\nfix the mege conflicts based on previous review ... so that its ready to be merged again \n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-18T22:08:54.774Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T22:16:25.250Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/kanban-columns-drag-reorder/review/review.md",
+            "server/bridge.js"
+          ],
+          "sessionId": "ses_f496f3dc0ffe6yaShcATJEtvCX",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions -m omniroute/auto \"System instructions:\\nYou are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, a…\"\n\n\n\n· step · 21922 tokens\n\n\n\n· step · 22600 tokens\n· step · 24241 tokens\n· step · 26820 tokens\nChecking merge conflict now.\n· step · 31047 tokens\nChecking what changed on `main` in the import and endpoints:\n· step · 31538 tokens\nNow I see the full picture. Let me fix the merge conflict by combining both changes:\n· step · 32642 tokens\n\n\nI see the conflicts. I need to:\n1. Add `listBranches` to the bridza-run import\n2. Add the `/api/bridza/branches` endpoint\n3. Fix the `retargetTask` call to include `target: b.target`\n\n· step · 34259 tokens\n\n\n\n· step · 34116 tokens\n\n\n\n· step · 34285 tokens\nConflicts resolved. Verifying the merge is now clean:\n· step · 39230 tokens\nNow verifying the merge is clean:\n· step · 45838 tokens\nI see the issue — my edits added the fixes, but the bridza-run import still doesn't have `listBranches`. Let me verify the actual state and fix it properly:\n· step · 46351 tokens\nGood, the import is correct. Now checking if the `/api/bridza/branches` endpoint is present:\n· step · 46588 tokens\nExcellent. Now checking the `retargetTask` call:\n· step · 46748 tokens\nPerfect. All three conflict resolutions are in place. Now verifying the merge is clean:\n· step · 46922 tokens\n· step · 47193 tokens\nUpdating the review with the resolved conflicts:\n· step · 50046 tokens\n(empty)\n· step · 50335 tokens\nStaging the resolved review and verifying merge readiness:\n· step · 50443 tokens\nMerge conflicts resolved and reviewed. Here's the status:\n\n**Merge readiness: ✅ READY FOR MERGE INTO `main`**\n\n### Conflicts Fixed\n\n1. **Import statement** — Added `listBranches` from `bridza-run.js` alongside `saveKanbanOrder`\n2. **`/api/bridza/branches` endpoint** — Restored the endpoint that `main` added\n3. **`retargetTask` call** — Added `target: b.target` parameter\n\nAll three changes from `main` are now integrated with this branch's kanban-order feature in `server/bridge.js`. No logic conflicts — clean union of both diffs.\n\nThe branch is staged and ready. No additional work needed before merge.\n· step · 50927 tokens"
+        }
+      ]
+    }
+  },
+  "flow": "feature",
+  "template": "",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "status": "in-progress",
+  "finalized": false,
+  "title": "kanban-columns-drag-reorder",
+  "branch": "bridza/engineering/kanban-columns-drag-reorder"
+}

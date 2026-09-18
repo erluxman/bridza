@@ -387,7 +387,7 @@ export function readProject(root) {
         live: !!meta._live, onBranch: meta._onBranch || null,
       };
     });
-    return { id: def.id || pid, label: def.label || pid, workingDir: def.workingDir || ".", stages: allStages, flows, templates: def.templates || [], archived: !!def.archived, tasks };
+    return { id: def.id || pid, label: def.label || pid, workingDir: def.workingDir || ".", stages: allStages, flows, templates: def.templates || [], archived: !!def.archived, kanbanOrder: def.kanbanOrder || [], tasks };
   });
   return { initialized: pipelines.length > 0, business, pipelines, inbox: readInbox(root) };
 }
@@ -511,6 +511,21 @@ export function archivePipeline(root, { id, archived = true }) {
   writeJSON(path.join(root, metaPath), def);
   const commit = commitPaths(root, [metaPath], `bridza: ${archived ? "archive" : "unarchive"} pipeline "${def.label || pid}" (${pid})\n\nData is kept — only hidden from the pipeline list.`);
   return { ok: true, id: pid, archived: !!archived, committed: commit.committed };
+}
+
+// The pipeline's own Kanban column order (stage ids + the Delivered column),
+// set by dragging column headers. Per pipeline, committed like any edit.
+export function saveKanbanOrder(root, { id, order }) {
+  if (!id) return { ok: false, error: "pipeline id required" };
+  if (!Array.isArray(order) || !order.every((o) => typeof o === "string")) return { ok: false, error: "order must be an array of strings" };
+  const pid = safeRef(id);
+  const metaPath = rel.pipelineMeta(pid);
+  if (!fs.existsSync(path.join(root, metaPath))) return { ok: false, error: "pipeline not found" };
+  const def = readPipelineDef(root, pid);
+  def.kanbanOrder = order;
+  writeJSON(path.join(root, metaPath), def);
+  const commit = commitPaths(root, [metaPath], `bridza: reorder kanban columns of pipeline "${def.label || pid}" (${pid})`);
+  return { ok: true, id: pid, kanbanOrder: order, committed: commit.committed };
 }
 
 // Permanently removes a whole pipeline (all its flows + tasks) from the

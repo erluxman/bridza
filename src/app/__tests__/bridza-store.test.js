@@ -6,7 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { ensureDataDir, readProject, readPlan, savePlan, createPipeline, savePipeline, archivePipeline, createTask, deleteTask, readContext, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox } from "../../../server/bridza-store.js";
+import { ensureDataDir, readProject, readPlan, savePlan, createPipeline, savePipeline, archivePipeline, saveKanbanOrder, createTask, deleteTask, readContext, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox } from "../../../server/bridza-store.js";
 import { runStage, git } from "../../../server/bridza-run.js";
 import { STARTER_PIPELINES, rel, judgeStageId, pipelineFlows, exportFlow, parseFlowFile, exportPipeline, parsePipelineFile, shortTitle } from "../../../core/domain.js";
 
@@ -235,6 +235,22 @@ describe("multiple stage flows per pipeline", () => {
     expect(archivePipeline(root, { id: "marketing", archived: false }).archived).toBe(false);
     expect(readProject(root).pipelines[0].archived).toBe(false);
     expect(archivePipeline(root, { id: "ghost" }).error).toMatch(/not found/);
+  });
+
+  it("kanban column order persists per pipeline, committed in its metadata", () => {
+    createPipeline(root, MARKETING);
+    createPipeline(root, { ...MARKETING, id: "sales", label: "Sales" });
+    expect(readProject(root).pipelines.every((p) => p.kanbanOrder.length === 0)).toBe(true);
+    expect(saveKanbanOrder(root, { id: "marketing", order: ["spec", "research"] })).toMatchObject({ ok: true, kanbanOrder: ["spec", "research"], committed: true });
+    expect(git(root, ["status", "--porcelain"]).trim()).toBe("");
+    const meta = JSON.parse(fs.readFileSync(path.join(root, rel.pipelineMeta("marketing")), "utf8"));
+    expect(meta.kanbanOrder).toEqual(["spec", "research"]);
+    const byId = Object.fromEntries(readProject(root).pipelines.map((p) => [p.id, p]));
+    expect(byId.marketing.kanbanOrder).toEqual(["spec", "research"]);
+    expect(byId.sales.kanbanOrder).toEqual([]);
+    expect(saveKanbanOrder(root, { id: "ghost", order: [] }).error).toMatch(/not found/);
+    expect(saveKanbanOrder(root, { id: "marketing", order: "spec" }).ok).toBe(false);
+    expect(saveKanbanOrder(root, { id: "marketing", order: [1] }).ok).toBe(false);
   });
 
   it("flow handoffs (next) persist, and dependsOn gates the follow-on task at run time", async () => {

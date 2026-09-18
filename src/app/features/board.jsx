@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import * as api from "../api/client.js";
 import { Hamburger } from "../ui.jsx";
 import { TermDrawer } from "./term.jsx";
+import { applyKanbanOrder, moveColumn } from "./kanban-order.js";
 
 const DONE_COL = "__done__";
 const ARCHIVED_COL = "__archived__";
@@ -24,7 +25,33 @@ function currentStage(t) {
 }
 
 export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, onChange, flash, collapsed, onExpandSide }) {
-  const { columns, nameOf } = kanbanColumns(pipeline);
+  const derived = kanbanColumns(pipeline);
+  const nameOf = derived.nameOf;
+  // optimistic order right after a drop, until the reloaded pipeline carries it
+  const [saved, setSaved] = useState(null);
+  const columns = applyKanbanOrder(derived.columns, saved && saved.pid === pipeline.id ? saved.order : pipeline.kanbanOrder);
+  // header drag: `to` is the insertion slot (0..columns.length) under the pointer
+  const [drag, setDrag] = useState(null);
+  const onColOver = (e, i) => {
+    if (!drag) return;
+    e.preventDefault();
+    const r = e.currentTarget.getBoundingClientRect();
+    const to = e.clientX < r.left + r.width / 2 ? i : i + 1;
+    if (to !== drag.to) setDrag({ ...drag, to });
+  };
+  const onColDrop = async (e) => {
+    e.preventDefault();
+    if (!drag || drag.to == null) return setDrag(null);
+    const from = columns.indexOf(drag.id);
+    const next = moveColumn(columns, drag.id, drag.to > from ? drag.to - 1 : drag.to);
+    setDrag(null);
+    if (next.join("\n") === columns.join("\n")) return;
+    const prev = saved;
+    setSaved({ pid: pipeline.id, order: next });
+    const r = await api.saveKanbanOrder(dir, { id: pipeline.id, order: next });
+    if (r.ok) onChange && onChange();
+    else { setSaved(prev); flash && flash(r.error); }
+  };
   const byCol = {}; columns.forEach((c) => (byCol[c] = []));
   (pipeline.tasks || []).forEach((t) => { const c = currentStage(t); (byCol[c] || byCol[DONE_COL]).push(t); });
   const [termOpen, setTermOpen] = useState(false);
@@ -72,10 +99,12 @@ const changeFlow = async (t, nf) => {
         <div className="content"><p className="muted">No tasks yet. Create one — it gets its own branch <code>bridza/{pipeline.id}/&lt;task&gt;</code>.</p></div>
       ) : (
         <div className="kanban">
-          {columns.map((c) => (
-            <div className="kcol" key={c}>
-              <div className="kcol-h"><span className={c === DONE_COL ? "done" : c === ARCHIVED_COL ? "archived" : ""}>{nameOf[c] || c}</span><span className="n">{byCol[c].length}</span></div>
-
+          {columns.map((c, i) => (
+            <div key={c} onDragOver={(e) => onColOver(e, i)} onDrop={onColDrop}
+              className={"kcol" + (drag && drag.to === i ? " drop-before" : "") + (drag && drag.to === columns.length && i === columns.length - 1 ? " drop-after" : "")}>
+              <div className={"kcol-h" + (drag && drag.id === c ? " grabbed" : "")} draggable
+                onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", c); setDrag({ id: c, to: null }); }}
+                onDragEnd={() => setDrag(null)}><span className={c === DONE_COL ? "done" : c === ARCHIVED_COL ? "archived" : ""}>{nameOf[c] || c}</span><span className="n">{byCol[c].length}</span></div>
               <div className="kcol-body">
                 {byCol[c].map((t) => (
                    <div className="kcard" key={t.id} style={{ position: "relative" }} onClick={() => onOpen(t.id)}

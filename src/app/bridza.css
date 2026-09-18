@@ -172,6 +172,10 @@ h1.task-title { flex: 1 1 auto; min-width: 8ch; white-space: nowrap; overflow: h
 .kcol-h { display: flex; align-items: center; justify-content: space-between; padding: 11px 13px; border-bottom: 1px solid var(--line); position: sticky; top: 0; }
 .kcol-h > span:first-child { font-weight: 700; font-size: 13px; font-family: "Space Grotesk", var(--sans); text-transform: capitalize; }
 .kcol-h > span.done { color: var(--accent-2); }
+.kcol-h[draggable] { cursor: grab; }
+.kcol-h.grabbed { cursor: grabbing; opacity: 0.5; background: var(--bg-3); }
+.kcol.drop-before { box-shadow: -3px 0 0 var(--accent); }
+.kcol.drop-after { box-shadow: 3px 0 0 var(--accent); }
 .kcol-h .n { font-size: 11px; color: var(--txt-3); background: var(--bg-3); border-radius: 999px; padding: 1px 8px; font-weight: 600; }
 .kcol-body { padding: 10px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
 .kcard { background: var(--bg-2); border: 1px solid var(--line); border-radius: 9px; padding: 11px; cursor: pointer; transition: .12s; }
