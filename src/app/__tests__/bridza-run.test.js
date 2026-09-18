@@ -14,7 +14,7 @@ import { execFileSync } from "node:child_process";
 // contention doesn't flake the run.
 vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
 import {
-  ensureTaskBranch, ensureTaskWorktree, taskWorktree, runStage, finalizeTask, retargetTask,
+  ensureTaskBranch, ensureTaskWorktree, taskWorktree, runStage, finalizeTask, retargetTask, setTaskArchived,
   getTaskSession, setTaskSession, clearTaskSessions,
   taskTimeline, branchExists, currentBranch, git, taskBranchName, parseDiff, commitDiff, branchDiff, workingDiff,
   resolveRunnableTool, DEFAULT_STAGE_PROMPT, readTaskFile, saveTaskFile,
@@ -671,5 +671,27 @@ describe("target branch — where each task's work lands", () => {
     expect(has("release/1.x", "feature.txt")).toBe(true);
     expect(has("main", "feature.txt")).toBe(false);           // the feature did NOT land on main
     expect(git(root, ["rev-parse", "main"]).trim()).toBe(git(root, ["rev-parse", "release/1.x~1"]).trim()); // main untouched
+  });
+});
+
+describe("task archive state", () => {
+  it("toggles the archived flag and commits it", () => {
+    ensureTaskBranch(root, "marketing", "task-506");
+    
+    const a = setTaskArchived(root, "marketing", "task-506", true);
+    expect(a).toMatchObject({ ok: true, archived: true, committed: true });
+    
+    const wt = ensureTaskWorktree(root, "marketing", "task-506");
+    const m = JSON.parse(fs.readFileSync(path.join(wt.worktree, rel.taskMeta("marketing", "task-506")), "utf8"));
+    expect(m.archived).toBe(true);
+    
+    const subjects = git(root, ["log", "-1", "--format=%s", "bridza/marketing/task-506"]).trim();
+    expect(subjects).toBe('bridza: archive task marketing/task-506');
+
+    const b = setTaskArchived(root, "marketing", "task-506", false);
+    expect(b).toMatchObject({ ok: true, archived: false, committed: true });
+    const m2 = JSON.parse(fs.readFileSync(path.join(wt.worktree, rel.taskMeta("marketing", "task-506")), "utf8"));
+    expect(m2.archived).toBe(false);
+    expect(git(root, ["log", "-1", "--format=%s", "bridza/marketing/task-506"]).trim()).toBe('bridza: unarchive task marketing/task-506');
   });
 });

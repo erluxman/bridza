@@ -7,18 +7,18 @@ import { Hamburger } from "../ui.jsx";
 import { TermDrawer } from "./term.jsx";
 
 const DONE_COL = "__done__";
+const ARCHIVED_COL = "__archived__";
 
-// Kanban columns = the UNION of every stage used by any task in the pipeline,
-// ordered by the pipeline's own stage flow first, then any task-only stages,
-// then a terminal "Delivered" column. Each task sits in its CURRENT stage (the
-// first not-yet-done stage), or Delivered when all stages are done / finalized.
 function kanbanColumns(pipeline) {
   const order = [], nameOf = {};
   (pipeline.stages || []).forEach((s) => { if (!order.includes(s.id)) { order.push(s.id); nameOf[s.id] = s.name; } });
   (pipeline.tasks || []).forEach((t) => (t.stages || []).forEach((sid) => { if (!order.includes(sid)) { order.push(sid); nameOf[sid] = nameOf[sid] || sid; } }));
-  return { columns: [...order, DONE_COL], nameOf };
+  nameOf[DONE_COL] = "Delivered";
+  nameOf[ARCHIVED_COL] = "Archived";
+  return { columns: [...order, DONE_COL, ARCHIVED_COL], nameOf };
 }
 function currentStage(t) {
+  if (t.archived) return ARCHIVED_COL;
   if (t.finalized) return DONE_COL;
   return (t.stages || []).find((s) => (t.tracking[s] || {}).status !== "done") || DONE_COL;
 }
@@ -42,13 +42,19 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [hover, flows.length]);
-  const changeFlow = async (t, nf) => {
+const changeFlow = async (t, nf) => {
     setFlowMenu(null);
     if (!nf || nf === t.flow) return;
     const fl = flows.find((f) => f.id === nf);
-    if (!window.confirm(`Switch “${t.title}” to the “${fl ? fl.name : nf}” flow?\n\nProgress is DISCARDED — stage commits on ${t.branch} are dropped and the task restarts with the new flow's stages.`)) return;
+    if (!window.confirm(`Switch "${t.title}" to the "${fl ? fl.name : nf}" flow?\n\nProgress is DISCARDED — stage commits on ${t.branch} are dropped and the task restarts with the new flow's stages.`)) return;
     const r = await api.retargetTask(dir, { pipeline: pipeline.id, task: t.id, flow: nf });
     if (r.ok) { flash && flash(r.removed ? `flow → ${fl ? fl.name : nf} · ${r.removed} stage commit${r.removed === 1 ? "" : "s"} discarded` : "flow changed", 4000); onChange && onChange(); }
+    else flash && flash(r.error);
+  };
+  const toggleArchive = async (e, t) => {
+    e.stopPropagation();
+    const r = await api.setTaskArchived(dir, { pipeline: pipeline.id, task: t.id, archived: !t.archived });
+    if (r.ok) { flash && flash(r.archived ? "task archived" : "task restored", 3000); onChange && onChange(); }
     else flash && flash(r.error);
   };
   return (
@@ -68,26 +74,28 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
         <div className="kanban">
           {columns.map((c) => (
             <div className="kcol" key={c}>
-              <div className="kcol-h"><span className={c === DONE_COL ? "done" : ""}>{c === DONE_COL ? "Delivered" : (nameOf[c] || c)}</span><span className="n">{byCol[c].length}</span></div>
+              <div className="kcol-h"><span className={c === DONE_COL ? "done" : c === ARCHIVED_COL ? "archived" : ""}>{nameOf[c] || c}</span><span className="n">{byCol[c].length}</span></div>
+
               <div className="kcol-body">
                 {byCol[c].map((t) => (
-                  <div className="kcard" key={t.id} style={{ position: "relative" }} onClick={() => onOpen(t.id)}
-                    onMouseEnter={() => setHover(t.id)} onMouseLeave={() => { setHover((h) => (h === t.id ? null : h)); }}>
-                    <div className="spread"><b title={t.title}>{t.ref ? <span className="tref">#{t.ref}</span> : null}{t.title}</b>{runningTasks && runningTasks.has(pipeline.id + "/" + t.id) ? <span className="tag running"><span className="livedot" /> running</span> : t.finalized && <span className="tag done">✓</span>}</div>
-                    <div className="muted mono kcard-branch">{t.branch}</div>
-                    <div className="bar"><i style={{ width: t.progress + "%" }} /></div>
-                    <div className="muted" style={{ fontSize: 11, marginTop: 5 }}>{t.progress}% · {t.stages.length} stages</div>
-                    {flows.length > 1 && hover === t.id && flowMenu !== t.id && !t.finalized && (
-                      <div className="muted" style={{ fontSize: 10, marginTop: 4, opacity: 0.65 }}>press <b>L</b> to change flow</div>
-                    )}
-                    {flowMenu === t.id && (
-                      <div className="proj-menu" style={{ right: 6, left: "auto", top: 6, minWidth: 160, zIndex: 5 }} onClick={(e) => e.stopPropagation()} onMouseLeave={() => setFlowMenu(null)}>
-                        <div className="path" style={{ padding: "4px 9px" }}>Change stage flow</div>
-                        {flows.map((f) => <button className="item" key={f.id} onClick={(e) => { e.stopPropagation(); changeFlow(t, f.id); }}>{f.id === t.flow ? "● " : ""}{f.name}</button>)}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                   <div className="kcard" key={t.id} style={{ position: "relative" }} onClick={() => onOpen(t.id)}
+                     onMouseEnter={() => setHover(t.id)} onMouseLeave={() => { setHover((h) => (h === t.id ? null : h)); }}>
+                     <div className="spread"><b title={t.title}>{t.ref ? <span className="tref">#{t.ref}</span> : null}{t.title}</b><div style={{ display: "flex", gap: "6px", alignItems: "center" }}>{runningTasks && runningTasks.has(pipeline.id + "/" + t.id) ? <span className="tag running"><span className="livedot" /> running</span> : t.finalized && !t.archived && <span className="tag done">✓</span>}<button className="btn sm ghost" onClick={(e) => toggleArchive(e, t)} title={t.archived ? "Restore from archive" : "Archive task"}>🗄</button></div></div>
+                     <div className="muted mono kcard-branch">{t.branch}</div>
+                     <div className="bar"><i style={{ width: t.progress + "%" }} /></div>
+                     <div className="muted" style={{ fontSize: 11, marginTop: 5 }}>{t.progress}% · {t.stages.length} stages</div>
+                     {flows.length > 1 && hover === t.id && flowMenu !== t.id && !t.finalized && (
+                       <div className="muted" style={{ fontSize: 10, marginTop: 4, opacity: 0.65 }}>press <b>L</b> to change flow</div>
+                     )}
+                     {flowMenu === t.id && (
+                       <div className="proj-menu" style={{ right: 6, left: "auto", top: 6, minWidth: 160, zIndex: 5 }} onClick={(e) => e.stopPropagation()} onMouseLeave={() => setFlowMenu(null)}>
+                         <div className="path" style={{ padding: "4px 9px" }}>Change stage flow</div>
+                         {flows.map((f) => <button className="item" key={f.id} onClick={(e) => { e.stopPropagation(); changeFlow(t, f.id); }}>{f.id === t.flow ? "● " : ""}{f.name}</button>)}
+                       </div>
+                     )}
+                   </div>
+                 ))}
+
                 {!byCol[c].length && <div className="kcol-empty">—</div>}
               </div>
             </div>

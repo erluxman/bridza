@@ -380,7 +380,7 @@ export function readProject(root) {
         id: meta.id || tid, pipeline: pid, title: meta.title || tid,
         ref: refs[pid + "/" + tid] || meta.ref || null,
         type: meta.type || "", template: meta.template || "", flow: meta.flow || meta.template || "",
-        status: meta.status || "in-progress", finalized: !!meta.finalized, reuseSession: !!meta.reuseSession,
+        status: meta.status || "in-progress", finalized: !!meta.finalized, reuseSession: !!meta.reuseSession, archived: !!meta.archived,
         stages, tracking: tr, branch: taskBranchName(pid, tid),
         target: meta.target || base,
         progress: stages.length ? Math.round((done / stages.length) * 100) : 0,

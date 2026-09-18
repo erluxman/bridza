@@ -25,7 +25,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { DATA_DIR, CLI_TOOLS, pipelineFlows } from "../core/domain.js";
 import { readProject, createPipeline, savePipeline, archivePipeline, deletePipeline, createTask, deleteTask, readContext, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan, assignRefs, readPipelineDef } from "./bridza-store.js";
-import { runStage, automateTask, finalizeTask, finishConflict, abortConflict, openDir, conflictedFiles, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, retargetTask, setTaskReuse, listModels, termRun, ensureTaskWorktree, recommendPipelines, readTaskFile, saveTaskFile, listBranches } from "./bridza-run.js";
+import { runStage, automateTask, finalizeTask, finishConflict, abortConflict, openDir, conflictedFiles, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, retargetTask, setTaskReuse, setTaskArchived, listModels, termRun, ensureTaskWorktree, recommendPipelines, readTaskFile, saveTaskFile, listBranches } from "./bridza-run.js";
 
 function resolveDir(raw) {
   if (!raw) return null;
@@ -229,6 +229,11 @@ export async function handleApi(req, res) {
       if (!root) return void need(), true;
       const b = (await json(req)) || {};
       res.end(JSON.stringify(setTaskReuse(root, b.pipeline, b.task, !!b.on))); return true;
+    }
+    if (M === "POST" && P === "/api/bridza/task/archive") {
+      if (!root) return void need(), true;
+      const b = (await json(req)) || {};
+      res.end(JSON.stringify(setTaskArchived(root, b.pipeline, b.task, !!b.archived))); return true;
     }
     if (M === "POST" && P === "/api/bridza/run/stop") {
       const b = (await json(req)) || {};

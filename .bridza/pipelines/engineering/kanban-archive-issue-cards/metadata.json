@@ -1,0 +1,115 @@
+{
+  "v": 1,
+  "pipeline": "engineering",
+  "task": "kanban-archive-issue-cards",
+  "tracking": {
+    "spec": {
+      "status": "done",
+      "seconds": 86,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: kanban-archive-issue-cards\n\n## WHAT & WHY\n\nIn the Kanban view (`src/app/features/board.jsx`) every issue card should have\nan explicit Archive action. Archiving moves a card out of its current column —\nincluding the terminal \"Delivered\" column — into a distinct \"Archived\"\ncolumn/section, so a finished-but-not-yet-relevant task stops cluttering\n\"Delivered\". Archiving is STRICTLY manual: the card's archived state changes\nonly when the user clicks the button, never automatically.\n\n## ACCEPTANCE CRITERIA\n\n- Every card on the board shows an archive affordance (e.g. an 🗄 button),\n  including cards in the terminal \"Delivered\" column.\n- Clicking Archive moves the card OUT of its current column and INTO a distinct\n  \"Archived\" column/area at the end of the board; it no longer appears under its\n  stage column or under \"Delivered\".\n- The archived state PERSISTS on the task (e.g. an `archived` flag in\n  `.bridza/pipelines/<pipeline>/<task>/metadata.json`, committed the same way\n  `setTaskReuse` writes task flags in `server/bridza-run.js`), exposed through a\n  new bridge endpoint in `server/bridge.js`, and survives reload.\n- Archived cards are excluded from the normal columns and their counts; they\n  render (with their own count) only in the Archived area.\n- An un-archive action restores the card to its previous column (\"Delivered\"\n  when it was archived from there) — archiving is reversible and still manual.\n- Nothing archives automatically: only a user click changes a card's archived\n  state.\n- Unit/component tests cover the archive → archived → restore round-trip and\n  persistence; `pnpm test` passes, and `pnpm lint` + `pnpm build` are clean.\n\nNOTE: sibling sub-task `kanban-columns-drag-reorder` also edits\n`src/app/features/board.jsx` on a separate branch — keep changes localised to\nthe per-card action path so the two merge cleanly.",
+          "startedAt": "2026-09-18T21:18:19.588Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: kanban-archive-issue-cards\n\n## WHAT & WHY\n\nIn the Kanban view (`src/app/features/board.jsx`) every issue card should have\nan explicit Archive action. Archiving moves a card out of its current column —\nincluding the terminal \"Delivered\" column — into a distinct \"Archived\"\ncolumn/section, so a finished-but-not-yet-relevant task stops cluttering\n\"Delivered\". Archiving is STRICTLY manual: the card's archived state changes\nonly when the user clicks the button, never automatically.\n\n## ACCEPTANCE CRITERIA\n\n- Every card on the board shows an archive affordance (e.g. an 🗄 button),\n  including cards in the terminal \"Delivered\" column.\n- Clicking Archive moves the card OUT of its current column and INTO a distinct\n  \"Archived\" column/area at the end of the board; it no longer appears under its\n  stage column or under \"Delivered\".\n- The archived state PERSISTS on the task (e.g. an `archived` flag in\n  `.bridza/pipelines/<pipeline>/<task>/metadata.json`, committed the same way\n  `setTaskReuse` writes task flags in `server/bridza-run.js`), exposed through a\n  new bridge endpoint in `server/bridge.js`, and survives reload.\n- Archived cards are excluded from the normal columns and their counts; they\n  render (with their own count) only in the Archived area.\n- An un-archive action restores the card to its previous column (\"Delivered\"\n  when it was archived from there) — archiving is reversible and still manual.\n- Nothing archives automatically: only a user click changes a card's archived\n  state.\n- Unit/component tests cover the archive → archived → restore round-trip and\n  persistence; `pnpm test` passes, and `pnpm lint` + `pnpm build` are clean.\n\nNOTE: sibling sub-task `kanban-columns-drag-reorder` also edits\n`src/app/features/board.jsx` on a separate branch — keep changes localised to\nthe per-card action path so the two merge cleanly.",
+          "startedAt": "2026-09-18T22:00:02.221Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: kanban-archive-issue-cards\n\n## WHAT & WHY\n\nIn the Kanban view (`src/app/features/board.jsx`) every issue card should have\nan explicit Archive action. Archiving moves a card out of its current column —\nincluding the terminal \"Delivered\" column — into a distinct \"Archived\"\ncolumn/section, so a finished-but-not-yet-relevant task stops cluttering\n\"Delivered\". Archiving is STRICTLY manual: the card's archived state changes\nonly when the user clicks the button, never automatically.\n\n## ACCEPTANCE CRITERIA\n\n- Every card on the board shows an archive affordance (e.g. an 🗄 button),\n  including cards in the terminal \"Delivered\" column.\n- Clicking Archive moves the card OUT of its current column and INTO a distinct\n  \"Archived\" column/area at the end of the board; it no longer appears under its\n  stage column or under \"Delivered\".\n- The archived state PERSISTS on the task (e.g. an `archived` flag in\n  `.bridza/pipelines/<pipeline>/<task>/metadata.json`, committed the same way\n  `setTaskReuse` writes task flags in `server/bridza-run.js`), exposed through a\n  new bridge endpoint in `server/bridge.js`, and survives reload.\n- Archived cards are excluded from the normal columns and their counts; they\n  render (with their own count) only in the Archived area.\n- An un-archive action restores the card to its previous column (\"Delivered\"\n  when it was archived from there) — archiving is reversible and still manual.\n- Nothing archives automatically: only a user click changes a card's archived\n  state.\n- Unit/component tests cover the archive → archived → restore round-trip and\n  persistence; `pnpm test` passes, and `pnpm lint` + `pnpm build` are clean.\n\nNOTE: sibling sub-task `kanban-columns-drag-reorder` also edits\n`src/app/features/board.jsx` on a separate branch — keep changes localised to\nthe per-card action path so the two merge cleanly.",
+          "startedAt": "2026-09-18T22:01:32.336Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": "omniroute/auto",
+          "prompt": "Task: kanban-archive-issue-cards",
+          "startedAt": "2026-09-18T22:01:42.388Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T22:03:08.190Z",
+          "exit": 0,
+          "files": [
+            "acceptance.md",
+            "spec.md"
+          ],
+          "sessionId": "ses_f4975d6cdffeOLsPtA3VLPRlTb",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions -m omniroute/auto \"System instructions:\\nYou are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we…\"\n\n\n\n· step · 21829 tokens\n· step · 25135 tokens\nI see the spec and acceptance files are about \"Welcome dialog shows at most once per calendar day\" — but the task in metadata.json is about \"kanban-archive-issue-cards\". Those are different tasks. Let me read what the actual task requires.\n· step · 34291 tokens\n\n\n\n· step · 31215 tokens\nI'll write spec.md and acceptance.md for the kanban-archive-issue-cards task.\n· step · 37823 tokens\n(empty)\n· step · 37898 tokens"
+        }
+      ]
+    },
+    "build": {
+      "status": "done",
+      "seconds": 580,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": "omniroute/auto",
+          "prompt": "Task: kanban-archive-issue-cards\n\n## WHAT & WHY\n\nIn the Kanban view (`src/app/features/board.jsx`) every issue card should have\nan explicit Archive action. Archiving moves a card out of its current column —\nincluding the terminal \"Delivered\" column — into a distinct \"Archived\"\ncolumn/section, so a finished-but-not-yet-relevant task stops cluttering\n\"Delivered\". Archiving is STRICTLY manual: the card's archived state changes\nonly when the user clicks the button, never automatically.\n\n## ACCEPTANCE CRITERIA\n\n- Every card on the board shows an archive affordance (e.g. an 🗄 button),\n  including cards in the terminal \"Delivered\" column.\n- Clicking Archive moves the card OUT of its current column and INTO a distinct\n  \"Archived\" column/area at the end of the board; it no longer appears under its\n  stage column or under \"Delivered\".\n- The archived state PERSISTS on the task (e.g. an `archived` flag in\n  `.bridza/pipelines/<pipeline>/<task>/metadata.json`, committed the same way\n  `setTaskReuse` writes task flags in `server/bridza-run.js`), exposed through a\n  new bridge endpoint in `server/bridge.js`, and survives reload.\n- Archived cards are excluded from the normal columns and their counts; they\n  render (with their own count) only in the Archived area.\n- An un-archive action restores the card to its previous column (\"Delivered\"\n  when it was archived from there) — archiving is reversible and still manual.\n- Nothing archives automatically: only a user click changes a card's archived\n  state.\n- Unit/component tests cover the archive → archived → restore round-trip and\n  persistence; `pnpm test` passes, and `pnpm lint` + `pnpm build` are clean.\n\nNOTE: sibling sub-task `kanban-columns-drag-reorder` also edits\n`src/app/features/board.jsx` on a separate branch — keep changes localised to\nthe per-card action path so the two merge cleanly.\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-18T22:03:22.122Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T22:13:02.572Z",
+          "exit": 0,
+          "files": [
+            "server/bridge.js",
+            "server/bridza-run.js",
+            "server/bridza-store.js",
+            "src/app/__tests__/bridza-run.test.js",
+            "src/app/api/client.js",
+            "src/app/features/board.jsx"
+          ],
+          "sessionId": "ses_f4974512cffeTCjOB6N7P62y7d",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions -m omniroute/auto \"System instructions:\\nYou are an implementer. Implement strictly to the spec; the shortest working diff wins. Reuse what the codebase already has, prefer the …\"\n· step · 18915 tokens\n· step · 19256 tokens\n· step · 20023 tokens\n· step · 22585 tokens\n· step · 24349 tokens\n· step · 26764 tokens\n· step · 27515 tokens\n· step · 30024 tokens\n· step · 29874 tokens\n· step · 31979 tokens\n· step · 36869 tokens\n· step · 37032 tokens\n· step · 38166 tokens\n· step · 42390 tokens\n· step · 44268 tokens\n· step · 45359 tokens\n· step · 47449 tokens\n· step · 49420 tokens\n· step · 49588 tokens\n· step · 50511 tokens\n· step · 50753 tokens\n· step · 51963 tokens\n· step · 53730 tokens\n· step · 52706 tokens\n· step · 52806 tokens\n· step · 53439 tokens\n· step · 53101 tokens\n· step · 54241 tokens\n· step · 55668 tokens\n· step · 58245 tokens\nLet me update the todo and continue implementing the archive feature.\n· step · 79841 tokens\n· step · 80323 tokens\n· step · 80523 tokens\n· step · undefined tokens\n· step · undefined tokens\n· step · undefined tokens\n· step · undefined tokens\n· step · 77738 tokens\n· step · 83877 tokens\n· step · 84181 tokens\n· step · 86555 tokens\n\n\n(empty)\n\n· step · 76288 tokens\n\n\nNow I need to add the archive button to each card. Let me add the toggle function and update the card rendering:\n\n· step · 78424 tokens\n(empty)\n· step · 79085 tokens\n(empty)\n· step · 91722 tokens\n· step · 84003 tokens\n· step · 90800 tokens\n· step · 91080 tokens\n· step · 92836 tokens\n· step · 93055 tokens\n· step · 93929 tokens\n· step · 90167 tokens\n\n\n\n· step · 85807 tokens\n· step · 89637 tokens\n· step · 89904 tokens\n· step · 90454 tokens\n· step · 90076 tokens\n· step · 90709 tokens\n· step · 91276 tokens\n4\n· step · 98765 tokens"
+        }
+      ]
+    },
+    "review": {
+      "status": "done",
+      "seconds": 64,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: kanban-archive-issue-cards\n\n## WHAT & WHY\n\nIn the Kanban view (`src/app/features/board.jsx`) every issue card should have\nan explicit Archive action. Archiving moves a card out of its current column —\nincluding the terminal \"Delivered\" column — into a distinct \"Archived\"\ncolumn/section, so a finished-but-not-yet-relevant task stops cluttering\n\"Delivered\". Archiving is STRICTLY manual: the card's archived state changes\nonly when the user clicks the button, never automatically.\n\n## ACCEPTANCE CRITERIA\n\n- Every card on the board shows an archive affordance (e.g. an 🗄 button),\n  including cards in the terminal \"Delivered\" column.\n- Clicking Archive moves the card OUT of its current column and INTO a distinct\n  \"Archived\" column/area at the end of the board; it no longer appears under its\n  stage column or under \"Delivered\".\n- The archived state PERSISTS on the task (e.g. an `archived` flag in\n  `.bridza/pipelines/<pipeline>/<task>/metadata.json`, committed the same way\n  `setTaskReuse` writes task flags in `server/bridza-run.js`), exposed through a\n  new bridge endpoint in `server/bridge.js`, and survives reload.\n- Archived cards are excluded from the normal columns and their counts; they\n  render (with their own count) only in the Archived area.\n- An un-archive action restores the card to its previous column (\"Delivered\"\n  when it was archived from there) — archiving is reversible and still manual.\n- Nothing archives automatically: only a user click changes a card's archived\n  state.\n- Unit/component tests cover the archive → archived → restore round-trip and\n  persistence; `pnpm test` passes, and `pnpm lint` + `pnpm build` are clean.\n\nNOTE: sibling sub-task `kanban-columns-drag-reorder` also edits\n`src/app/features/board.jsx` on a separate branch — keep changes localised to\nthe per-card action path so the two merge cleanly.\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-18T22:15:50.978Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": "omniroute/auto",
+          "prompt": "Task: kanban-archive-issue-cards\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-18T22:16:16.012Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T22:17:02.520Z",
+          "exit": 0,
+          "files": [
+            "review.md"
+          ],
+          "sessionId": "ses_f49688225ffeO7EL1cJLEWi9AU",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions -m omniroute/auto \"System instructions:\\nYou are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, a…\"\n· step · 18448 tokens\n· step · 23106 tokens\n· step · 23332 tokens\n· step · 24246 tokens\n· step · 38125 tokens\n· step · 38776 tokens\n· step · 53907 tokens\nThe implementation is complete, passes all checks in `acceptance.md`, has no over-engineering, and is ready for a clean merge into `main`.\n\nA `review.md` file has been created detailing these findings.\n· step · 54286 tokens"
+        }
+      ]
+    }
+  },
+  "flow": "feature",
+  "template": "",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "status": "in-progress",
+  "finalized": false,
+  "title": "kanban-archive-issue-cards",
+  "branch": "bridza/engineering/kanban-archive-issue-cards"
+}

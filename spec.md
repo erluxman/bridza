@@ -1,20 +1,21 @@
-# Welcome dialog shows at most once per calendar day
+# Kanban archive issue cards
 
 ## What
 
-The welcome dialog — currently shown on every app load — is dismissed at most once per calendar day. Once the user dismisses it, the app remembers for the rest of that day, so reloading or reopening the app stays quiet. On a new calendar day the dialog returns until dismissed again.
+Every card in the Kanban board (`src/app/features/board.jsx`) gets an explicit Archive button. Clicking it moves the card out of its current column into a distinct "Archived" column at the end of the board. Clicking Archive again restores the card to its previous column. Archiving is always manual — nothing archives automatically.
 
 ## Why
 
-The dialog greets the user for the day's work ("Good luck with today's work — make it count"). Showing it on every reload is noise; one greeting per day matches that intent.
+Finished tasks in "Delivered" accumulate and clutter the terminal column. Archiving lets users clear visual noise from completed work without losing the record. The card remains queryable and restorable, just out of the active view.
 
 ## How
 
-- Gate the welcome dialog's initial visibility in `src/app/App.jsx` on the dismissal record for today's calendar date.
-- Dismissal (close button, backdrop click, Escape) records today's date; the dialog's `onClose` path in `App.jsx` (`setWelcomeOpen(false)` / `WelcomeDialog` `onClose`) writes it.
-- Store the record in `localStorage` under a new `LS.welcome` key (value: today's date, e.g. `YYYY-MM-DD`), alongside the existing `LS` conventions in `App.jsx`. Reuse the existing `localStorage.getItem`/`setItem` helpers already there.
-- On mount, show the dialog only when the stored welcome date is not today; on dismiss, write today's date.
-- Calendar day is computed locally in the user's timezone; no server change.
-- No new storage library or dependency.
+- Add an archive affordance (🗄 button) to every card in `board.jsx`, including cards in "Delivered".
+- Clicking Archive sets an `archived` boolean flag on the task's metadata (`.bridza/pipelines/<pipeline>/<task>/metadata.json`), following the same commit path as `setTaskReuse` in `server/bridza-run.js`.
+- Add a bridge endpoint in `server/bridge.js` that writes the `archived` flag and commits it.
+- When `archived: true`, exclude the card from all stage columns and from "Delivered". Instead, render it in a distinct "Archived" column appended after "Delivered" in the kanban layout.
+- Archived cards count separately; their count appears in the "Archived" column header.
+- Clicking Archive on an already-archived card toggles it back to `archived: false` and restores it to its previous column (determined by `currentStage(t)` logic).
+- Persist across reload: read `archived` from metadata on mount.
 
-Out of scope: cross-day resets beyond a simple date comparison, analytics of when dismissals happen, or any change to the dialog's content.
+Out of scope: automatic archiving on any condition, bulk archive operations, filtering archived cards by date.

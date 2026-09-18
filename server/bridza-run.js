@@ -1067,6 +1067,20 @@ export function setTaskReuse(root, pipeline, task, on) {
   return { ok: true, reuseSession: !!on, committed: c.committed };
 }
 
+// Toggle task archive state.
+export function setTaskArchived(root, pipeline, task, archived) {
+  const bad = validRef(pipeline, "pipeline") || validRef(task, "task");
+  if (bad) return { ok: false, error: bad };
+  const wt = ensureTaskWorktree(root, pipeline, task);
+  if (!wt.ok) return wt;
+  const W = wt.worktree;
+  const m = readTaskMeta(W, pipeline, task);
+  m.archived = !!archived;
+  writeTaskMeta(W, pipeline, task, m);
+  const c = commitWorktree(W, `bridza: ${archived ? "archive" : "unarchive"} task ${safeRef(pipeline)}/${safeRef(task)}`);
+  return { ok: true, archived: !!archived, committed: c.committed };
+}
+
 // ── finalize: merge the task branch into its target branch ──────────────────
 
 // style: "squash" (default) | "rebase" | "merge". When `into` is the branch the

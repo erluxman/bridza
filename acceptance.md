@@ -1,6 +1,12 @@
-# Acceptance — Welcome dialog shows at most once per calendar day
+# Acceptance — Kanban archive issue cards
 
-- [ ] Dismissing the dialog (close button, backdrop, Escape), then reloading/reopening the app the same calendar day, does not show the dialog again.
-- [ ] The dismissal is persisted in `localStorage` keyed by calendar date, following the existing `LS` conventions in `src/app/App.jsx` (`LS.welcome`, value = today's date). No new dependency or storage library.
-- [ ] A new calendar day resets the record: the dialog appears again on load until dismissed that day.
-- [ ] Tests deterministically cover both cases — dismiss + same-day reload = hidden, new date = shown — and `pnpm test` passes.
+- [ ] Every card (including those in "Delivered") shows an archive button (e.g. 🗄).
+- [ ] Clicking Archive on a non-archived card moves it out of its current column into a distinct "Archived" column at the end of the board.
+- [ ] The card's `archived` flag is persisted in `.bridza/pipelines/<pipeline>/<task>/metadata.json` via a new bridge endpoint, committed the same way as task reuse flags.
+- [ ] Archived cards do not appear in their stage columns or in "Delivered"; they render only in "Archived".
+- [ ] The "Archived" column header displays the count of archived cards.
+- [ ] Clicking Archive on an archived card toggles `archived: false` and restores the card to its previous column (determined by `currentStage` logic).
+- [ ] Archiving persists across reload.
+- [ ] No automatic archiving: only explicit user clicks change the archived state.
+- [ ] Unit/component tests cover archive → restore round-trip and persistence.
+- [ ] `pnpm test`, `pnpm lint`, and `pnpm build` all pass.
