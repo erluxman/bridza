@@ -254,6 +254,9 @@
     ],
     "engineering/define-merge-strategy": [
       "engineering/better-merging-strategy-to-reference"
+    ],
+    "engineering/implement-merge-strategy": [
+      "engineering/better-merging-strategy-to-reference"
     ]
   },
   "pipeDeps": [
