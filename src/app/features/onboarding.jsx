@@ -6,8 +6,11 @@ import { STARTER_PIPELINES, pipelineFlows, parsePipelineFile, recommendFlow } fr
 import { base, slug, lsGet, lsSet, recKey } from "../lib/format.js";
 import { Modal, Field } from "../ui.jsx";
 
+export const greetingForHour = (h) => (h >= 5 && h <= 11 ? "Good morning" : h >= 12 && h <= 16 ? "Good afternoon" : "Good evening");
+
 // A greeting shown once when the app opens; Esc, ✕ or the backdrop dismiss it.
 export function WelcomeDialog({ onClose }) {
+  const greeting = greetingForHour(new Date().getHours());
   useEffect(() => {
     const onKey = (e) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -17,7 +20,7 @@ export function WelcomeDialog({ onClose }) {
     <div className="modal-bg" onClick={onClose}>
       <div className="modal" role="dialog" aria-modal="true" aria-label="Welcome" onClick={(e) => e.stopPropagation()}>
         <div className="spread" style={{ marginBottom: 10 }}>
-          <h2 style={{ marginTop: 0, fontSize: 17 }}>Welcome 👋</h2>
+          <h2 style={{ marginTop: 0, fontSize: 17 }}>{greeting} 👋</h2>
           <button className="btn ghost sm" onClick={onClose} title="Dismiss">✕</button>
         </div>
         <p style={{ margin: 0 }}>Good luck with today's work — make it count.</p>
