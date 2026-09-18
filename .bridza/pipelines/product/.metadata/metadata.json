@@ -1,0 +1,601 @@
+{
+  "v": 1,
+  "id": "product",
+  "label": "Product",
+  "workingDir": ".",
+  "flows": [
+    {
+      "id": "feedback-roadmap",
+      "name": "Feedback → Roadmap",
+      "stages": [
+        {
+          "id": "fb-synthesize",
+          "name": "Synthesize feedback",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a product researcher. Synthesize the feedback named in the task intent (tickets, reviews, interviews) into themes with frequency and severity. Frame each theme as a job-to-be-done (what progress the user was trying to make), not a feature request. Write themes.md.",
+          "outputs": [
+            {
+              "name": "themes.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "themes agreed",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "fb-prioritize",
+          "name": "Prioritize",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a product manager. Score themes.md with RICE (Reach, Impact, Confidence, Effort) and map them on an opportunity solution tree (Teresa Torres, Continuous Discovery Habits): outcome → opportunities → candidate solutions. Pick what makes the cut and what explicitly does not, with reasoning. Write priorities.md.",
+          "outputs": [
+            {
+              "name": "priorities.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "priorities approved",
+          "auto": false,
+          "judge": true
+        },
+        {
+          "id": "fb-roadmap",
+          "name": "Roadmap update",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a product lead. Turn priorities.md into the roadmap update: now/next/later, owners, and the public changelog note. State each item as an OUTCOME to move, not output to ship (Marty Cagan, Inspired). Write roadmap.md.",
+          "outputs": [
+            {
+              "name": "roadmap.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "roadmap published",
+          "auto": false,
+          "judge": false
+        }
+      ],
+      "next": {
+        "pipeline": "engineering",
+        "flow": "feature"
+      }
+    },
+    {
+      "id": "product-spec",
+      "name": "Product Spec & Planning",
+      "stages": [
+        {
+          "id": "ps-concept",
+          "name": "Ideation & Concept",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a product strategist. From the task intent define the product concept: the problem statement, the specific target users, their jobs-to-be-done, value proposition, and measurable success criteria. Use stage specs as hard constraints. Write docs/concept.md and docs/value-proposition.md. Do NOT write requirements, designs, or code.",
+          "outputs": [
+            {
+              "name": "docs/concept.md",
+              "type": "doc",
+              "note": "problem, users, value, success metrics"
+            },
+            {
+              "name": "docs/value-proposition.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [
+            {
+              "key": "potential-userbase",
+              "value": ""
+            },
+            {
+              "key": "target-age",
+              "value": ""
+            },
+            {
+              "key": "monetization",
+              "value": ""
+            }
+          ],
+          "shell": [],
+          "gate": "concept approved",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "ps-requirements",
+          "name": "User Research & Requirements",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a product manager and UX researcher. Read docs/concept.md and docs/value-proposition.md. Define user personas, their goals and pain points (interview questions must follow The Mom Test — past behavior and specifics, never pitches or hypotheticals), user journeys for the happy path and key edge cases, and detailed product requirements with user stories and acceptance criteria (Given/When/Then). Cover functional AND non-functional needs. Honor every stage spec as a hard constraint. Write docs/personas.md, docs/requirements.md, and docs/user-stories.md. Do NOT design UI or write code.",
+          "outputs": [
+            {
+              "name": "docs/personas.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "docs/requirements.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "docs/user-stories.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [
+            {
+              "key": "user-expertise",
+              "value": ""
+            },
+            {
+              "key": "accessibility",
+              "value": ""
+            },
+            {
+              "key": "compliance",
+              "value": ""
+            }
+          ],
+          "shell": [],
+          "gate": "requirements signed off",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "ps-ux",
+          "name": "UX Design & Mockups",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a product designer. Read docs/concept.md and docs/requirements.md. Design the user experience: screen-by-screen navigation, user flows for every key scenario, wireframe descriptions (layout, components, interaction per screen), and a design direction (typography, spacing, color principles). Honor every stage spec as a hard constraint. Write docs/ux-flows.md, docs/wireframes.md, and docs/design-direction.md. Because wireframes are best judged by seeing and clicking them, ALSO build an interactive prototype as ONE self-contained static HTML file (inline CSS + JS, no external/CDN dependencies, works by opening the file directly): render every screen from the wireframes, make the primary navigation and interactive states actually work, use placeholder data, and honor the design direction + required form factors responsively. Write docs/prototype.html. Do NOT write code.",
+          "outputs": [
+            {
+              "name": "docs/ux-flows.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "docs/wireframes.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "docs/design-direction.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "docs/prototype.html",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [
+            {
+              "key": "form-factors",
+              "value": ""
+            },
+            {
+              "key": "branding",
+              "value": ""
+            }
+          ],
+          "shell": [],
+          "gate": "design approved",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "ps-architecture",
+          "name": "System Design & Architecture",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a software architect. Read ALL docs/ from previous stages. Define the system architecture: high-level component diagram (text-based), module boundaries and responsibilities, data model (entities, relationships, key fields), API surface, and technology choices with rationale. Prefer the repo's existing stack; use stage specs otherwise. Prefer platform-native capabilities over extra dependencies. Write docs/architecture.md, docs/data-model.md, and docs/system-design.md. Do NOT write code.",
+          "outputs": [
+            {
+              "name": "docs/architecture.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "docs/data-model.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "docs/system-design.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [
+            {
+              "key": "framework",
+              "value": ""
+            },
+            {
+              "key": "backend",
+              "value": ""
+            },
+            {
+              "key": "data-store",
+              "value": ""
+            }
+          ],
+          "shell": [],
+          "gate": "design approved",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "ps-breakdown",
+          "name": "Task Breakdown & Milestones",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are an agile lead and technical program manager. Read ALL docs/ from previous stages. Break the product into concrete, actionable work items — feature tasks, UI design tasks, and research/spike tasks. Your PRIMARY output is the PLAN BOARD: FIRST read .bridza/.metadata/creation-guide.md and follow it exactly — create each task under .bridza/pipelines/ (in the pipeline where that work belongs, not necessarily this one) with metadata.json + context.md, wire the AND/OR dependency network into .bridza/plan.json deps (only real ordering; independent tasks get none; deps may cross pipelines), estimate every task in HOURS under est, and group them into milestones (MVP, phase 1, …) — a milestone may span several pipelines; add pipeDeps edges only where a whole pipeline truly waits on another. Then summarize in docs/feature-list.md, docs/milestones.md, and docs/backlog.md. The user will review and rearrange the board afterwards. Do NOT write code.",
+          "outputs": [
+            {
+              "name": ".bridza/pipelines/",
+              "type": "issue",
+              "note": "tasks + deps + estimates + milestones on the plan board"
+            },
+            {
+              "name": "docs/feature-list.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "docs/milestones.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "docs/backlog.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [
+            "node -e \"const f=require('fs');const p=f.existsSync('.bridza/plan.json')?JSON.parse(f.readFileSync('.bridza/plan.json','utf8')):{};if(!Object.keys(p.deps||{}).length&&!(p.milestones||[]).length){console.error('MANDATORY: plan board is empty - this stage must create tasks + deps/est/milestones per .bridza/.metadata/creation-guide.md');process.exit(1)}\""
+          ],
+          "gate": "plan board populated",
+          "auto": false,
+          "judge": true
+        },
+        {
+          "id": "ps-spec-pdf",
+          "name": "Product Specification Document",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a technical writer. Read ALL docs/ from previous stages. Produce a comprehensive product specification as a LaTeX document. Include: 1) Executive summary and vision, 2) Target audience and personas, 3) Feature list and requirements, 4) UX flows and design direction, 5) System architecture and data model, 6) Milestones and task breakdown. Write the LaTeX source to docs/product-spec/spec.tex. If pdflatex is available, compile it to docs/product-spec/spec.pdf; otherwise output a note that the .tex is ready to compile. After this stage the team has everything needed to start implementation.",
+          "outputs": [
+            {
+              "name": "docs/product-spec/spec.tex",
+              "type": "doc",
+              "note": "LaTeX source"
+            },
+            {
+              "name": "docs/product-spec/spec.pdf",
+              "type": "doc",
+              "note": "compiled PDF (if pdflatex available)"
+            }
+          ],
+          "specs": [],
+          "shell": [
+            "mkdir -p docs/product-spec",
+            "cd docs/product-spec && pdflatex -interaction=nonstopmode spec.tex 2>&1 || true",
+            "cd docs/product-spec && pdflatex -interaction=nonstopmode spec.tex 2>&1 || echo 'pdflatex had issues — spec.tex is ready for manual compilation in docs/product-spec/'"
+          ],
+          "gate": "spec published",
+          "auto": false,
+          "judge": false
+        }
+      ],
+      "next": {
+        "pipeline": "engineering",
+        "flow": "dissection"
+      }
+    }
+  ],
+  "stages": [
+    {
+      "id": "fb-synthesize",
+      "name": "Synthesize feedback",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a product researcher. Synthesize the feedback named in the task intent (tickets, reviews, interviews) into themes with frequency and severity. Frame each theme as a job-to-be-done (what progress the user was trying to make), not a feature request. Write themes.md.",
+      "outputs": [
+        {
+          "name": "themes.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "themes agreed",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "fb-prioritize",
+      "name": "Prioritize",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a product manager. Score themes.md with RICE (Reach, Impact, Confidence, Effort) and map them on an opportunity solution tree (Teresa Torres, Continuous Discovery Habits): outcome → opportunities → candidate solutions. Pick what makes the cut and what explicitly does not, with reasoning. Write priorities.md.",
+      "outputs": [
+        {
+          "name": "priorities.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "priorities approved",
+      "auto": false,
+      "judge": true
+    },
+    {
+      "id": "fb-roadmap",
+      "name": "Roadmap update",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a product lead. Turn priorities.md into the roadmap update: now/next/later, owners, and the public changelog note. State each item as an OUTCOME to move, not output to ship (Marty Cagan, Inspired). Write roadmap.md.",
+      "outputs": [
+        {
+          "name": "roadmap.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "roadmap published",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "ps-concept",
+      "name": "Ideation & Concept",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a product strategist. From the task intent define the product concept: the problem statement, the specific target users, their jobs-to-be-done, value proposition, and measurable success criteria. Use stage specs as hard constraints. Write docs/concept.md and docs/value-proposition.md. Do NOT write requirements, designs, or code.",
+      "outputs": [
+        {
+          "name": "docs/concept.md",
+          "type": "doc",
+          "note": "problem, users, value, success metrics"
+        },
+        {
+          "name": "docs/value-proposition.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [
+        {
+          "key": "potential-userbase",
+          "value": ""
+        },
+        {
+          "key": "target-age",
+          "value": ""
+        },
+        {
+          "key": "monetization",
+          "value": ""
+        }
+      ],
+      "shell": [],
+      "gate": "concept approved",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "ps-requirements",
+      "name": "User Research & Requirements",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a product manager and UX researcher. Read docs/concept.md and docs/value-proposition.md. Define user personas, their goals and pain points (interview questions must follow The Mom Test — past behavior and specifics, never pitches or hypotheticals), user journeys for the happy path and key edge cases, and detailed product requirements with user stories and acceptance criteria (Given/When/Then). Cover functional AND non-functional needs. Honor every stage spec as a hard constraint. Write docs/personas.md, docs/requirements.md, and docs/user-stories.md. Do NOT design UI or write code.",
+      "outputs": [
+        {
+          "name": "docs/personas.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "docs/requirements.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "docs/user-stories.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [
+        {
+          "key": "user-expertise",
+          "value": ""
+        },
+        {
+          "key": "accessibility",
+          "value": ""
+        },
+        {
+          "key": "compliance",
+          "value": ""
+        }
+      ],
+      "shell": [],
+      "gate": "requirements signed off",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "ps-ux",
+      "name": "UX Design & Mockups",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a product designer. Read docs/concept.md and docs/requirements.md. Design the user experience: screen-by-screen navigation, user flows for every key scenario, wireframe descriptions (layout, components, interaction per screen), and a design direction (typography, spacing, color principles). Honor every stage spec as a hard constraint. Write docs/ux-flows.md, docs/wireframes.md, and docs/design-direction.md. Because wireframes are best judged by seeing and clicking them, ALSO build an interactive prototype as ONE self-contained static HTML file (inline CSS + JS, no external/CDN dependencies, works by opening the file directly): render every screen from the wireframes, make the primary navigation and interactive states actually work, use placeholder data, and honor the design direction + required form factors responsively. Write docs/prototype.html. Do NOT write code.",
+      "outputs": [
+        {
+          "name": "docs/ux-flows.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "docs/wireframes.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "docs/design-direction.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "docs/prototype.html",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [
+        {
+          "key": "form-factors",
+          "value": ""
+        },
+        {
+          "key": "branding",
+          "value": ""
+        }
+      ],
+      "shell": [],
+      "gate": "design approved",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "ps-architecture",
+      "name": "System Design & Architecture",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a software architect. Read ALL docs/ from previous stages. Define the system architecture: high-level component diagram (text-based), module boundaries and responsibilities, data model (entities, relationships, key fields), API surface, and technology choices with rationale. Prefer the repo's existing stack; use stage specs otherwise. Prefer platform-native capabilities over extra dependencies. Write docs/architecture.md, docs/data-model.md, and docs/system-design.md. Do NOT write code.",
+      "outputs": [
+        {
+          "name": "docs/architecture.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "docs/data-model.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "docs/system-design.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [
+        {
+          "key": "framework",
+          "value": ""
+        },
+        {
+          "key": "backend",
+          "value": ""
+        },
+        {
+          "key": "data-store",
+          "value": ""
+        }
+      ],
+      "shell": [],
+      "gate": "design approved",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "ps-breakdown",
+      "name": "Task Breakdown & Milestones",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are an agile lead and technical program manager. Read ALL docs/ from previous stages. Break the product into concrete, actionable work items — feature tasks, UI design tasks, and research/spike tasks. Your PRIMARY output is the PLAN BOARD: FIRST read .bridza/.metadata/creation-guide.md and follow it exactly — create each task under .bridza/pipelines/ (in the pipeline where that work belongs, not necessarily this one) with metadata.json + context.md, wire the AND/OR dependency network into .bridza/plan.json deps (only real ordering; independent tasks get none; deps may cross pipelines), estimate every task in HOURS under est, and group them into milestones (MVP, phase 1, …) — a milestone may span several pipelines; add pipeDeps edges only where a whole pipeline truly waits on another. Then summarize in docs/feature-list.md, docs/milestones.md, and docs/backlog.md. The user will review and rearrange the board afterwards. Do NOT write code.",
+      "outputs": [
+        {
+          "name": ".bridza/pipelines/",
+          "type": "issue",
+          "note": "tasks + deps + estimates + milestones on the plan board"
+        },
+        {
+          "name": "docs/feature-list.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "docs/milestones.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "docs/backlog.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [
+        "node -e \"const f=require('fs');const p=f.existsSync('.bridza/plan.json')?JSON.parse(f.readFileSync('.bridza/plan.json','utf8')):{};if(!Object.keys(p.deps||{}).length&&!(p.milestones||[]).length){console.error('MANDATORY: plan board is empty - this stage must create tasks + deps/est/milestones per .bridza/.metadata/creation-guide.md');process.exit(1)}\""
+      ],
+      "gate": "plan board populated",
+      "auto": false,
+      "judge": true
+    },
+    {
+      "id": "ps-spec-pdf",
+      "name": "Product Specification Document",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a technical writer. Read ALL docs/ from previous stages. Produce a comprehensive product specification as a LaTeX document. Include: 1) Executive summary and vision, 2) Target audience and personas, 3) Feature list and requirements, 4) UX flows and design direction, 5) System architecture and data model, 6) Milestones and task breakdown. Write the LaTeX source to docs/product-spec/spec.tex. If pdflatex is available, compile it to docs/product-spec/spec.pdf; otherwise output a note that the .tex is ready to compile. After this stage the team has everything needed to start implementation.",
+      "outputs": [
+        {
+          "name": "docs/product-spec/spec.tex",
+          "type": "doc",
+          "note": "LaTeX source"
+        },
+        {
+          "name": "docs/product-spec/spec.pdf",
+          "type": "doc",
+          "note": "compiled PDF (if pdflatex available)"
+        }
+      ],
+      "specs": [],
+      "shell": [
+        "mkdir -p docs/product-spec",
+        "cd docs/product-spec && pdflatex -interaction=nonstopmode spec.tex 2>&1 || true",
+        "cd docs/product-spec && pdflatex -interaction=nonstopmode spec.tex 2>&1 || echo 'pdflatex had issues — spec.tex is ready for manual compilation in docs/product-spec/'"
+      ],
+      "gate": "spec published",
+      "auto": false,
+      "judge": false
+    }
+  ],
+  "templates": []
+}
