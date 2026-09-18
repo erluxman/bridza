@@ -169,6 +169,10 @@
     "engineering/better-merging-strategy-to-reference": {
       "x": -531,
       "y": 839
+    },
+    "engineering/define-merge-strategy": {
+      "x": -583,
+      "y": 925
     }
   },
   "sizes": {
