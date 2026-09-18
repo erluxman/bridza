@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "id": "ok-when-i-press-command-and-mouse-will",
+  "pipeline": "engineering",
+  "title": "Ok, when I press command and mouse will, it should be able…",
+  "ref": 20,
+  "type": "idea",
+  "flow": "dissection",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/ok-when-i-press-command-and-mouse-will",
+  "target": "main",
+  "stages": [
+    "dissect"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
