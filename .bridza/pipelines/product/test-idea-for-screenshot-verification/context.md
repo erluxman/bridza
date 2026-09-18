@@ -1,3 +1,3 @@
 # Test idea for screenshot verification
 
-Describe the intent of this task.
+Test idea for screenshot verification
