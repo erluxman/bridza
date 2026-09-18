@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import "./bridza.css";
 import * as api from "./api/client.js";
-import { LS, readRecents } from "./lib/format.js";
+import { LS, readRecents, today } from "./lib/format.js";
 import { useColWidth, ColGrip } from "./ui.jsx";
 import { Welcome, WelcomeDialog, PipelinePicker, NewPipelineModal, NewTaskModal } from "./features/onboarding.jsx";
 import { Sidebar, Inbox } from "./features/nav.jsx";
@@ -22,7 +22,7 @@ export default function App() {
   const [toast, setToast] = useState("");
   const toastTimer = useRef(null);
   const [modal, setModal] = useState(null);
-  const [welcomeOpen, setWelcomeOpen] = useState(true);
+  const [welcomeOpen, setWelcomeOpen] = useState(() => localStorage.getItem(LS.welcome) !== today());
   const [sideCollapsed, setSideCollapsed] = useState(() => localStorage.getItem(LS.side) === "1");
   const [sideW, sideGrip] = useColWidth("bridza.sideW", 264, { min: 200, max: 460, side: "left" });
   const [flowOpen, setFlowOpen] = useState(false);
@@ -128,7 +128,7 @@ export default function App() {
         <NewTaskModal dir={dir} pipeline={pipeline} onClose={() => setModal(null)}
           onDone={(tid) => { setModal(null); refresh().then(() => setActiveTask(tid)); flash("task created"); }} flash={flash} />
       )}
-      {welcomeOpen && <WelcomeDialog onClose={() => setWelcomeOpen(false)} />}
+      {welcomeOpen && <WelcomeDialog onClose={() => { setWelcomeOpen(false); localStorage.setItem(LS.welcome, today()); }} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
   );

@@ -7,8 +7,12 @@ import { buildStageRecords, buildGraph, lastRunTool, lastRunModel } from "../lib
 import { layoutNodes, LAYOUTS } from "../lib/layout.js";
 import { InspectorView, CanvasView, ChatView } from "../features/views.jsx";
 
-// the Canvas view reads localStorage for its saved layout — stub it for SSR
-globalThis.localStorage = globalThis.localStorage || { getItem: () => null, setItem: () => {} };
+// the Canvas view reads localStorage for its saved layout — stub it for SSR.
+// Guard on presence of the METHOD, not truthiness: Node 25's experimental
+// `localStorage` global is truthy yet method-less, which defeats `||`.
+globalThis.localStorage = (globalThis.localStorage && typeof globalThis.localStorage.getItem === "function")
+  ? globalThis.localStorage
+  : { getItem: () => null, setItem: () => {} };
 
 const pipeline = {
   id: "eng",

@@ -4,13 +4,94 @@
   "pipeline": "engineering",
   "title": "Welcome dialog shows at most once per day",
   "type": "subtask",
-  "status": "in-progress",
-  "finalized": false,
+  "status": "done",
+  "finalized": true,
   "flow": "feature",
   "stages": [
     "spec",
     "build",
     "review"
   ],
-  "tracking": {}
+  "tracking": {
+    "spec": {
+      "status": "done",
+      "seconds": 34,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Welcome dialog shows at most once per day\n\n## WHAT & WHY\n\nA welcome dialog that pops up on every reload would be noise. Once the user dismisses it, the app remembers for the rest of the calendar day that it was already seen, so reloading or revisiting the app the same day stays quiet. On a new calendar day the greeting returns until dismissed again. This follows from the intent \"wishes me a good luck for the work I am doing for the day\" \u2014 one greeting per day.\n\n## ACCEPTANCE CRITERIA\n\n- After dismissing the dialog, reloading/reopening the app the same day does not show it again.\n- The dismissal is persisted per calendar day via `localStorage` (keyed by date), following the existing `LS` conventions in `src/app/App.jsx`; a new day resets it and the dialog reappears.\n- Reuses the app's existing localStorage helpers/pattern; no new storage dependency or library.\n- Tests cover both cases deterministically (dismiss + same-day reload = hidden; new date = shown); `pnpm test` passes.",
+          "startedAt": "2026-09-18T18:45:24.123Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T18:45:58.559Z",
+          "exit": 0,
+          "files": [
+            "acceptance.md",
+            "spec.md"
+          ],
+          "sessionId": "ses_f4a298fa2ffe9Pm5Uea7r7LZdg",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we\u2026\"\n\u00b7 model: TOOL DEFAULT (no --model/-m flag \u2014 opencode's own config decides)\n\u00b7 step \u00b7 18878 tokens\n\u00b7 step \u00b7 20899 tokens\n\n\n\n\u00b7 step \u00b7 38016 tokens\n\u00b7 step \u00b7 39035 tokens\n\u00b7 step \u00b7 41320 tokens\nWrote `spec.md` and `acceptance.md` in the working directory. Both are scoped strictly to the \"once per day\" dismissal \u2014 no extra features.\n\u00b7 step \u00b7 41382 tokens"
+        }
+      ]
+    },
+    "build": {
+      "status": "done",
+      "seconds": 222,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Welcome dialog shows at most once per day\n\n## WHAT & WHY\n\nA welcome dialog that pops up on every reload would be noise. Once the user dismisses it, the app remembers for the rest of the calendar day that it was already seen, so reloading or revisiting the app the same day stays quiet. On a new calendar day the greeting returns until dismissed again. This follows from the intent \"wishes me a good luck for the work I am doing for the day\" \u2014 one greeting per day.\n\n## ACCEPTANCE CRITERIA\n\n- After dismissing the dialog, reloading/reopening the app the same day does not show it again.\n- The dismissal is persisted per calendar day via `localStorage` (keyed by date), following the existing `LS` conventions in `src/app/App.jsx`; a new day resets it and the dialog reappears.\n- Reuses the app's existing localStorage helpers/pattern; no new storage dependency or library.\n- Tests cover both cases deterministically (dismiss + same-day reload = hidden; new date = shown); `pnpm test` passes.\n\nFit check \u2014 this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design\u2026) are in the worktree \u2014 read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision \u2192 Requirements \u2192 Design & Architecture \u2192 Sprint Planning \u2192 Implementation \u2192 Testing \u2192 Review & Release); \"Bugfix\" (Reproduce \u2192 Fix \u2192 Review); \"UI design\" (Spec \u2192 Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why \u2014 the earlier stages' work stays on this branch \u2014 and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-18T18:45:58.613Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T18:49:41.071Z",
+          "exit": 0,
+          "files": [
+            "src/app/App.jsx",
+            "src/app/__tests__/welcome-dialog.test.jsx"
+          ],
+          "sessionId": "ses_f4a2908f0ffetVYVTZDDwGM0U3",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are an implementer. Implement strictly to the spec; the shortest working diff wins. Reuse what the codebase already has, prefer the \u2026\"\n\u00b7 model: TOOL DEFAULT (no --model/-m flag \u2014 opencode's own config decides)\n\u00b7 step \u00b7 19032 tokens\n\u00b7 step \u00b7 19695 tokens\n\u00b7 step \u00b7 20743 tokens\n\u00b7 step \u00b7 22879 tokens\n\u00b7 step \u00b7 24173 tokens\n\u00b7 step \u00b7 41657 tokens\n\u00b7 step \u00b7 42610 tokens\n\u00b7 step \u00b7 44548 tokens\n\u00b7 step \u00b7 49747 tokens\nThe study is done. Now the fit check: this is a single, well-scoped unit of work (gate an existing modal's initial visibility on a per-day `localStorage` record). It matches the Feature pipeline (spec \u2192 build \u2192 review) that it's filed under \u2014 the spec/acceptance stages already produced exactly this scope. It's not a multi-task feature needing dissection, not a bugfix, not a UI design task, not a full SDLC. **It fits; proceeding with implementation.**\n\u00b7 step \u00b7 51890 tokens\n\u00b7 step \u00b7 52053 tokens\n\u00b7 step \u00b7 52224 tokens\nNow the tests \u2014 mirror the gate in the Harness (per the approved pattern), reset storage between tests, and add the two deterministic per-day cases:\n\u00b7 step \u00b7 52767 tokens\n\u00b7 step \u00b7 53230 tokens\n\u00b7 step \u00b7 53296 tokens\n\u00b7 step \u00b7 53759 tokens\n\u00b7 step \u00b7 53895 tokens\n\u00b7 step \u00b7 54312 tokens\n\u00b7 step \u00b7 55060 tokens\n\u00b7 step \u00b7 55890 tokens\n\u00b7 step \u00b7 57256 tokens\n\n\n\n\u00b7 step \u00b7 58020 tokens\n\u00b7 step \u00b7 58373 tokens\n\u00b7 step \u00b7 59032 tokens\n\u00b7 step \u00b7 59714 tokens\n\n\n\n\u00b7 step \u00b7 60299 tokens\n\u00b7 step \u00b7 60383 tokens\n\n\n\n\u00b7 step \u00b7 60948 tokens\n\u00b7 step \u00b7 61050 tokens\n\u00b7 step \u00b7 61305 tokens\n\u00b7 step \u00b7 61822 tokens\nRoot cause found: in this vitest/Node-25 setup the `localStorage` global is an inert object (Node's experimental webstorage with no valid `--localstorage-file`), and even jsdom's `window.localStorage` has no methods. Production is unaffected (browser runtime), but the tests need a functional in-memory stub \u2014 no new dependency, just a tiny inline one.\n\n\n\u00b7 step \u00b7 63230 tokens\n\u00b7 step \u00b7 63938 tokens\n\u00b7 step \u00b7 64006 tokens\n\u00b7 step \u00b7 64408 tokens\n`today` and `LS` aren't exported from `App.jsx`. Exporting them:\n\u00b7 step \u00b7 66352 tokens\n\u00b7 step \u00b7 66420 tokens\nAll 71 tests pass. Now lint:\n\n\n\u00b7 step \u00b7 66624 tokens\n\n\n\n\u00b7 step \u00b7 66769 tokens\n\n\n\n\u00b7 step \u00b7 67012 tokens\n\u00b7 step \u00b7 67904 tokens\nAdding the missing trailing newline:\n\u00b7 step \u00b7 69007 tokens\n\u00b7 step \u00b7 69136 tokens\n\u00b7 step \u00b7 69382 tokens\nFit check passed \u2014 this is a single, well-scoped Feature task (spec \u2192 build \u2192 review), no flow-fit.md needed. Implemented and green.\n\nChanges in `src/app/App.jsx`:\n- `LS.welcome` key added; exported `LS` + `today()` (local `YYYY-MM-DD`, timezone-aware) helpers.\n- `welcomeOpen` now initializes to `localStorage.getItem(LS.welcome) !== today()` (App.jsx:45).\n- Dismiss records today's date (App.jsx:149).\n\nTests in `welcome-dialog.test.jsx` (all acceptance cases + existing ones kept):\n- Stub for the inert test-process `localStorage` globals (Node 25 without a valid `--localstorage-file`); no new dependency.\n- dismiss + same-day reload = hidden (remounts and asserts `LS.welcome === today()`).\n- new date (stale stored date) = shown.\n\n`pnpm test` \u2192 71/71 pass; `pnpm lint` and `pnpm build` clean.\n\u00b7 step \u00b7 71027 tokens"
+        }
+      ]
+    },
+    "review": {
+      "status": "done",
+      "seconds": 696,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Welcome dialog shows at most once per day\n\n## WHAT & WHY\n\nA welcome dialog that pops up on every reload would be noise. Once the user dismisses it, the app remembers for the rest of the calendar day that it was already seen, so reloading or revisiting the app the same day stays quiet. On a new calendar day the greeting returns until dismissed again. This follows from the intent \"wishes me a good luck for the work I am doing for the day\" \u2014 one greeting per day.\n\n## ACCEPTANCE CRITERIA\n\n- After dismissing the dialog, reloading/reopening the app the same day does not show it again.\n- The dismissal is persisted per calendar day via `localStorage` (keyed by date), following the existing `LS` conventions in `src/app/App.jsx`; a new day resets it and the dialog reappears.\n- Reuses the app's existing localStorage helpers/pattern; no new storage dependency or library.\n- Tests cover both cases deterministically (dismiss + same-day reload = hidden; new date = shown); `pnpm test` passes.",
+          "startedAt": "2026-09-18T18:49:41.138Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T18:52:17.170Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/per-day-dismissal/review/outputs/review.md"
+          ],
+          "sessionId": "ses_f4a25a3b6ffebOaPcAZqkUgS7l",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, a\u2026\"\n\u00b7 model: TOOL DEFAULT (no --model/-m flag \u2014 opencode's own config decides)\n\u00b7 step \u00b7 18808 tokens\n\u00b7 step \u00b7 20068 tokens\n\u00b7 step \u00b7 21323 tokens\n\u00b7 step \u00b7 39870 tokens\n\u00b7 step \u00b7 41901 tokens\n\u00b7 step \u00b7 44544 tokens\n\n\n\n\u00b7 step \u00b7 48934 tokens\nTests pass (71/71). Now let me test whether the hand-rolled `makeStorage`/`stubLocalStorage` is needed, or whether jsdom's own localStorage works.\n\u00b7 step \u00b7 49394 tokens\n\u00b7 step \u00b7 49932 tokens\n\u00b7 step \u00b7 50186 tokens\n\u00b7 step \u00b7 50505 tokens\n\u00b7 step \u00b7 51151 tokens\n\u00b7 step \u00b7 51668 tokens\nConfirmed \u2014 native `localStorage` methods are absent in this env, so the stub is genuinely necessary. Now lint and build:\n\u00b7 step \u00b7 52017 tokens\n\u00b7 step \u00b7 54060 tokens\n\u00b7 step \u00b7 56970 tokens\nAll checks green. Writing the review.\n\u00b7 step \u00b7 59276 tokens\nVerdict: **approved**. `review.md` written to `.bridza/pipelines/engineering/per-day-dismissal/review/outputs/review.md`.\n\n**Acceptance check** \u2014 all four criteria met:\n- All three dismissals (close, backdrop, Escape) funnel into the single `onClose` at `App.jsx:149` that persists `LS.welcome = today()`; init at `App.jsx:45` hides the dialog for the rest of the day and re-shows on a new date.\n- Follows existing `LS` conventions (`bridza-welcome`, `YYYY-MM-DD`), no new deps.\n- Tests cover both cases deterministically; `pnpm test` 71/71, lint and build clean.\n\n**Over-engineering** \u2014 nothing to delete. I probed the env and confirmed the `makeStorage`/`stubLocalStorage` test stub is load-bearing: under this vitest + Node 25 + jsdom combo, `localStorage.getItem`/`setItem` are not functions, so it can't be replaced by a simple `clear()`.\n\n**Non-blocking notes:** tests assert a Harness mirror of the App rather than the app itself (accepted trade-off from the prior review); persistence is asserted only via the button path, and midnight rollover only re-greets on the next load (matches the acceptance wording).\n\u00b7 step \u00b7 59594 tokens"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Welcome dialog shows at most once per day\n\n## WHAT & WHY\n\nA welcome dialog that pops up on every reload would be noise. Once the user dismisses it, the app remembers for the rest of the calendar day that it was already seen, so reloading or revisiting the app the same day stays quiet. On a new calendar day the greeting returns until dismissed again. This follows from the intent \"wishes me a good luck for the work I am doing for the day\" \u2014 one greeting per day.\n\n## ACCEPTANCE CRITERIA\n\n- After dismissing the dialog, reloading/reopening the app the same day does not show it again.\n- The dismissal is persisted per calendar day via `localStorage` (keyed by date), following the existing `LS` conventions in `src/app/App.jsx`; a new day resets it and the dialog reappears.\n- Reuses the app's existing localStorage helpers/pattern; no new storage dependency or library.\n- Tests cover both cases deterministically (dismiss + same-day reload = hidden; new date = shown); `pnpm test` passes.\n- review if it's mergable to target branch, if its not make it mergable and merge as one commit to target branch  and mark this task as done \n",
+          "startedAt": "2026-09-18T19:06:10.227Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T19:15:30.000Z",
+          "exit": 0,
+          "error": null,
+          "files": [
+            ".bridza/pipelines/engineering/per-day-dismissal/review/outputs/review.md"
+          ],
+          "log": "$ opencode run ...\n\u00b7 review complete.\nImplemented mergability fix: merged main (ux-revamp refactor) into the branch, re-located the per-day dismissal onto the current structure (LS.welcome + today() in lib/format.js, gate+persist in App.jsx, tests updated) and fixed the ux-views.test.jsx localStorage guard. pnpm test 178/178, lint and build clean, git merge-tree main <branch> clean. Finalized: merged task branch into main (squash) as one commit; task marked done."
+        }
+      ]
+    }
+  },
+  "branch": "bridza/engineering/per-day-dismissal"
 }
