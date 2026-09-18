@@ -245,6 +245,9 @@
     ],
     "engineering/task-creation-write-path": [
       "engineering/every-task-when-they-are-converted-into"
+    ],
+    "engineering/naming-contract-tests": [
+      "engineering/every-task-when-they-are-converted-into"
     ]
   },
   "pipeDeps": [
