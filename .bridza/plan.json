@@ -32,7 +32,8 @@
       "due": "",
       "tasks": [
         "engineering/every-stage-floor-should-be-in-auto",
-        "engineering/you-just-should-be-able-to-change-the"
+        "engineering/you-just-should-be-able-to-change-the",
+        "engineering/more-conflicts-user-experience-should"
       ],
       "needs": []
     }
