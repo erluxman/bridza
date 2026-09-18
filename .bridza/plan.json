@@ -51,7 +51,8 @@
       "due": "",
       "tasks": [
         "engineering/i-should-be-able-to-rearrange-the",
-        "engineering/kanban-archive-issue-cards"
+        "engineering/kanban-archive-issue-cards",
+        "engineering/kanban-columns-drag-reorder"
       ],
       "needs": []
     }
