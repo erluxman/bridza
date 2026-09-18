@@ -1,3 +1,3 @@
 # Ok, when I press command and mouse will, it should be able…
 
-Describe the intent of this task.
+Ok, when I press command and mouse will, it should be able to zoom in and zoom out the plan view canvas. Also, there may be other side effect features that needs to be, you know, thought about it. Make sure to research well about it first and then implement it.
