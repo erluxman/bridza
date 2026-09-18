@@ -40,7 +40,8 @@
       "tasks": [
         "engineering/every-stage-floor-should-be-in-auto",
         "engineering/you-just-should-be-able-to-change-the",
-        "engineering/more-conflicts-user-experience-should"
+        "engineering/more-conflicts-user-experience-should",
+        "engineering/every-task-when-they-are-converted-into"
       ],
       "needs": []
     },
