@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "id": "migration-existing-tasks",
+  "pipeline": "engineering",
+  "title": "Migrate existing task folders to numbered-prefix format",
+  "type": "subtask",
+  "status": "pending",
+  "finalized": false,
+  "flow": "feature",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "tracking": {}
+}

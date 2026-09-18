@@ -18,6 +18,42 @@
         "engineering/welcome-dialog-on-open"
       ],
       "any": []
+    },
+    "engineering/number-prefix-contract": {
+      "all": [],
+      "any": []
+    },
+    "engineering/task-enumeration-read-path": {
+      "all": [
+        "engineering/number-prefix-contract"
+      ],
+      "any": []
+    },
+    "engineering/task-creation-write-path": {
+      "all": [
+        "engineering/number-prefix-contract"
+      ],
+      "any": []
+    },
+    "engineering/naming-contract-tests": {
+      "all": [
+        "engineering/number-prefix-contract"
+      ],
+      "any": []
+    },
+    "engineering/ui-ref-display": {
+      "all": [
+        "engineering/number-prefix-contract"
+      ],
+      "any": []
+    },
+    "engineering/migration-existing-tasks": {
+      "all": [
+        "engineering/number-prefix-contract",
+        "engineering/task-enumeration-read-path",
+        "engineering/task-creation-write-path"
+      ],
+      "any": []
     }
   },
   "milestones": [
@@ -41,6 +77,20 @@
         "engineering/every-stage-floor-should-be-in-auto",
         "engineering/you-just-should-be-able-to-change-the",
         "engineering/more-conflicts-user-experience-should"
+      ],
+      "needs": []
+    },
+    {
+      "id": "ms-numbered-folders",
+      "title": "Numbered-prefix folder naming at scale",
+      "due": "",
+      "tasks": [
+        "engineering/number-prefix-contract",
+        "engineering/task-enumeration-read-path",
+        "engineering/task-creation-write-path",
+        "engineering/naming-contract-tests",
+        "engineering/ui-ref-display",
+        "engineering/migration-existing-tasks"
       ],
       "needs": []
     }
@@ -119,6 +169,12 @@
   "est": {
     "engineering/welcome-dialog-on-open": 3,
     "engineering/per-day-dismissal": 2,
-    "engineering/time-aware-greeting": 1
+    "engineering/time-aware-greeting": 1,
+    "engineering/number-prefix-contract": 3,
+    "engineering/task-enumeration-read-path": 4,
+    "engineering/task-creation-write-path": 3,
+    "engineering/naming-contract-tests": 2,
+    "engineering/ui-ref-display": 3,
+    "engineering/migration-existing-tasks": 4
   }
 }

@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "id": "task-enumeration-read-path",
+  "pipeline": "engineering",
+  "title": "Implement numbered-prefix read & enumeration path",
+  "type": "subtask",
+  "status": "pending",
+  "finalized": false,
+  "flow": "feature",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "tracking": {}
+}
