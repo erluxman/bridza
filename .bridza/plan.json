@@ -248,6 +248,9 @@
     ],
     "engineering/naming-contract-tests": [
       "engineering/every-task-when-they-are-converted-into"
+    ],
+    "engineering/number-prefix-contract": [
+      "engineering/every-task-when-they-are-converted-into"
     ]
   },
   "pipeDeps": [
