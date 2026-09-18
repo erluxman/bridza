@@ -15,7 +15,12 @@
       "y": 64
     }
   },
-  "sizes": {},
+  "sizes": {
+    "engineering/the-title-is-taking-a-lot-of-vertical-sp": {
+      "w": 280,
+      "h": 59
+    }
+  },
   "links": {},
   "pipeDeps": [
     {
