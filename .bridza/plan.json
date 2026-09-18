@@ -62,6 +62,12 @@
         "engineering/implement-merge-strategy"
       ],
       "any": []
+    },
+    "engineering/url-path-sync-for-selected-task": {
+      "all": [
+        "engineering/highlight-running-task-in-sidebar"
+      ],
+      "any": []
     }
   },
   "milestones": [
@@ -124,6 +130,16 @@
         "engineering/naming-contract-tests",
         "engineering/ui-ref-display",
         "engineering/migration-existing-tasks"
+      ],
+      "needs": []
+    },
+    {
+      "id": "ms-highlight-selected-running-item",
+      "title": "Highlight selected running task & URL path sync",
+      "due": "",
+      "tasks": [
+        "engineering/highlight-running-task-in-sidebar",
+        "engineering/url-path-sync-for-selected-task"
       ],
       "needs": []
     }
@@ -280,6 +296,8 @@
     "engineering/migration-existing-tasks": 4,
     "engineering/define-merge-strategy": 2,
     "engineering/implement-merge-strategy": 4,
-    "engineering/verify-merge-strategy": 2
+    "engineering/verify-merge-strategy": 2,
+    "engineering/highlight-running-task-in-sidebar": 2,
+    "engineering/url-path-sync-for-selected-task": 3
   }
 }

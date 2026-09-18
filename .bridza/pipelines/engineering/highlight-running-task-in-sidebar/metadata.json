@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "id": "highlight-running-task-in-sidebar",
+  "pipeline": "engineering",
+  "title": "Highlight selected task in running now sidebar list",
+  "type": "subtask",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "tracking": {}
+}

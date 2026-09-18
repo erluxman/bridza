@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "id": "url-path-sync-for-selected-task",
+  "pipeline": "engineering",
+  "title": "Sync URL path with selected task or view state",
+  "type": "subtask",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "tracking": {}
+}
