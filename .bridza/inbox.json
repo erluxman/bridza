@@ -2,6 +2,12 @@
   "v": 1,
   "items": [
     {
+      "id": "in-qv4sdx",
+      "kind": "idea",
+      "text": "And the thing that I am seeing is we should have a target branch rather than always merging domain because main-minute we always have the target so we should have a target branch where this particular feature will merge to and of this make sure in every single flow in engineering or product whatever it is after writing any code in the review process there must be a step where it makes the change ready to be merged to the reference branch where it is going to be merged",
+      "time": "2026-09-18T19:26:47.856Z"
+    },
+    {
       "id": "in-3jvlr3",
       "kind": "idea",
       "text": "Alright, so when this merge conflict opens that, so when we are trying to merge it to May, if there is a conflict in it, open that particular branch with that particular command in VSCode, so that I can fix it from the VSCode or open the merge conflict UI from VSCode, whatever will be the best idea. So basically I want to be able to merge it from this app, like it is driven by this app rather than practically going to open the terminal because I know that I should be fixing from the terminal, but not everybody may be informed enough for that.",
