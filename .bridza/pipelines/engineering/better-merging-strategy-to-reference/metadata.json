@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "id": "better-merging-strategy-to-reference",
+  "pipeline": "engineering",
+  "title": "Better merging strategy to reference branch",
+  "ref": 23,
+  "type": "idea",
+  "flow": "dissection",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/better-merging-strategy-to-reference",
+  "target": "main",
+  "stages": [
+    "dissect"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
