@@ -2,7 +2,12 @@
   "v": 1,
   "deps": {},
   "milestones": [],
-  "pos": {},
+  "pos": {
+    "engineering/when-i-am-recording-an-idea-in-the-inbox": {
+      "x": 41,
+      "y": 55
+    }
+  },
   "sizes": {},
   "links": {},
   "pipeDeps": [
