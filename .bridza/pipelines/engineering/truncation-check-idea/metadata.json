@@ -1,0 +1,25 @@
+{
+  "v": 1,
+  "id": "truncation-check-idea",
+  "pipeline": "engineering",
+  "title": "Truncation check idea",
+  "ref": 7,
+  "type": "idea",
+  "flow": "full-sdlc",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/truncation-check-idea",
+  "stages": [
+    "vision",
+    "requirements",
+    "architecture",
+    "planning",
+    "implementation",
+    "testing",
+    "release"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
