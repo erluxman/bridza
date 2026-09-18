@@ -10,8 +10,8 @@ import { useCanvasOverrides, effLayout, CanvasNode } from "../lib/canvas.jsx";
 import { Hamburger, Modal } from "../ui.jsx";
 
 const OUT_TYPES = ["doc", "data", "code", "media", "value", "text", "asset", "git", "issue"];
-const mkStage = () => ({ id: "stage-" + Math.random().toString(36).slice(2, 7), name: "New stage", hint: "", tool: "opencode", systemPrompt: "Operate only on the previous stage's outputs. Produce only this stage's outputs.", outputs: [{ name: "out.md", type: "doc", note: "" }], specs: [], shell: [], gate: "Output reviewed", auto: false, judge: false });
-const normStage = (s, i) => ({ id: s.id || "stage-" + (i + 1), name: s.name || s.id || "Stage " + (i + 1), hint: s.hint || "", tool: s.tool || "opencode", systemPrompt: s.systemPrompt || "", outputs: (s.outputs || []).map((o) => ({ name: o.name || "", type: o.type || "doc", note: o.note || "" })), specs: (s.specs || []).map((v) => ({ key: v.key || "", value: v.value || "" })), shell: s.shell || [], gate: s.gate || "", auto: !!s.auto, judge: !!s.judge });
+const mkStage = () => ({ id: "stage-" + Math.random().toString(36).slice(2, 7), name: "New stage", hint: "", tool: "opencode", systemPrompt: "Operate only on the previous stage's outputs. Produce only this stage's outputs.", outputs: [{ name: "out.md", type: "doc", note: "" }], specs: [], shell: [], gate: "Output reviewed", auto: true, judge: false });
+const normStage = (s, i) => ({ id: s.id || "stage-" + (i + 1), name: s.name || s.id || "Stage " + (i + 1), hint: s.hint || "", tool: s.tool || "opencode", systemPrompt: s.systemPrompt || "", outputs: (s.outputs || []).map((o) => ({ name: o.name || "", type: o.type || "doc", note: o.note || "" })), specs: (s.specs || []).map((v) => ({ key: v.key || "", value: v.value || "" })), shell: s.shell || [], gate: s.gate || "", auto: s.auto !== false, judge: !!s.judge });
 
 export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, flash, collapsed, onExpandSide }) {
   // one designer PER FLOW, side by side — a pipeline can carry several named

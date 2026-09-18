@@ -448,7 +448,7 @@ const normStageDef = (s, i) => ({
   specs: Array.isArray(s.specs) ? s.specs.map((v) => ({ key: String((v && v.key) || "").trim(), value: String((v && v.value) || "") })).filter((v) => v.key) : [],
   shell: Array.isArray(s.shell) ? s.shell.filter((c) => String(c).trim()) : [],
   gate: s.gate || "",
-  auto: !!s.auto,
+  auto: s.auto !== false,
   judge: !!s.judge,
 });
 

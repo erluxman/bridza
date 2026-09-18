@@ -6,6 +6,7 @@ import * as api from "../api/client.js";
 import { pipelineFlows, specLabel } from "../../../core/domain.js";
 import { slug, runPrompt, fmt, workFiles, base, ago } from "../lib/format.js";
 import { buildStageRecords, lastRunTool } from "../lib/record.js";
+import { logKey, readLog, appendLog as storeLog } from "../lib/autolog.js";
 import { InspectorView, CanvasView, ChatView, StageRunner } from "./views.jsx";
 import { Hamburger, ColGrip, useColWidth, Kv, Expandable } from "../ui.jsx";
 import { DiffView, FileModal } from "./diff.jsx";
@@ -48,9 +49,13 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   const [fileOpen, setFileOpen] = useState(null);   // #7 — path of a file opened in the editor
   const [automating, setAutomating] = useState(false);
   // ONE task-level terminal log: everything any run of this task prints (stage
-  // runs + auto-advance) lands here — shown in the auto-advance card.
+  // runs + auto-advance) lands here — shown in the auto-advance card. The log
+  // lives in a module store keyed pipeline/task, so it survives navigating away
+  // and back: component state alone would die with the unmount while the
+  // background runner keeps going.
   const [taskLog, setTaskLog] = useState("");
-  const appendLog = useCallback((s) => setTaskLog((o) => (o + s).slice(-64000)), []);
+  const key = logKey(pipeline.id, task.id);
+  const appendLog = useCallback((s) => setTaskLog(storeLog(key, s)), [key]);
   const [showTerm, setShowTerm] = useState(false);   // full-height PTY replaces the stage list
   // task-detail view mode: the classic stacked Stages, or one of the three new
   // read/audit views (Inspector / Canvas / Chat) — all read the unified record.
@@ -63,8 +68,10 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   const [plan, setPlan] = useState(null);   // project plan: deps (blocks/needs) + focused-context links
   const autoRef = useRef(null);
   const timeRef = useRef({}); const dirtyRef = useRef(false);
-  const key = pipeline.id + "/" + task.id;
-  useEffect(() => { setTaskLog(""); setShowTerm(false); }, [task.id]);
+  // changing task: restore THIS task's background-run log from the module store
+  // instead of wiping it — the pane keeps showing what the runner did/does even
+  // if you left and came back mid-run. Run-related state always resets.
+  useEffect(() => { setTaskLog(readLog(key)); setShowTerm(false); setAutomating(false); }, [key]);
   useEffect(() => {
     let on = true;
     api.getPlan(dir).then((r) => { if (on) setPlan((r && r.plan) || { deps: {}, milestones: [], pos: {}, links: {} }); });
@@ -77,8 +84,9 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   // The brief (context.md): the task's intent in full. Not part of the project
   // state payload — it's prose per task, loaded on open.
   const [brief, setBrief] = useState("");
-  const loadBrief = useCallback(() => api.getContext(dir, pipeline.id, task.id).then((r) => setBrief((r && r.text) || "")), [dir, pipeline.id, task.id]);
-  useEffect(() => { setBrief(""); loadBrief(); }, [loadBrief]);
+  const [briefLoaded, setBriefLoaded] = useState(false);   // auto-advance waits for this: prompts carry the intent
+  const loadBrief = useCallback(() => api.getContext(dir, pipeline.id, task.id).then((r) => { setBrief((r && r.text) || ""); setBriefLoaded(true); }), [dir, pipeline.id, task.id]);
+  useEffect(() => { setBrief(""); setBriefLoaded(false); loadBrief(); }, [loadBrief]);
   // context.md opens with "# <title>"; the title is already in the header and
   // in the prompt, so strip it and keep the body.
   const briefBody = String(brief || "").replace(/^\s*#[^\n]*\n+/, "").trim();
@@ -216,6 +224,23 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
     else if (end) flash(`Automate stopped at ${end.stoppedAt || "?"}: ${end.error || "failed"}`, 6000);
   };
 
+  // ⚡ AUTO-ADVANCE ON BY DEFAULT: a task with stages still to run starts
+  // advancing the moment it opens — exactly once per task, and only after the
+  // brief is loaded so every stage prompt carries the captured intent. Opening
+  // a task whose run is still live in the background (this window or another),
+  // or one that's already fully done, never restarts anything; the topbar
+  // switch still lets you re-kick advancing after a stop.
+  const autoStartedRef = useRef(null);
+  useEffect(() => {
+    if (autoStartedRef.current === key) return;
+    if (task.finalized || !briefLoaded) return;
+    autoStartedRef.current = key;
+    if (automating) return;   // already advancing (user kicked it manually first)
+    const work = task.stages.some((s) => (task.tracking[s] || {}).status !== "done");
+    const liveHere = runningStages && [...runningStages].some((k) => k.startsWith(key + "/"));
+    if (work && !liveHere) automate();
+  }, [key, briefLoaded, automating, task.finalized, task.stages, task.tracking, runningStages]);
+
   // #15 — commit history (the timeline) leads the rail, ahead of blast radius.
   const timelineCard = (
     <div className="card">
@@ -260,6 +285,20 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
       ))}
     </div>
   );
+
+  // The task-level run log card: it shows whenever there's something to look at
+  // — while auto-advancing, while one of this task's runs is live in the
+  // background (here or in another window), or a log retained from an earlier
+  // run. So the pane is never a flash that vanishes the moment you navigate.
+  const runLogCard = (automating || taskLive || taskLog) ? (
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div className="side-label" style={{ padding: "0 0 8px" }}>
+        {automating ? "⚡ Auto-advancing · " : taskLive ? "⚡ LIVE RUN · " : "⚡ Auto-advance · "}
+        <button className="btn ghost sm" onClick={() => setShowTerm(true)}>open worktree terminal →</button>
+      </div>
+      <div className="term" ref={autoRef}>{taskLog || "…"}</div>
+    </div>
+  ) : null;
 
   return (
     <>
@@ -313,6 +352,7 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
           </div>
         ) : view !== "stages" ? (
           <div className="stages">
+            {runLogCard}
             {(() => {
               const records = buildStageRecords(pipeline, task, timeline, runningStages, stageTime);
               const runner = { dir, pipeline, task, tools, flash, brief: briefBody, onLog: appendLog, onActivity: markActivity, onDone: () => { onChange(); loadTimeline(); }, runningStages };
@@ -326,12 +366,7 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
         ) : (
         <div className="stages">
           <Brief dir={dir} pipeline={pipeline} task={task} text={brief} onSaved={(t) => { setBrief(t); loadTimeline(); }} flash={flash} />
-          {automating && (
-            <div className="card" style={{ marginBottom: 12 }}>
-              <div className="side-label" style={{ padding: "0 0 8px" }}>⚡ Auto-advancing · <button className="btn ghost sm" onClick={() => setShowTerm(true)}>open worktree terminal →</button></div>
-              <div className="term" ref={autoRef}>{taskLog || "…"}</div>
-            </div>
-          )}
+          {runLogCard}
           {stageObjs.map((def, i) => {
             // #7 — a stage's inputs are the previous stage's produced files
             const prevId = i > 0 ? task.stages[i - 1] : null;
