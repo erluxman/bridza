@@ -2,12 +2,6 @@
   "v": 1,
   "items": [
     {
-      "id": "in-lpqqqq",
-      "kind": "idea",
-      "text": "One thing I am noticing is that whenever I use flow, it is not auto advance mode. Every flow should be by default in auto advance mode. Whatever communication is happening between the terminal should be displayed on that pane where we are displaying it. So that I can see what is actually happening in the background.",
-      "time": "2026-09-18T19:27:55.358Z"
-    },
-    {
       "id": "in-qv4sdx",
       "kind": "idea",
       "text": "And the thing that I am seeing is we should have a target branch rather than always merging domain because main-minute we always have the target so we should have a target branch where this particular feature will merge to and of this make sure in every single flow in engineering or product whatever it is after writing any code in the review process there must be a step where it makes the change ready to be merged to the reference branch where it is going to be merged",
