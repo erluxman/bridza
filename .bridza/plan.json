@@ -1,19 +1,8 @@
 {
   "v": 1,
-  "deps": {
-    "engineering/when-i-am-recording-an-idea-in-the-inbox": {
-      "all": [
-        "engineering/the-title-is-taking-a-lot-of-vertical-sp"
-      ],
-      "any": []
-    }
-  },
+  "deps": {},
   "milestones": [],
   "pos": {
-    "engineering/when-i-am-recording-an-idea-in-the-inbox": {
-      "x": 450,
-      "y": 43
-    },
     "engineering/the-title-is-taking-a-lot-of-vertical-sp": {
       "x": 40,
       "y": 44
