@@ -1,4 +1,11 @@
 {
   "v": 1,
-  "items": []
+  "items": [
+    {
+      "id": "in-ku3tkr",
+      "kind": "idea",
+      "text": "It appears that whenever we are done with one feature and we try to merge it with the reference friends by squashing all the comments into one it seems to be You know It seems to be a problem every single time So we should fix it you should fix it We should have a better way of like not having lots of comments But then being able to merge it easily with the reference brands, which is main most most of the time",
+      "time": "2026-09-18T22:35:06.922Z"
+    }
+  ]
 }
