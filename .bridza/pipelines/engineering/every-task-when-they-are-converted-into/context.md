@@ -1,3 +1,3 @@
 # every task when they are converted into folders should contain the…
 
-Describe the intent of this task.
+every task when they are converted into folders should contain the number the number of the task in front of it when we're displaying it in the UI we can truncate that number but when we have that folder it should be there so that it is ordered properly let's assume there will be like one million or get 10 million such you know bugs or issues field or maybe we can just put an integer value for however much preceding zero there will be and we remove that those zero in front of you know the actual numbers when you are actually displaying them in the UI but folders should have those things so that we can we have the order of what you know when they were generated so we can see issues order of order I hope you get the point
