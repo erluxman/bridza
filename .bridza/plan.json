@@ -115,6 +115,10 @@
     "engineering/highlight-selected-task-or-work-item-if": {
       "x": -74,
       "y": 696
+    },
+    "engineering/auto-advance-seems-to-only-works-at-the": {
+      "x": -101,
+      "y": 759
     }
   },
   "sizes": {
