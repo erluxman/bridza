@@ -1,0 +1,78 @@
+{
+  "v": 1,
+  "deps": {
+    "engineering/per-day-dismissal": {
+      "all": [
+        "engineering/welcome-dialog-on-open"
+      ],
+      "any": []
+    },
+    "engineering/time-aware-greeting": {
+      "all": [
+        "engineering/welcome-dialog-on-open"
+      ],
+      "any": []
+    }
+  },
+  "milestones": [
+    {
+      "id": "ms-welcome-dialog",
+      "title": "Welcome dialog on app open",
+      "due": "",
+      "tasks": [
+        "engineering/welcome-dialog-on-open",
+        "engineering/per-day-dismissal",
+        "engineering/time-aware-greeting"
+      ],
+      "needs": []
+    }
+  ],
+  "pos": {
+    "marketing-growth/a-tiktok-video-about-what-bridza-harness": {
+      "x": 26,
+      "y": 436
+    },
+    "engineering/welcome-dialog-on-open": {
+      "x": 28,
+      "y": 52
+    },
+    "engineering/per-day-dismissal": {
+      "x": 477,
+      "y": 52
+    },
+    "engineering/time-aware-greeting": {
+      "x": 482,
+      "y": 138
+    }
+  },
+  "sizes": {
+    "engineering/the-title-is-taking-a-lot-of-vertical-sp": {
+      "w": 345,
+      "h": 59
+    },
+    "engineering/when-i-am-recording-an-idea-in-the-inbox": {
+      "w": 377,
+      "h": 62
+    },
+    "engineering/okay-i-just-have-an-idea-that-when-i-ope": {
+      "w": 504,
+      "h": 65
+    },
+    "marketing-growth/a-tiktok-video-about-what-bridza-harness": {
+      "w": 399,
+      "h": 46
+    }
+  },
+  "links": {},
+  "pipeDeps": [
+    {
+      "from": "product",
+      "to": "engineering"
+    }
+  ],
+  "est": {
+    "engineering/welcome-dialog-on-open": 3,
+    "engineering/per-day-dismissal": 2,
+    "engineering/time-aware-greeting": 1
+  }
+}

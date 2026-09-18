@@ -28,6 +28,28 @@ export const ColGrip = ({ side, ...h }) => <span className={"col-grip " + side} 
 
 export const Kv = ({ k, v }) => <div className="kv"><span>{k}</span><b>{v}</b></div>;
 
+// Long prose that must not be lost to a truncation: clamped to `lines`, with a
+// chevron that reveals the rest IN PLACE. The toggle only appears when the
+// clamp is actually hiding something, so short text looks untouched.
+export function Expandable({ text, lines = 3, className = "", style }) {
+  const [open, setOpen] = useState(false);
+  const [clipped, setClipped] = useState(false);
+  const body = String(text || "");
+  const measure = (el) => { if (el) setClipped(el.scrollHeight - el.clientHeight > 2); };
+  const clamp = { whiteSpace: "pre-wrap", wordBreak: "break-word", display: "-webkit-box", WebkitLineClamp: lines, WebkitBoxOrient: "vertical", overflow: "hidden" };
+  return (
+    <div className={className} style={style}>
+      {/* ref only while clamped — measuring an expanded box always reads 0 */}
+      <div ref={open ? undefined : measure} style={open ? { whiteSpace: "pre-wrap", wordBreak: "break-word" } : clamp}>{body}</div>
+      {(clipped || open) && (
+        <button className="btn ghost sm" style={{ padding: "2px 4px", marginTop: 2, fontSize: 11 }} onClick={() => setOpen((o) => !o)}>
+          {open ? "▾ Show less" : "▸ Show more"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function Modal({ title, children, onClose, onConfirm, confirm }) {
   return (
     <div className="modal-bg" onClick={onClose}>

@@ -7,7 +7,7 @@ import { pipelineFlows, specLabel } from "../../../core/domain.js";
 import { slug, runPrompt, fmt, workFiles, base, ago } from "../lib/format.js";
 import { buildStageRecords, lastRunTool } from "../lib/record.js";
 import { InspectorView, CanvasView, ChatView, StageRunner } from "./views.jsx";
-import { Hamburger, ColGrip, useColWidth, Kv } from "../ui.jsx";
+import { Hamburger, ColGrip, useColWidth, Kv, Expandable } from "../ui.jsx";
 import { DiffView, FileModal } from "./diff.jsx";
 import { TermDrawer } from "./term.jsx";
 
@@ -72,6 +72,15 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
 
   const loadTimeline = useCallback(() => api.getTimeline(dir, pipeline.id, task.id).then((r) => setTimeline(r.commits || [])), [dir, pipeline.id, task.id]);
   useEffect(() => { loadTimeline(); }, [loadTimeline]);
+
+  // The brief (context.md): the task's intent in full. Not part of the project
+  // state payload — it's prose per task, loaded on open.
+  const [brief, setBrief] = useState("");
+  const loadBrief = useCallback(() => api.getContext(dir, pipeline.id, task.id).then((r) => setBrief((r && r.text) || "")), [dir, pipeline.id, task.id]);
+  useEffect(() => { setBrief(""); loadBrief(); }, [loadBrief]);
+  // context.md opens with "# <title>"; the title is already in the header and
+  // in the prompt, so strip it and keep the body.
+  const briefBody = String(brief || "").replace(/^\s*#[^\n]*\n+/, "").trim();
 
   // while any stage of THIS task runs (here, auto-advance, or another window),
   // keep the change timeline live — prompt/result commits appear as they land.
@@ -160,7 +169,7 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
       // remember the agent each stage last ran on (falls back to the stage
       // default, then opencode) so auto-advance doesn't reset every stage
       tool: lastRunTool((task.tracking[def.id] || {}).runs) || def.tool || "opencode",
-      prompt: runPrompt(pipeline, task, def, [task.title && ("Task: " + task.title), task.context, def.hint].filter(Boolean).join("\n\n") || ("Complete the " + (def.name || def.id) + " stage.")),
+      prompt: runPrompt(pipeline, task, def, [task.title && ("Task: " + task.title), briefBody, def.hint].filter(Boolean).join("\n\n") || ("Complete the " + (def.name || def.id) + " stage.")),
       system: def.systemPrompt || "", shell: def.shell || [], workingDir: pipeline.workingDir || ".",
       stageName: def.name || def.id, taskTitle: task.title,
     }));
@@ -235,7 +244,9 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
         <div className="row">
           <Hamburger collapsed={collapsed} onExpandSide={onExpandSide} />
           <button className="btn ghost" onClick={onBack}>← {pipeline.label}</button>
-          <h1 style={{ marginLeft: 6 }}>{task.ref ? <span className="tref">#{task.ref}</span> : null}{task.title}</h1>
+          {/* one line, ellipsised: a long title must never push the toolbar
+              around — the full text lives in the Brief card below */}
+          <h1 className="task-title" style={{ marginLeft: 6 }} title={task.title}>{task.ref ? <span className="tref">#{task.ref}</span> : null}{task.title}</h1>
         </div>
         <div className="row">
           <div className="seg" title="How to view this task's stages. Stages: the classic runner. Inspector / Canvas / Chat: read & audit what each stage did. Terminal: a real shell in this task's worktree.">
@@ -281,7 +292,7 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
           <div className="stages">
             {(() => {
               const records = buildStageRecords(pipeline, task, timeline, runningStages, stageTime);
-              const runner = { dir, pipeline, task, tools, flash, onLog: appendLog, onActivity: markActivity, onDone: () => { onChange(); loadTimeline(); }, runningStages };
+              const runner = { dir, pipeline, task, tools, flash, brief: briefBody, onLog: appendLog, onActivity: markActivity, onDone: () => { onChange(); loadTimeline(); }, runningStages };
               const shared = { onDiff: setDiffCommit, onOpenFile: setFileOpen, runner };
               const activeId = activeStage || openStage || (records[0] && records[0].id);
               if (view === "inspector") return <InspectorView records={records} activeId={activeId} setActiveId={setActiveStage} {...shared} />;
@@ -291,6 +302,7 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
           </div>
         ) : (
         <div className="stages">
+          <Brief dir={dir} pipeline={pipeline} task={task} text={brief} onSaved={(t) => { setBrief(t); loadTimeline(); }} flash={flash} />
           {automating && (
             <div className="card" style={{ marginBottom: 12 }}>
               <div className="side-label" style={{ padding: "0 0 8px" }}>⚡ Auto-advancing · <button className="btn ghost sm" onClick={() => setShowTerm(true)}>open worktree terminal →</button></div>
@@ -304,7 +316,7 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
             const inputFiles = prevDone ? prevDone.files : [];
             return (
             <Stage key={def.id} dir={dir} pipeline={pipeline} task={task} def={def} track={task.tracking[def.id] || { status: "idle" }}
-              live={runningStages && runningStages.has(pipeline.id + "/" + task.id + "/" + def.id)}
+              live={runningStages && runningStages.has(pipeline.id + "/" + task.id + "/" + def.id)} brief={briefBody}
               tools={tools} seconds={stageTime[def.id] || 0} open={openStage === def.id} inputFiles={inputFiles} onOpenFile={setFileOpen} onActivity={markActivity}
               onToggle={() => setOpenStage(openStage === def.id ? "" : def.id)}
               onDone={() => { onChange(); loadTimeline(); }} flash={flash} onDiff={setDiffCommit} resultFor={resultFor} onLog={appendLog} />
@@ -371,6 +383,45 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
       {resolveOpen && <DiffView dir={dir} working pipeline={pipeline.id} task={task.id} flash={flash} onResolve={(action, m) => finalize(action, m)} onClose={() => setResolveOpen(false)} />}
       {fileOpen && <FileModal dir={dir} pipeline={pipeline.id} task={task.id} path={fileOpen} flash={flash} onEdited={() => { onChange(); loadTimeline(); }} onSaved={() => { onChange(); loadTimeline(); }} onClose={() => setFileOpen(null)} />}
     </>
+  );
+}
+
+/* The brief — the task's context.md, i.e. the idea exactly as it was captured.
+   The topbar title is only a headline, so this is where the detail lives:
+   clamped to a few lines with a chevron to expand, and editable in place. It
+   is what every stage prompt is seeded from, so keeping it whole matters. */
+function Brief({ dir, pipeline, task, text, onSaved, flash }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const body = String(text || "").replace(/^\s*#[^\n]*\n+/, "").trim();
+  const heading = "# " + task.title + "\n\n";
+  const save = async () => {
+    const next = heading + draft.trim() + "\n";
+    const r = await api.saveContext(dir, { pipeline: pipeline.id, task: task.id, text: next });
+    if (!r.ok) return flash(r.error);
+    setEditing(false); onSaved(next); flash("brief saved");
+  };
+  return (
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div className="spread" style={{ marginBottom: body || editing ? 8 : 0 }}>
+        <div className="side-label" style={{ padding: 0 }} title="The task's intent (context.md) — fed to every stage prompt">📝 Brief</div>
+        {editing ? (
+          <div className="row" style={{ gap: 6 }}>
+            <button className="btn ghost sm" onClick={() => setEditing(false)}>Cancel</button>
+            <button className="btn primary sm" onClick={save}>Save</button>
+          </div>
+        ) : (
+          <button className="btn ghost sm" onClick={() => { setDraft(body); setEditing(true); }}>✎ Edit</button>
+        )}
+      </div>
+      {editing ? (
+        <textarea className="input" style={{ minHeight: 160 }} autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} />
+      ) : body ? (
+        <Expandable text={body} lines={6} style={{ fontSize: 13.5, lineHeight: 1.55 }} />
+      ) : (
+        <p className="muted" style={{ margin: 0, fontSize: 13 }}>No brief yet — ✎ Edit to describe what this task is for.</p>
+      )}
+    </div>
   );
 }
 
@@ -556,7 +607,7 @@ function BlastRadius({ dir, pipeline, task, refreshKey, onOpen }) {
   );
 }
 
-function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle, onDone, flash, onDiff, resultFor, live, onLog, inputFiles = [], onOpenFile, onActivity }) {
+function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle, onDone, flash, onDiff, resultFor, live, onLog, inputFiles = [], onOpenFile, onActivity, brief = "" }) {
   const runs = track.runs || [];
   const [running, setRunning] = useState(false);   // lifted from StageRunner for the header (stop/tag)
   const [histOpen, setHistOpen] = useState(false);
@@ -594,7 +645,7 @@ function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle
       </div>
       {open && (
         <div className="stage-body">
-          <StageRunner dir={dir} pipeline={pipeline} task={task} def={def} track={track} tools={tools} live={live} seconds={seconds}
+          <StageRunner dir={dir} pipeline={pipeline} task={task} def={def} track={track} tools={tools} live={live} seconds={seconds} brief={brief}
             onDone={onDone} flash={flash} onLog={onLog} onActivity={onActivity} onRunning={setRunning} />
           {def.specs && def.specs.filter((v) => v.key && String(v.value || "").trim()).length > 0 && (
             <div className="muted" style={{ fontSize: 12, marginTop: 8 }} title="Appended to every run's prompt as hard requirements">

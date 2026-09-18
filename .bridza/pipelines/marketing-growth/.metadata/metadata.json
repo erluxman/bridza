@@ -1,0 +1,1046 @@
+{
+  "v": 1,
+  "id": "marketing-growth",
+  "label": "Marketing & Growth",
+  "workingDir": ".",
+  "flows": [
+    {
+      "id": "campaign-brief",
+      "name": "Campaign brief",
+      "stages": [
+        {
+          "id": "research",
+          "name": "Research",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a market researcher. Produce a crisp brief from the task intent only. Frame channel thinking with the Bullseye framework (Traction, Weinberg & Mares): list plausible traction channels before anchoring on the obvious one. Write brief.md.",
+          "outputs": [
+            {
+              "name": "brief.md",
+              "type": "doc",
+              "note": "problem + audience"
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "reviewed",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "planning",
+          "name": "Planning",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a campaign planner. Turn the brief into a concrete plan: rank channels into Bullseye rings (outer = possible, middle = probable, inner = the 1–3 to test now) with a cheap test per inner-ring channel. Write plan.md.",
+          "outputs": [
+            {
+              "name": "plan.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "reviewed",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "spec",
+          "name": "Spec",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a copy/spec writer. Produce the final deliverable spec from the plan. Write spec.md.",
+          "outputs": [
+            {
+              "name": "spec.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "reviewed",
+          "auto": false,
+          "judge": true
+        }
+      ],
+      "next": null
+    },
+    {
+      "id": "social-campaign",
+      "name": "Social campaign",
+      "stages": [
+        {
+          "id": "soc-research",
+          "name": "Research",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a social strategist. Research the audience, competitors, and platform trends relevant to the task intent. Write research.md.",
+          "outputs": [
+            {
+              "name": "research.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [
+            {
+              "key": "platforms",
+              "value": ""
+            },
+            {
+              "key": "target-age",
+              "value": ""
+            },
+            {
+              "key": "campaign-budget",
+              "value": ""
+            }
+          ],
+          "shell": [],
+          "gate": "insights reviewed",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "strategy",
+          "name": "Strategy",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a campaign planner. Read research.md. Define goals, KPIs, platform mix, content pillars, and cadence. Write strategy.md.",
+          "outputs": [
+            {
+              "name": "strategy.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "strategy approved",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "calendar",
+          "name": "Content calendar",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a content planner. Read strategy.md. Produce a dated content calendar: per-post platform, format, topic, CTA. Write calendar.md.",
+          "outputs": [
+            {
+              "name": "calendar.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "calendar approved",
+          "auto": false,
+          "judge": true
+        },
+        {
+          "id": "assets",
+          "name": "Copy & assets",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a copywriter and art director. Write the copy and visual briefs for every calendar entry. Write posts/ one file per post.",
+          "outputs": [
+            {
+              "name": "posts/",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "assets ready",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "launch",
+          "name": "Schedule & KPIs",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a social media manager. Produce the scheduling plan and the KPI tracking sheet (what to measure, when, targets). Write schedule.md and kpis.md.",
+          "outputs": [
+            {
+              "name": "schedule.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "kpis.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "scheduled",
+          "auto": false,
+          "judge": false
+        }
+      ],
+      "next": null
+    },
+    {
+      "id": "single-post",
+      "name": "Single post",
+      "stages": [
+        {
+          "id": "post-brief",
+          "name": "Brief",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a social editor. Turn the task intent into a one-post brief: platform, audience, message, CTA. Write brief.md.",
+          "outputs": [
+            {
+              "name": "brief.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [
+            {
+              "key": "platforms",
+              "value": ""
+            }
+          ],
+          "shell": [],
+          "gate": "brief ok",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "post",
+          "name": "Copy & visual",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a copywriter. From brief.md write the post copy (with variants — one AIDA-shaped, one PAS-shaped: Problem, Agitate, Solve), hashtags, and the visual brief. Write post.md.",
+          "outputs": [
+            {
+              "name": "post.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "approved",
+          "auto": false,
+          "judge": true
+        }
+      ],
+      "next": null
+    },
+    {
+      "id": "fire-drill",
+      "name": "Community fire drill",
+      "stages": [
+        {
+          "id": "triage",
+          "name": "Triage",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a community manager handling an incident. Assess what happened, sentiment, spread, and severity. Write triage.md. Recommend respond/ignore/escalate.",
+          "outputs": [
+            {
+              "name": "triage.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "severity agreed",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "respond",
+          "name": "Response plan",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a comms lead. From triage.md draft the public response(s), internal talking points, and do/don't list. Write response.md.",
+          "outputs": [
+            {
+              "name": "response.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "responses approved",
+          "auto": false,
+          "judge": true
+        },
+        {
+          "id": "followup",
+          "name": "Follow-up report",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are an analyst. Write the post-incident report: timeline, impact, learnings, prevention. Write postmortem.md.",
+          "outputs": [
+            {
+              "name": "postmortem.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "closed",
+          "auto": false,
+          "judge": false
+        }
+      ],
+      "next": null
+    },
+    {
+      "id": "site-audit",
+      "name": "SEO site audit",
+      "stages": [
+        {
+          "id": "crawl",
+          "name": "Crawl audit",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a technical SEO. Audit the site named in the task intent against Google Search Central guidelines: indexing, speed (Core Web Vitals), structure, schema, internal linking, and E-E-A-T signals (experience, expertise, authoritativeness, trust — trust weighs most). Write audit.md with prioritized findings.",
+          "outputs": [
+            {
+              "name": "audit.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [
+            {
+              "key": "target-locale",
+              "value": ""
+            },
+            {
+              "key": "primary-market",
+              "value": ""
+            }
+          ],
+          "shell": [],
+          "gate": "findings reviewed",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "techfix",
+          "name": "Technical fixes",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are an SEO engineer. Turn audit.md findings into concrete fix specs with effort estimates. Write fixes.md.",
+          "outputs": [
+            {
+              "name": "fixes.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "fixes specced",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "gaps",
+          "name": "Content gaps",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a content strategist. Map keyword/content gaps vs competitors. Write content-gaps.md.",
+          "outputs": [
+            {
+              "name": "content-gaps.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "gaps agreed",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "roadmap",
+          "name": "Roadmap",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are an SEO lead. Combine fixes.md and content-gaps.md into a quarter roadmap with expected impact. Write roadmap.md.",
+          "outputs": [
+            {
+              "name": "roadmap.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "roadmap approved",
+          "auto": false,
+          "judge": true
+        }
+      ],
+      "next": null
+    },
+    {
+      "id": "keyword-sprint",
+      "name": "Keyword sprint",
+      "stages": [
+        {
+          "id": "keywords",
+          "name": "Keyword research",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a keyword researcher. For the topic in the task intent, cluster keywords by SEARCH INTENT (informational / commercial / transactional / navigational, per Ahrefs & Moz practice) and pick the primary + secondaries you can plausibly win. Write keywords.md.",
+          "outputs": [
+            {
+              "name": "keywords.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "keywords chosen",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "kw-brief",
+          "name": "Content brief",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a content editor. From keywords.md write the article brief: outline, entities to cover, internal links, meta. Write brief.md.",
+          "outputs": [
+            {
+              "name": "brief.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "brief approved",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "draft",
+          "name": "Draft",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a writer. Write the article per brief.md — people-first per Google's helpful-content guidance: first-hand specifics, original perspective, no filler; it must be worth reading even if search engines didn't exist. Write draft.md.",
+          "outputs": [
+            {
+              "name": "draft.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "draft reviewed",
+          "auto": false,
+          "judge": true
+        },
+        {
+          "id": "onpage",
+          "name": "On-page optimization",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are an on-page SEO. Final pass on draft.md: title/meta, headings, schema, links, image alts. Write final.md and checklist.md.",
+          "outputs": [
+            {
+              "name": "final.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "checklist.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "published",
+          "auto": false,
+          "judge": false
+        }
+      ],
+      "next": null
+    },
+    {
+      "id": "rank-drop",
+      "name": "Rank drop (urgent)",
+      "stages": [
+        {
+          "id": "diagnose",
+          "name": "Diagnose",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are an SEO incident analyst. Diagnose the ranking drop in the task intent: algo update, technical regression, lost links, SERP change. Write diagnosis.md.",
+          "outputs": [
+            {
+              "name": "diagnosis.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "cause identified",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "fixplan",
+          "name": "Fix plan",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are an SEO engineer. From diagnosis.md write the recovery plan ordered by impact. Write recovery.md.",
+          "outputs": [
+            {
+              "name": "recovery.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "fixes shipped",
+          "auto": false,
+          "judge": true
+        },
+        {
+          "id": "monitor",
+          "name": "Monitor report",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are an analyst. Define what to watch, checkpoints, and the recovery report template. Write monitoring.md.",
+          "outputs": [
+            {
+              "name": "monitoring.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "recovered",
+          "auto": false,
+          "judge": false
+        }
+      ],
+      "next": null
+    }
+  ],
+  "stages": [
+    {
+      "id": "research",
+      "name": "Research",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a market researcher. Produce a crisp brief from the task intent only. Frame channel thinking with the Bullseye framework (Traction, Weinberg & Mares): list plausible traction channels before anchoring on the obvious one. Write brief.md.",
+      "outputs": [
+        {
+          "name": "brief.md",
+          "type": "doc",
+          "note": "problem + audience"
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "reviewed",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "planning",
+      "name": "Planning",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a campaign planner. Turn the brief into a concrete plan: rank channels into Bullseye rings (outer = possible, middle = probable, inner = the 1–3 to test now) with a cheap test per inner-ring channel. Write plan.md.",
+      "outputs": [
+        {
+          "name": "plan.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "reviewed",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "spec",
+      "name": "Spec",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a copy/spec writer. Produce the final deliverable spec from the plan. Write spec.md.",
+      "outputs": [
+        {
+          "name": "spec.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "reviewed",
+      "auto": false,
+      "judge": true
+    },
+    {
+      "id": "soc-research",
+      "name": "Research",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a social strategist. Research the audience, competitors, and platform trends relevant to the task intent. Write research.md.",
+      "outputs": [
+        {
+          "name": "research.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [
+        {
+          "key": "platforms",
+          "value": ""
+        },
+        {
+          "key": "target-age",
+          "value": ""
+        },
+        {
+          "key": "campaign-budget",
+          "value": ""
+        }
+      ],
+      "shell": [],
+      "gate": "insights reviewed",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "strategy",
+      "name": "Strategy",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a campaign planner. Read research.md. Define goals, KPIs, platform mix, content pillars, and cadence. Write strategy.md.",
+      "outputs": [
+        {
+          "name": "strategy.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "strategy approved",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "calendar",
+      "name": "Content calendar",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a content planner. Read strategy.md. Produce a dated content calendar: per-post platform, format, topic, CTA. Write calendar.md.",
+      "outputs": [
+        {
+          "name": "calendar.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "calendar approved",
+      "auto": false,
+      "judge": true
+    },
+    {
+      "id": "assets",
+      "name": "Copy & assets",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a copywriter and art director. Write the copy and visual briefs for every calendar entry. Write posts/ one file per post.",
+      "outputs": [
+        {
+          "name": "posts/",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "assets ready",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "launch",
+      "name": "Schedule & KPIs",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a social media manager. Produce the scheduling plan and the KPI tracking sheet (what to measure, when, targets). Write schedule.md and kpis.md.",
+      "outputs": [
+        {
+          "name": "schedule.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "kpis.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "scheduled",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "post-brief",
+      "name": "Brief",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a social editor. Turn the task intent into a one-post brief: platform, audience, message, CTA. Write brief.md.",
+      "outputs": [
+        {
+          "name": "brief.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [
+        {
+          "key": "platforms",
+          "value": ""
+        }
+      ],
+      "shell": [],
+      "gate": "brief ok",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "post",
+      "name": "Copy & visual",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a copywriter. From brief.md write the post copy (with variants — one AIDA-shaped, one PAS-shaped: Problem, Agitate, Solve), hashtags, and the visual brief. Write post.md.",
+      "outputs": [
+        {
+          "name": "post.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "approved",
+      "auto": false,
+      "judge": true
+    },
+    {
+      "id": "triage",
+      "name": "Triage",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a community manager handling an incident. Assess what happened, sentiment, spread, and severity. Write triage.md. Recommend respond/ignore/escalate.",
+      "outputs": [
+        {
+          "name": "triage.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "severity agreed",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "respond",
+      "name": "Response plan",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a comms lead. From triage.md draft the public response(s), internal talking points, and do/don't list. Write response.md.",
+      "outputs": [
+        {
+          "name": "response.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "responses approved",
+      "auto": false,
+      "judge": true
+    },
+    {
+      "id": "followup",
+      "name": "Follow-up report",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are an analyst. Write the post-incident report: timeline, impact, learnings, prevention. Write postmortem.md.",
+      "outputs": [
+        {
+          "name": "postmortem.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "closed",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "crawl",
+      "name": "Crawl audit",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a technical SEO. Audit the site named in the task intent against Google Search Central guidelines: indexing, speed (Core Web Vitals), structure, schema, internal linking, and E-E-A-T signals (experience, expertise, authoritativeness, trust — trust weighs most). Write audit.md with prioritized findings.",
+      "outputs": [
+        {
+          "name": "audit.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [
+        {
+          "key": "target-locale",
+          "value": ""
+        },
+        {
+          "key": "primary-market",
+          "value": ""
+        }
+      ],
+      "shell": [],
+      "gate": "findings reviewed",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "techfix",
+      "name": "Technical fixes",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are an SEO engineer. Turn audit.md findings into concrete fix specs with effort estimates. Write fixes.md.",
+      "outputs": [
+        {
+          "name": "fixes.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "fixes specced",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "gaps",
+      "name": "Content gaps",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a content strategist. Map keyword/content gaps vs competitors. Write content-gaps.md.",
+      "outputs": [
+        {
+          "name": "content-gaps.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "gaps agreed",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "roadmap",
+      "name": "Roadmap",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are an SEO lead. Combine fixes.md and content-gaps.md into a quarter roadmap with expected impact. Write roadmap.md.",
+      "outputs": [
+        {
+          "name": "roadmap.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "roadmap approved",
+      "auto": false,
+      "judge": true
+    },
+    {
+      "id": "keywords",
+      "name": "Keyword research",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a keyword researcher. For the topic in the task intent, cluster keywords by SEARCH INTENT (informational / commercial / transactional / navigational, per Ahrefs & Moz practice) and pick the primary + secondaries you can plausibly win. Write keywords.md.",
+      "outputs": [
+        {
+          "name": "keywords.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "keywords chosen",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "kw-brief",
+      "name": "Content brief",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a content editor. From keywords.md write the article brief: outline, entities to cover, internal links, meta. Write brief.md.",
+      "outputs": [
+        {
+          "name": "brief.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "brief approved",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "draft",
+      "name": "Draft",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a writer. Write the article per brief.md — people-first per Google's helpful-content guidance: first-hand specifics, original perspective, no filler; it must be worth reading even if search engines didn't exist. Write draft.md.",
+      "outputs": [
+        {
+          "name": "draft.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "draft reviewed",
+      "auto": false,
+      "judge": true
+    },
+    {
+      "id": "onpage",
+      "name": "On-page optimization",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are an on-page SEO. Final pass on draft.md: title/meta, headings, schema, links, image alts. Write final.md and checklist.md.",
+      "outputs": [
+        {
+          "name": "final.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "checklist.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "published",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "diagnose",
+      "name": "Diagnose",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are an SEO incident analyst. Diagnose the ranking drop in the task intent: algo update, technical regression, lost links, SERP change. Write diagnosis.md.",
+      "outputs": [
+        {
+          "name": "diagnosis.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "cause identified",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "fixplan",
+      "name": "Fix plan",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are an SEO engineer. From diagnosis.md write the recovery plan ordered by impact. Write recovery.md.",
+      "outputs": [
+        {
+          "name": "recovery.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "fixes shipped",
+      "auto": false,
+      "judge": true
+    },
+    {
+      "id": "monitor",
+      "name": "Monitor report",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are an analyst. Define what to watch, checkpoints, and the recovery report template. Write monitoring.md.",
+      "outputs": [
+        {
+          "name": "monitoring.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "recovered",
+      "auto": false,
+      "judge": false
+    }
+  ],
+  "templates": []
+}

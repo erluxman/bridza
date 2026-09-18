@@ -6,6 +6,26 @@ import { STARTER_PIPELINES, pipelineFlows, parsePipelineFile, recommendFlow } fr
 import { base, slug, lsGet, lsSet, recKey } from "../lib/format.js";
 import { Modal, Field } from "../ui.jsx";
 
+// A greeting shown once when the app opens; Esc, ✕ or the backdrop dismiss it.
+export function WelcomeDialog({ onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="Welcome" onClick={(e) => e.stopPropagation()}>
+        <div className="spread" style={{ marginBottom: 10 }}>
+          <h2 style={{ marginTop: 0, fontSize: 17 }}>Welcome 👋</h2>
+          <button className="btn ghost sm" onClick={onClose} title="Dismiss">✕</button>
+        </div>
+        <p style={{ margin: 0 }}>Good luck with today's work — make it count.</p>
+      </div>
+    </div>
+  );
+}
+
 export function Welcome({ recents, onPick, onOpen, onForget, error }) {
   const [typed, setTyped] = useState("");
   // On the DEPLOYED (static) site there is no local bridge — no folder picker,

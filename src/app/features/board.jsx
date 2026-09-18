@@ -73,7 +73,7 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
                 {byCol[c].map((t) => (
                   <div className="kcard" key={t.id} style={{ position: "relative" }} onClick={() => onOpen(t.id)}
                     onMouseEnter={() => setHover(t.id)} onMouseLeave={() => { setHover((h) => (h === t.id ? null : h)); }}>
-                    <div className="spread"><b>{t.ref ? <span className="tref">#{t.ref}</span> : null}{t.title}</b>{runningTasks && runningTasks.has(pipeline.id + "/" + t.id) ? <span className="tag running"><span className="livedot" /> running</span> : t.finalized && <span className="tag done">✓</span>}</div>
+                    <div className="spread"><b title={t.title}>{t.ref ? <span className="tref">#{t.ref}</span> : null}{t.title}</b>{runningTasks && runningTasks.has(pipeline.id + "/" + t.id) ? <span className="tag running"><span className="livedot" /> running</span> : t.finalized && <span className="tag done">✓</span>}</div>
                     <div className="muted mono kcard-branch">{t.branch}</div>
                     <div className="bar"><i style={{ width: t.progress + "%" }} /></div>
                     <div className="muted" style={{ fontSize: 11, marginTop: 5 }}>{t.progress}% · {t.stages.length} stages</div>

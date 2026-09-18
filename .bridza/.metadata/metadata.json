@@ -1,0 +1,8 @@
+{
+  "v": 1,
+  "name": "bridza",
+  "merge": "merge",
+  "defaults": {
+    "tool": "opencode"
+  }
+}

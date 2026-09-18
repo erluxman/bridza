@@ -18,21 +18,28 @@ const led = (s) => "uxv-led " + (STATUS.includes(s) ? s : "idle");
 // new views: agent (tool) picker, optional model, the stage's system prompt
 // (viewable), an editable user prompt, Run, and live output. Self-contained — it
 // owns its own tool/model/prompt/output state and calls api.runStage directly.
-export function StageRunner({ dir, pipeline, task, def, track, tools = [], live, seconds = 0, onDone, flash, onLog, onActivity, onRunning }) {
+export function StageRunner({ dir, pipeline, task, def, track, tools = [], live, seconds = 0, onDone, flash, onLog, onActivity, onRunning, brief = "" }) {
   const runs = track.runs || [];
   const lastPrompt = runs.length ? (runs[runs.length - 1].prompt || "") : "";
+  // First run of a stage starts from the task's brief (title + context.md +
+  // the stage hint) — the same text auto-advance would send, so the intent the
+  // user captured is there to edit instead of an empty box.
+  const seed = () => lastPrompt || [task.title && ("Task: " + task.title), brief, def.hint].filter(Boolean).join("\n\n");
   const remembered = () => lastRunTool(runs) || def.tool || (tools[0] && tools[0].id) || "opencode";
   const [tool, setTool] = useState(remembered);
   const [model, setModel] = useState(lastRunModel(runs));
   const [models, setModels] = useState([]);
-  const [prompt, setPrompt] = useState(lastPrompt);
+  const [prompt, setPrompt] = useState(seed);
   const [out, setOut] = useState("");
   const [running, setRunning] = useState(false);
   const [sysOpen, setSysOpen] = useState(false);
   const termRef = useRef(null);
   // switching task/stage re-seeds from that stage's last run: prompt, agent AND
   // model — so you resume with exactly what you last used, not the tool default.
-  useEffect(() => { setPrompt(lastPrompt); setTool(remembered()); setModel(lastRunModel(runs)); setOut(""); }, [task.id, def.id]);
+  useEffect(() => { setPrompt(seed()); setTool(remembered()); setModel(lastRunModel(runs)); setOut(""); }, [task.id, def.id]);
+  // the brief loads async, usually after this mounts — fill the box only while
+  // it's still empty, so it never clobbers what the user is typing
+  useEffect(() => { if (brief) setPrompt((p) => p || seed()); }, [brief]);
   useEffect(() => { if (termRef.current) termRef.current.scrollTop = termRef.current.scrollHeight; }, [out]);
   useEffect(() => { let on = true; api.getModels(dir, tool).then((r) => { if (on) setModels((r && r.models) || []); }); return () => { on = false; }; }, [dir, tool]);
 

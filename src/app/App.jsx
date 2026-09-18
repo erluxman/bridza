@@ -5,7 +5,7 @@ import "./bridza.css";
 import * as api from "./api/client.js";
 import { LS, readRecents } from "./lib/format.js";
 import { useColWidth, ColGrip } from "./ui.jsx";
-import { Welcome, PipelinePicker, NewPipelineModal, NewTaskModal } from "./features/onboarding.jsx";
+import { Welcome, WelcomeDialog, PipelinePicker, NewPipelineModal, NewTaskModal } from "./features/onboarding.jsx";
 import { Sidebar, Inbox } from "./features/nav.jsx";
 import { Board } from "./features/board.jsx";
 import { TaskDetail } from "./features/task.jsx";
@@ -22,6 +22,7 @@ export default function App() {
   const [toast, setToast] = useState("");
   const toastTimer = useRef(null);
   const [modal, setModal] = useState(null);
+  const [welcomeOpen, setWelcomeOpen] = useState(true);
   const [sideCollapsed, setSideCollapsed] = useState(() => localStorage.getItem(LS.side) === "1");
   const [sideW, sideGrip] = useColWidth("bridza.sideW", 264, { min: 200, max: 460, side: "left" });
   const [flowOpen, setFlowOpen] = useState(false);
@@ -95,7 +96,7 @@ export default function App() {
   return (
     <div className={"app" + (sideCollapsed ? " side-collapsed" : "")} style={sideCollapsed ? undefined : { gridTemplateColumns: `${sideW}px 1fr`, position: "relative" }}>
       {!sideCollapsed && (
-        <Sidebar proj={proj} running={running} runningTasks={runningTasks} active={activePipe} onPipe={(id) => { setActivePipe(id); setActiveTask(""); setFlowOpen(false); setInboxOpen(false); setPlanOpen(false); }}
+        <Sidebar proj={proj} running={running} runningTasks={runningTasks} active={activePipe} dir={dir} onChange={refresh} flash={flash} onPipe={(id) => { setActivePipe(id); setActiveTask(""); setFlowOpen(false); setInboxOpen(false); setPlanOpen(false); }}
           onNewPipe={() => setModal({ type: "pipeline" })} onClose={closeProject} onPick={pick} recents={recents} onOpen={openDir}
           onOpenTask={(pid, tid) => { setInboxOpen(false); setFlowOpen(false); setPlanOpen(false); setActivePipe(pid); setActiveTask(tid); }}
           onCollapse={() => collapse(true)} inboxCount={(proj.inbox || []).length} inboxActive={inboxOpen} onInbox={() => { setInboxOpen(true); setActiveTask(""); setFlowOpen(false); setPlanOpen(false); }}
@@ -127,6 +128,7 @@ export default function App() {
         <NewTaskModal dir={dir} pipeline={pipeline} onClose={() => setModal(null)}
           onDone={(tid) => { setModal(null); refresh().then(() => setActiveTask(tid)); flash("task created"); }} flash={flash} />
       )}
+      {welcomeOpen && <WelcomeDialog onClose={() => setWelcomeOpen(false)} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
   );

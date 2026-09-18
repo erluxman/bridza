@@ -6,9 +6,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { ensureDataDir, readProject, readPlan, savePlan, createPipeline, savePipeline, archivePipeline, createTask, deleteTask, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox } from "../../../server/bridza-store.js";
+import { ensureDataDir, readProject, readPlan, savePlan, createPipeline, savePipeline, archivePipeline, createTask, deleteTask, readContext, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox } from "../../../server/bridza-store.js";
 import { runStage, git } from "../../../server/bridza-run.js";
-import { STARTER_PIPELINES, rel, judgeStageId, pipelineFlows, exportFlow, parseFlowFile, exportPipeline, parsePipelineFile } from "../../../core/domain.js";
+import { STARTER_PIPELINES, rel, judgeStageId, pipelineFlows, exportFlow, parseFlowFile, exportPipeline, parsePipelineFile, shortTitle } from "../../../core/domain.js";
 
 vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
 
@@ -454,6 +454,61 @@ describe("inbox", () => {
   it("rejects empty capture and unknown promote", () => {
     expect(addInbox(root, { text: "  " }).error).toMatch(/empty/);
     expect(promoteInbox(root, { id: "nope", pipeline: "marketing" }).error).toMatch(/not found/);
+  });
+
+  // A long capture must survive promotion IN FULL: the title is only a
+  // headline, the whole text becomes the task's brief (context.md).
+  it("keeps the whole capture as the brief and headlines the title", () => {
+    createPipeline(root, MARKETING);
+    const long = "Right now it seems a little bit confusing whether the stage flow runs top to bottom or "
+      + "left to right, and the labels do not say which one is current.\n\nIt should show the active stage clearly.";
+    const a = addInbox(root, { kind: "idea", text: long });
+    const p = promoteInbox(root, { id: a.item.id, pipeline: "marketing" });
+    expect(p.ok).toBe(true);
+
+    expect(p.task.title).toBe("Right now it seems a little bit confusing whether the stage flow…");
+    expect(p.task.title.length).toBeLessThanOrEqual(74);
+    // the on-disk id / branch name is the only dashed form, and it cuts on a
+    // word boundary rather than mid-word
+    expect(p.task.id).toBe("right-now-it-seems-a-little-bit");
+    expect(p.task.id).not.toMatch(/^-|-$/);
+
+    const ctx = fs.readFileSync(path.join(root, rel.taskContext("marketing", p.task.id)), "utf8");
+    expect(ctx).toContain(long);                                           // nothing dropped
+    expect(ctx.split("\n")[0]).toBe("# " + p.task.title);
+    expect(readContext(root, { pipeline: "marketing", task: p.task.id }).text).toBe(ctx);
+  });
+
+  it("takes an explicit title and edited description from the promote dialog", () => {
+    createPipeline(root, MARKETING);
+    const a = addInbox(root, { kind: "bug", text: "raw capture" });
+    const p = promoteInbox(root, {
+      id: a.item.id, pipeline: "marketing",
+      title: "Stage flow direction is unclear", description: "raw capture\n\nplus what I worked out afterwards",
+    });
+    expect(p.task.title).toBe("Stage flow direction is unclear");
+    expect(p.task.id).toBe("stage-flow-direction-is-unclear");
+    const ctx = fs.readFileSync(path.join(root, rel.taskContext("marketing", p.task.id)), "utf8");
+    expect(ctx).toBe("# Stage flow direction is unclear\n\nraw capture\n\nplus what I worked out afterwards\n");
+  });
+});
+
+describe("shortTitle", () => {
+  it("headlines prose without dashes, never mid-word, and leaves short text alone", () => {
+    expect(shortTitle("Add dark mode")).toBe("Add dark mode");                 // short → untouched
+    expect(shortTitle("")).toBe("");
+    expect(shortTitle("  \n\n  Second line is the first real one")).toBe("Second line is the first real one");
+    expect(shortTitle("# Already a heading")).toBe("Already a heading");       // markdown heading stripped
+    expect(shortTitle("one two three four five six seven eight nine ten eleven twelve thirteen"))
+      .toBe("one two three four five six seven eight nine ten eleven twelve…");
+    // char budget wins over the word budget, and never cuts mid-word
+    const t = shortTitle("supercalifragilistic expialidocious antidisestablishmentarianism pneumonoultramicroscopic volcano");
+    expect(t.endsWith("…")).toBe(true);
+    expect(t.replace("…", "").split(" ").every((w) => "supercalifragilistic expialidocious antidisestablishmentarianism pneumonoultramicroscopic volcano".includes(w))).toBe(true);
+    expect(t.length).toBeLessThanOrEqual(73);
+    // a dangling comma before the ellipsis reads like a typo
+    expect(shortTitle("alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu, nu xi")).not.toContain(",…");
+    expect(shortTitle("spaces  and\ttabs collapse")).toBe("spaces and tabs collapse");
   });
 });
 

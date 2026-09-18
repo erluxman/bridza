@@ -1,0 +1,812 @@
+{
+  "v": 1,
+  "id": "engineering",
+  "label": "Engineering",
+  "workingDir": ".",
+  "flows": [
+    {
+      "id": "full-sdlc",
+      "name": "Full product SDLC",
+      "stages": [
+        {
+          "id": "vision",
+          "name": "Vision",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a product strategist. Using ONLY the task intent, write the product vision: the problem, the SPECIFIC target users, their jobs-to-be-done, the value proposition, and measurable success criteria. Use Amazon's Working Backwards method — open with the future press release and FAQ, then the details. Write it to docs/vision.md. Do NOT write requirements, designs, or any code yet.",
+          "outputs": [
+            {
+              "name": "docs/vision.md",
+              "type": "doc",
+              "note": "problem, users, value, success metrics"
+            }
+          ],
+          "specs": [
+            {
+              "key": "potential-userbase",
+              "value": ""
+            },
+            {
+              "key": "target-age",
+              "value": ""
+            }
+          ],
+          "shell": [],
+          "gate": "vision approved",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "requirements",
+          "name": "Requirements",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a business analyst. Read docs/vision.md. Produce detailed product requirements and user stories with acceptance criteria (Given/When/Then). Cover functional AND non-functional needs, honoring every stage spec (OS, form factors, offline…) as a hard constraint. Write docs/requirements.md and docs/user-stories.md. Do NOT design UI or write any code.",
+          "outputs": [
+            {
+              "name": "docs/requirements.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "docs/user-stories.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [
+            {
+              "key": "target-os",
+              "value": ""
+            },
+            {
+              "key": "form-factors",
+              "value": ""
+            },
+            {
+              "key": "offline",
+              "value": ""
+            }
+          ],
+          "shell": [],
+          "gate": "requirements signed off",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "architecture",
+          "name": "Design & Architecture",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a product designer and software architect. Read docs/vision.md and docs/requirements.md. Define the UX (screen list, navigation, layout rules for every required form factor), the data model, and the app architecture (folder structure, state management, key libraries) for the stack in the specs — or the repo's existing stack if none is specified. Prefer the platform's native capabilities over extra dependencies. Write docs/design.md and docs/architecture.md. Because UX is best judged by seeing and clicking it, ALSO build an interactive prototype as ONE self-contained static HTML file (inline CSS + JS, no external/CDN dependencies, works by opening the file directly): render every screen, make the primary navigation and interactive states actually work, use placeholder data, and cover the required form factors responsively. Write docs/prototype.html. Do NOT write application code yet.",
+          "outputs": [
+            {
+              "name": "docs/design.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "docs/architecture.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "docs/prototype.html",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [
+            {
+              "key": "framework",
+              "value": ""
+            }
+          ],
+          "shell": [],
+          "gate": "design approved",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "planning",
+          "name": "Sprint Planning",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are an agile lead. Read the docs/ design and requirements. Break the work into a prioritized backlog of concrete, small tasks mapped to user stories (each INVEST: independent, valuable, small, testable). Your PRIMARY output is the PLAN BOARD, not documents: FIRST read .bridza/.metadata/creation-guide.md and follow it exactly — create each task under .bridza/pipelines/ with metadata.json + context.md, wire the AND/OR dependency network into .bridza/plan.json deps (only real ordering; independent tasks get none; deps may cross pipelines), estimate every task in hours under est, and group them into milestones (a milestone may span pipelines). Then summarize in docs/backlog.md and docs/sprint-plan.md. The user will review and rearrange the board afterwards. Do NOT write code.",
+          "outputs": [
+            {
+              "name": ".bridza/pipelines/",
+              "type": "issue",
+              "note": "tasks + deps + estimates + milestones on the plan board"
+            },
+            {
+              "name": "docs/backlog.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "docs/sprint-plan.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [
+            "node -e \"const f=require('fs');const p=f.existsSync('.bridza/plan.json')?JSON.parse(f.readFileSync('.bridza/plan.json','utf8')):{};if(!Object.keys(p.deps||{}).length&&!(p.milestones||[]).length){console.error('MANDATORY: plan board is empty - this stage must create tasks + deps/est/milestones per .bridza/.metadata/creation-guide.md');process.exit(1)}\""
+          ],
+          "gate": "plan board populated",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "implementation",
+          "name": "Implementation",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a senior engineer. Read ALL docs/. Scaffold the project only if it isn't already, using the stack from docs/architecture.md. Implement the features from docs/sprint-plan.md following docs/architecture.md. Work lazily-well: reuse what the codebase already has before writing new code, prefer the standard library and platform features over new dependencies, no speculative abstractions — the smallest change that satisfies the plan. Run the project's build/lint and fix problems. Implement only what the plan calls for.",
+          "outputs": [
+            {
+              "name": "src/",
+              "type": "doc",
+              "note": "the implemented app"
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "builds & runs",
+          "auto": false,
+          "judge": true
+        },
+        {
+          "id": "testing",
+          "name": "Testing",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a QA engineer. Read docs/ and the implemented code. Write tests covering the core features and the acceptance criteria in docs/user-stories.md, using the project's existing test runner and conventions. Run the tests and fix failures. Summarize results in docs/test-report.md.",
+          "outputs": [
+            {
+              "name": "test/",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "docs/test-report.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "tests pass",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "release",
+          "name": "Review & Release",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a tech lead. Review the implementation against docs/requirements.md and the acceptance criteria in docs/user-stories.md. Note any gaps, write a short retrospective and release notes. Write docs/review.md and CHANGELOG.md. Do NOT change application code.",
+          "outputs": [
+            {
+              "name": "docs/review.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "CHANGELOG.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "approved for release",
+          "auto": false,
+          "judge": false
+        }
+      ],
+      "next": null
+    },
+    {
+      "id": "feature",
+      "name": "Feature",
+      "stages": [
+        {
+          "id": "spec",
+          "name": "Spec",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we'll know it works — no speculative requirements, no 'nice to have' scope.",
+          "outputs": [
+            {
+              "name": "spec.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "acceptance.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "reviewed",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "build",
+          "name": "Build",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are an implementer. Implement strictly to the spec; the shortest working diff wins. Reuse what the codebase already has, prefer the standard library over new dependencies, no abstractions with a single caller.",
+          "outputs": [
+            {
+              "name": "diff",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "tests pass",
+          "auto": false,
+          "judge": true
+        },
+        {
+          "id": "review",
+          "name": "Review",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, abstractions with one caller — name what to delete. Write review.md.",
+          "outputs": [
+            {
+              "name": "review.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "approved",
+          "auto": false,
+          "judge": false
+        }
+      ],
+      "next": null
+    },
+    {
+      "id": "bugfix",
+      "name": "Bugfix",
+      "stages": [
+        {
+          "id": "repro",
+          "name": "Reproduce",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a debugger. Reproduce the reported bug: find the failing path, capture exact steps/inputs and the observed vs expected behavior, and identify the root cause. Write repro.md. Do NOT fix anything yet.",
+          "outputs": [
+            {
+              "name": "repro.md",
+              "type": "doc",
+              "note": "steps + root cause"
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "bug reproduced",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "fix",
+          "name": "Fix",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are an implementer. Read repro.md and fix the root cause with the smallest correct change — check every caller of the code you touch and fix at the shared path, not per call site. Add a regression test where feasible.",
+          "outputs": [
+            {
+              "name": "diff",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "bug gone, tests pass",
+          "auto": false,
+          "judge": true
+        },
+        {
+          "id": "fix-review",
+          "name": "Review",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a reviewer. Verify the fix addresses the root cause in repro.md, check for regressions in sibling callers, and confirm the regression test fails without the fix. Write review.md.",
+          "outputs": [
+            {
+              "name": "review.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "approved",
+          "auto": false,
+          "judge": false
+        }
+      ],
+      "next": null
+    },
+    {
+      "id": "ui-design",
+      "name": "UI design",
+      "stages": [
+        {
+          "id": "design-spec",
+          "name": "Spec",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we'll know it works.",
+          "outputs": [
+            {
+              "name": "spec.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "acceptance.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "reviewed",
+          "auto": false,
+          "judge": false
+        },
+        {
+          "id": "design",
+          "name": "Design",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a product designer. From the task intent (and spec.md if present), define the UX and visual design: screens, states, layout rules, component inventory. Write design.md. Because a design is best judged by seeing and clicking it — not by reading prose — ALSO build an interactive prototype as ONE self-contained static HTML file (inline CSS + JS, no external/CDN dependencies, works by opening the file directly): render every screen, make the primary navigation and interactive states actually work, and use placeholder data. Write prototype.html. Do NOT write application code.",
+          "outputs": [
+            {
+              "name": "design.md",
+              "type": "doc",
+              "note": ""
+            },
+            {
+              "name": "prototype.html",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "design approved",
+          "auto": false,
+          "judge": true
+        }
+      ],
+      "next": null
+    },
+    {
+      "id": "dissection",
+      "name": "Feature dissection",
+      "stages": [
+        {
+          "id": "dissect",
+          "name": "Dissect",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a tech lead. Split the feature described in the task intent into small, independently-deliverable sub-tasks that each satisfy INVEST (Independent, Negotiable, Valuable, Estimable, Small, Testable) — vertical slices, not horizontal layers. FIRST read .bridza/.metadata/creation-guide.md and follow it exactly: for each sub-task create .bridza/pipelines/<this pipeline>/<sub-task-id>/metadata.json (type: \"subtask\") and context.md with its own clear intent and acceptance criteria, wire ordering dependencies (AND/OR) into .bridza/plan.json deps, estimate each sub-task in hours under est, and if they form a coherent deliverable group them into one milestone (merge plan.json, never overwrite). Your output is the PLAN BOARD, not code or docs.",
+          "outputs": [
+            {
+              "name": ".bridza/pipelines/",
+              "type": "issue",
+              "note": "one sub-task per sub-feature"
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "sub-tasks reviewed",
+          "auto": false,
+          "judge": false
+        }
+      ],
+      "next": null
+    }
+  ],
+  "stages": [
+    {
+      "id": "vision",
+      "name": "Vision",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a product strategist. Using ONLY the task intent, write the product vision: the problem, the SPECIFIC target users, their jobs-to-be-done, the value proposition, and measurable success criteria. Use Amazon's Working Backwards method — open with the future press release and FAQ, then the details. Write it to docs/vision.md. Do NOT write requirements, designs, or any code yet.",
+      "outputs": [
+        {
+          "name": "docs/vision.md",
+          "type": "doc",
+          "note": "problem, users, value, success metrics"
+        }
+      ],
+      "specs": [
+        {
+          "key": "potential-userbase",
+          "value": ""
+        },
+        {
+          "key": "target-age",
+          "value": ""
+        }
+      ],
+      "shell": [],
+      "gate": "vision approved",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "requirements",
+      "name": "Requirements",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a business analyst. Read docs/vision.md. Produce detailed product requirements and user stories with acceptance criteria (Given/When/Then). Cover functional AND non-functional needs, honoring every stage spec (OS, form factors, offline…) as a hard constraint. Write docs/requirements.md and docs/user-stories.md. Do NOT design UI or write any code.",
+      "outputs": [
+        {
+          "name": "docs/requirements.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "docs/user-stories.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [
+        {
+          "key": "target-os",
+          "value": ""
+        },
+        {
+          "key": "form-factors",
+          "value": ""
+        },
+        {
+          "key": "offline",
+          "value": ""
+        }
+      ],
+      "shell": [],
+      "gate": "requirements signed off",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "architecture",
+      "name": "Design & Architecture",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a product designer and software architect. Read docs/vision.md and docs/requirements.md. Define the UX (screen list, navigation, layout rules for every required form factor), the data model, and the app architecture (folder structure, state management, key libraries) for the stack in the specs — or the repo's existing stack if none is specified. Prefer the platform's native capabilities over extra dependencies. Write docs/design.md and docs/architecture.md. Because UX is best judged by seeing and clicking it, ALSO build an interactive prototype as ONE self-contained static HTML file (inline CSS + JS, no external/CDN dependencies, works by opening the file directly): render every screen, make the primary navigation and interactive states actually work, use placeholder data, and cover the required form factors responsively. Write docs/prototype.html. Do NOT write application code yet.",
+      "outputs": [
+        {
+          "name": "docs/design.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "docs/architecture.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "docs/prototype.html",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [
+        {
+          "key": "framework",
+          "value": ""
+        }
+      ],
+      "shell": [],
+      "gate": "design approved",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "planning",
+      "name": "Sprint Planning",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are an agile lead. Read the docs/ design and requirements. Break the work into a prioritized backlog of concrete, small tasks mapped to user stories (each INVEST: independent, valuable, small, testable). Your PRIMARY output is the PLAN BOARD, not documents: FIRST read .bridza/.metadata/creation-guide.md and follow it exactly — create each task under .bridza/pipelines/ with metadata.json + context.md, wire the AND/OR dependency network into .bridza/plan.json deps (only real ordering; independent tasks get none; deps may cross pipelines), estimate every task in hours under est, and group them into milestones (a milestone may span pipelines). Then summarize in docs/backlog.md and docs/sprint-plan.md. The user will review and rearrange the board afterwards. Do NOT write code.",
+      "outputs": [
+        {
+          "name": ".bridza/pipelines/",
+          "type": "issue",
+          "note": "tasks + deps + estimates + milestones on the plan board"
+        },
+        {
+          "name": "docs/backlog.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "docs/sprint-plan.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [
+        "node -e \"const f=require('fs');const p=f.existsSync('.bridza/plan.json')?JSON.parse(f.readFileSync('.bridza/plan.json','utf8')):{};if(!Object.keys(p.deps||{}).length&&!(p.milestones||[]).length){console.error('MANDATORY: plan board is empty - this stage must create tasks + deps/est/milestones per .bridza/.metadata/creation-guide.md');process.exit(1)}\""
+      ],
+      "gate": "plan board populated",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "implementation",
+      "name": "Implementation",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a senior engineer. Read ALL docs/. Scaffold the project only if it isn't already, using the stack from docs/architecture.md. Implement the features from docs/sprint-plan.md following docs/architecture.md. Work lazily-well: reuse what the codebase already has before writing new code, prefer the standard library and platform features over new dependencies, no speculative abstractions — the smallest change that satisfies the plan. Run the project's build/lint and fix problems. Implement only what the plan calls for.",
+      "outputs": [
+        {
+          "name": "src/",
+          "type": "doc",
+          "note": "the implemented app"
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "builds & runs",
+      "auto": false,
+      "judge": true
+    },
+    {
+      "id": "testing",
+      "name": "Testing",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a QA engineer. Read docs/ and the implemented code. Write tests covering the core features and the acceptance criteria in docs/user-stories.md, using the project's existing test runner and conventions. Run the tests and fix failures. Summarize results in docs/test-report.md.",
+      "outputs": [
+        {
+          "name": "test/",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "docs/test-report.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "tests pass",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "release",
+      "name": "Review & Release",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a tech lead. Review the implementation against docs/requirements.md and the acceptance criteria in docs/user-stories.md. Note any gaps, write a short retrospective and release notes. Write docs/review.md and CHANGELOG.md. Do NOT change application code.",
+      "outputs": [
+        {
+          "name": "docs/review.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "CHANGELOG.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "approved for release",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "spec",
+      "name": "Spec",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we'll know it works — no speculative requirements, no 'nice to have' scope.",
+      "outputs": [
+        {
+          "name": "spec.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "acceptance.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "reviewed",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "build",
+      "name": "Build",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are an implementer. Implement strictly to the spec; the shortest working diff wins. Reuse what the codebase already has, prefer the standard library over new dependencies, no abstractions with a single caller.",
+      "outputs": [
+        {
+          "name": "diff",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "tests pass",
+      "auto": false,
+      "judge": true
+    },
+    {
+      "id": "review",
+      "name": "Review",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, abstractions with one caller — name what to delete. Write review.md.",
+      "outputs": [
+        {
+          "name": "review.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "approved",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "repro",
+      "name": "Reproduce",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a debugger. Reproduce the reported bug: find the failing path, capture exact steps/inputs and the observed vs expected behavior, and identify the root cause. Write repro.md. Do NOT fix anything yet.",
+      "outputs": [
+        {
+          "name": "repro.md",
+          "type": "doc",
+          "note": "steps + root cause"
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "bug reproduced",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "fix",
+      "name": "Fix",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are an implementer. Read repro.md and fix the root cause with the smallest correct change — check every caller of the code you touch and fix at the shared path, not per call site. Add a regression test where feasible.",
+      "outputs": [
+        {
+          "name": "diff",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "bug gone, tests pass",
+      "auto": false,
+      "judge": true
+    },
+    {
+      "id": "fix-review",
+      "name": "Review",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a reviewer. Verify the fix addresses the root cause in repro.md, check for regressions in sibling callers, and confirm the regression test fails without the fix. Write review.md.",
+      "outputs": [
+        {
+          "name": "review.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "approved",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "design-spec",
+      "name": "Spec",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we'll know it works.",
+      "outputs": [
+        {
+          "name": "spec.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "acceptance.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "reviewed",
+      "auto": false,
+      "judge": false
+    },
+    {
+      "id": "design",
+      "name": "Design",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a product designer. From the task intent (and spec.md if present), define the UX and visual design: screens, states, layout rules, component inventory. Write design.md. Because a design is best judged by seeing and clicking it — not by reading prose — ALSO build an interactive prototype as ONE self-contained static HTML file (inline CSS + JS, no external/CDN dependencies, works by opening the file directly): render every screen, make the primary navigation and interactive states actually work, and use placeholder data. Write prototype.html. Do NOT write application code.",
+      "outputs": [
+        {
+          "name": "design.md",
+          "type": "doc",
+          "note": ""
+        },
+        {
+          "name": "prototype.html",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "design approved",
+      "auto": false,
+      "judge": true
+    },
+    {
+      "id": "dissect",
+      "name": "Dissect",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a tech lead. Split the feature described in the task intent into small, independently-deliverable sub-tasks that each satisfy INVEST (Independent, Negotiable, Valuable, Estimable, Small, Testable) — vertical slices, not horizontal layers. FIRST read .bridza/.metadata/creation-guide.md and follow it exactly: for each sub-task create .bridza/pipelines/<this pipeline>/<sub-task-id>/metadata.json (type: \"subtask\") and context.md with its own clear intent and acceptance criteria, wire ordering dependencies (AND/OR) into .bridza/plan.json deps, estimate each sub-task in hours under est, and if they form a coherent deliverable group them into one milestone (merge plan.json, never overwrite). Your output is the PLAN BOARD, not code or docs.",
+      "outputs": [
+        {
+          "name": ".bridza/pipelines/",
+          "type": "issue",
+          "note": "one sub-task per sub-feature"
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "sub-tasks reviewed",
+      "auto": false,
+      "judge": false
+    }
+  ],
+  "templates": []
+}

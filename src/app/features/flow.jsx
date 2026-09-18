@@ -21,9 +21,11 @@ export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, fla
   const [workingDir, setWorkingDir] = useState(pipeline.workingDir || ".");
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  // planner view: the editable Cards, or a read-only node-graph overview (with
-  // the same 5 layouts as the task Canvas). Nodes click through to Cards to edit.
-  const [planner, setPlanner] = useState("cards");
+  // Canvas-only editor: one flow shown at a time (chip-picked), its stages
+  // arranged by the chosen layout and edited in a right-side panel on click.
+  const [activeFlowId, setActiveFlowId] = useState(() => flows[0] && flows[0].id);
+  const [selStageId, setSelStageId] = useState(null);   // stage open in the right panel
+  const [zoom, setZoom] = useState(1);
   const [layoutMode, setLayoutMode] = useState(() => localStorage.getItem("bridza.plannerLayout") || "linear");
   const pickLayout = (m) => { setLayoutMode(m); try { localStorage.setItem("bridza.plannerLayout", m); } catch (e) { /* ignore */ } };
   const mut = (fn) => { setFlows(fn); setDirty(true); };
@@ -105,6 +107,15 @@ export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, fla
     onSaved && onSaved();
   };
 
+  // active flow + selected stage, resolved by id so they survive reordering
+  const fi = Math.max(0, flows.findIndex((f) => f.id === activeFlowId));
+  const activeFlow = flows[fi];
+  const selStage = activeFlow ? activeFlow.stages.find((s) => s.id === selStageId) : null;
+  const selIdx = selStage ? activeFlow.stages.findIndex((s) => s.id === selStageId) : -1;
+  const addFlowSel = () => { const id = "flow-" + Math.random().toString(36).slice(2, 7); mut((fl) => [...fl, { id, name: "", stages: [mkStage()] }]); setActiveFlowId(id); setSelStageId(null); };
+  const delFlowActive = () => { if (flows.length <= 1) return flash("a pipeline needs at least one flow"); const rest = flows.filter((_, k) => k !== fi); delFlow(fi); setActiveFlowId(rest[0] && rest[0].id); setSelStageId(null); };
+  const zoomBy = (f) => setZoom((z) => Math.min(2, Math.max(0.4, Math.round(z * f * 100) / 100)));
+
   return (
     <>
       <div className="topbar">
@@ -115,10 +126,6 @@ export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, fla
         </div>
         <div className="row">
           {dirty && <span className="tag">unsaved</span>}
-          <div className="seg" title="Cards: edit each stage. Canvas: see the flow as a node graph (5 layouts).">
-            <button className={planner === "cards" ? "on" : ""} onClick={() => setPlanner("cards")}>Cards</button>
-            <button className={planner === "canvas" ? "on" : ""} onClick={() => setPlanner("canvas")}>Canvas</button>
-          </div>
           <button className="btn" onClick={downloadPipeline} title="Export the WHOLE pipeline (all flows) as a JSON file">⤓ Export pipeline</button>
           <button className="btn" onClick={toggleArchive} title={pipeline.archived ? "Bring this pipeline back to the list" : "Hide this pipeline from the list — all data and history are kept"}>{pipeline.archived ? "⇱ Unarchive" : "📦 Archive"}</button>
           <button className="btn primary" onClick={save} disabled={!dirty || saving}>{saving ? "Saving…" : "Save flows"}</button>
@@ -131,47 +138,65 @@ export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, fla
           <div className="field" style={{ flex: 1, minWidth: 240 }}><label>Working dir (sparse scope; '.' = whole repo)</label><input className="input" value={workingDir} onChange={(e) => { setWorkingDir(e.target.value); setDirty(true); }} /></div>
         </div>
 
-        {planner === "canvas" && <FlowCanvasView flows={flows} layoutMode={layoutMode} pickLayout={pickLayout} onEditStage={() => setPlanner("cards")} keyPrefix={pipeline.id} />}
-
-        {planner === "cards" && <div className="flows-row">
-          {flows.map((f, fi) => (
-            <div className="flow-col" key={f.id}>
-              <div className="row flow-col-hd">
-                <input className="flow-name" value={f.name} placeholder={label} title="Flow name — defaults to the pipeline name"
-                  onChange={(e) => setFlowName(fi, e.target.value)} spellCheck={false} />
-                <button className="btn ghost sm" onClick={() => downloadFlow(f)} title="Export this flow as a JSON file">⤓</button>
-                <button className="btn ghost sm" onClick={() => emailFlow(f, "mailto")} title="Email this flow via your default mail app">✉</button>
-                <button className="btn ghost sm" onClick={() => emailFlow(f, "gmail")} title="Email this flow via Gmail (opens a compose window)">✉ᴳ</button>
-                <button className="btn ghost sm" onClick={() => delFlow(fi)} disabled={flows.length <= 1} title="Delete this flow">🗑</button>
-              </div>
-              <div className="row" style={{ marginTop: 4, gap: 6 }}>
-                <span className="io-lbl" title="Where a DELIVERED task of this flow continues. The follow-on task is plan-gated on this one — its stages refuse to run until this task is done.">hands off to</span>
-                <select className="input spec-add" value={f.next ? f.next.pipeline + "/" + f.next.flow : ""} onChange={(e) => setFlowNext(fi, e.target.value)}>
-                  <option value="">— none</option>
-                  {handoffTargets.filter((t) => !(t.pid === pipeline.id && t.fid === f.id))
-                    .map((t) => <option key={t.pid + "/" + t.fid} value={t.pid + "/" + t.fid}>{t.plabel} → {t.fname}</option>)}
-                  {f.next && !handoffTargets.some((t) => t.pid === f.next.pipeline && t.fid === f.next.flow) &&
-                    <option value={f.next.pipeline + "/" + f.next.flow}>{f.next.pipeline} → {f.next.flow} (not in this project yet)</option>}
-                </select>
-              </div>
-              <div className="flow">
-                <div className="flow-term">▸ Capture · task intent</div>
-                {f.stages.map((s, i) => (
-                  <FlowNode key={s.id} s={s} i={i} total={f.stages.length} tools={tools} inputs={inputsFor(f, i)}
-                    patch={(p) => patch(fi, i, p)} onJudge={() => setJudge(fi, i)} onUp={() => move(fi, i, -1)} onDown={() => move(fi, i, 1)} onDup={() => dup(fi, i)} onDel={() => del(fi, i)} onInsert={() => insAfter(fi, i)} />
-                ))}
-                <button className="btn flow-add" onClick={() => mutStages(fi, (st) => [...st, mkStage()])}>＋ Add stage</button>
-                <div className="flow-term done">✓ Delivered</div>
-              </div>
-            </div>
+        {/* unified bar: pick a flow · pick a layout · zoom */}
+        <div className="uxv-layoutbar" style={{ marginTop: 6 }}>
+          <span className="uxv-dim">flow</span>
+          {flows.map((f, i) => (
+            <button key={f.id} className={"uxv-chip" + (activeFlow && f.id === activeFlow.id ? " on" : "")} title={f.name || label}
+              onClick={() => { setActiveFlowId(f.id); setSelStageId(null); }}>{f.name || label || "Flow " + (i + 1)}</button>
           ))}
-          <div className="flow-col new">
-            <button className="btn flow-add" onClick={addFlow} title="Add another stage flow to this pipeline (e.g. bugfix vs multi-ticket feature)">＋ Add flow</button>
-            <button className="btn flow-add" onClick={() => importRef.current && importRef.current.click()} title="Import a stage flow from a .json file — a stage-flow file lands directly; a whole-pipeline file lets you pick which of its flows to bring in">⤒ Import flow…</button>
-            <input ref={importRef} type="file" accept=".json,application/json" style={{ display: "none" }}
-              onChange={(e) => { const file = e.target.files && e.target.files[0]; if (file) importFlowFile(file); e.target.value = ""; }} />
-          </div>
-        </div>}
+          <button className="uxv-chip" title="Add another stage flow" onClick={addFlowSel}>＋ flow</button>
+          <button className="uxv-chip" title="Import a stage flow from a .json file — a stage-flow file lands directly; a whole-pipeline file lets you pick which flows to bring in" onClick={() => importRef.current && importRef.current.click()}>⤒</button>
+          <input ref={importRef} type="file" accept=".json,application/json" style={{ display: "none" }}
+            onChange={(e) => { const file = e.target.files && e.target.files[0]; if (file) importFlowFile(file); e.target.value = ""; }} />
+          <span className="uxv-dim" style={{ marginLeft: 12 }}>layout</span>
+          {LAYOUTS.map((l) => (
+            <button key={l.id} className={"uxv-chip" + (layoutMode === l.id ? " on" : "")} title={l.hint} onClick={() => pickLayout(l.id)}>{l.label}</button>
+          ))}
+          <span className="uxv-dim" style={{ marginLeft: "auto" }}>zoom</span>
+          <button className="uxv-chip" title="Zoom out" onClick={() => zoomBy(1 / 1.2)}>−</button>
+          <span className="uxv-dim" style={{ minWidth: 36, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
+          <button className="uxv-chip" title="Zoom in" onClick={() => zoomBy(1.2)}>＋</button>
+        </div>
+
+        {activeFlow && (
+          <>
+            {/* active-flow controls: name · hands-off · add stage · export / delete */}
+            <div className="row flow-col-hd" style={{ marginTop: 10, gap: 6, flexWrap: "wrap" }}>
+              <input className="flow-name" value={activeFlow.name} placeholder={label} title="Flow name — defaults to the pipeline name"
+                onChange={(e) => setFlowName(fi, e.target.value)} spellCheck={false} />
+              <span className="io-lbl" title="Where a DELIVERED task of this flow continues. The follow-on task is plan-gated on this one — its stages refuse to run until this task is done.">hands off to</span>
+              <select className="input spec-add" value={activeFlow.next ? activeFlow.next.pipeline + "/" + activeFlow.next.flow : ""} onChange={(e) => setFlowNext(fi, e.target.value)}>
+                <option value="">— none</option>
+                {handoffTargets.filter((t) => !(t.pid === pipeline.id && t.fid === activeFlow.id))
+                  .map((t) => <option key={t.pid + "/" + t.fid} value={t.pid + "/" + t.fid}>{t.plabel} → {t.fname}</option>)}
+                {activeFlow.next && !handoffTargets.some((t) => t.pid === activeFlow.next.pipeline && t.fid === activeFlow.next.flow) &&
+                  <option value={activeFlow.next.pipeline + "/" + activeFlow.next.flow}>{activeFlow.next.pipeline} → {activeFlow.next.flow} (not in this project yet)</option>}
+              </select>
+              <button className="btn ghost sm" onClick={() => mutStages(fi, (st) => [...st, mkStage()])} title="Add a stage to this flow">＋ stage</button>
+              <button className="btn ghost sm" onClick={() => downloadFlow(activeFlow)} title="Export this flow as a JSON file">⤓</button>
+              <button className="btn ghost sm" onClick={() => emailFlow(activeFlow, "mailto")} title="Email this flow via your default mail app">✉</button>
+              <button className="btn ghost sm" onClick={() => emailFlow(activeFlow, "gmail")} title="Email this flow via Gmail (opens a compose window)">✉ᴳ</button>
+              <button className="btn ghost sm" onClick={delFlowActive} disabled={flows.length <= 1} title="Delete this flow">🗑</button>
+            </div>
+
+            <div className="flow-canvas-stage">
+              <FlowCanvasOne key={activeFlow.id} flow={activeFlow} layoutMode={layoutMode} scale={zoom}
+                selStageId={selStageId} onSelectStage={setSelStageId} storageKey={"bridza.plannerPos:" + pipeline.id + "/" + activeFlow.id} />
+              {selStage && (
+                <aside className="uxv-sheet flow-sheet">
+                  <div className="row spread" style={{ marginBottom: 8 }}>
+                    <b>Edit stage · {selIdx + 1}/{activeFlow.stages.length}</b>
+                    <button className="btn ghost sm" onClick={() => setSelStageId(null)} title="Close">✕</button>
+                  </div>
+                  <FlowNode s={selStage} i={selIdx} total={activeFlow.stages.length} tools={tools} inputs={inputsFor(activeFlow, selIdx)}
+                    patch={(p) => patch(fi, selIdx, p)} onJudge={() => setJudge(fi, selIdx)} onUp={() => move(fi, selIdx, -1)} onDown={() => move(fi, selIdx, 1)}
+                    onDup={() => dup(fi, selIdx)} onDel={() => { del(fi, selIdx); setSelStageId(null); }} onInsert={() => insAfter(fi, selIdx)} />
+                </aside>
+              )}
+            </div>
+          </>
+        )}
       </div>
       {pickFrom && (
         <Modal title={`Import flows from “${pickFrom.label}”`} onClose={() => setPickFrom(null)} confirm={`Import ${pickFrom.sel.length} flow${pickFrom.sel.length === 1 ? "" : "s"}`}
@@ -195,38 +220,21 @@ export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, fla
   );
 }
 
-// Node-graph overview of the pipeline's flows, arranged by the chosen layout and
-// freely draggable/resizable (reuses the task Canvas engine). Each node clicks
-// through to the Cards editor. One canvas per flow, each with its own positions.
-function FlowCanvasView({ flows, layoutMode, pickLayout, onEditStage, keyPrefix }) {
-  return (
-    <div style={{ marginTop: 4 }}>
-      <div className="uxv-layoutbar">
-        <span className="uxv-dim" style={{ marginRight: 4 }}>layout</span>
-        {LAYOUTS.map((l) => (
-          <button key={l.id} className={"uxv-chip" + (layoutMode === l.id ? " on" : "")} title={l.hint} onClick={() => pickLayout(l.id)}>{l.label}</button>
-        ))}
-        <span className="uxv-dim" style={{ marginLeft: "auto" }}>drag to move · corner to resize</span>
-      </div>
-      {flows.map((f) => <FlowCanvasOne key={f.id} flow={f} layoutMode={layoutMode} onEditStage={onEditStage} storageKey={"bridza.plannerPos:" + keyPrefix + "/" + f.id} />)}
-    </div>
-  );
-}
-
-function FlowCanvasOne({ flow, layoutMode, onEditStage, storageKey }) {
+function FlowCanvasOne({ flow, layoutMode, scale = 1, selStageId, onSelectStage, storageKey }) {
   const NW = 190, NH = 98;
   const base = layoutNodes(flow.stages.length, layoutMode, { cell: { w: 230, h: 158 }, nodeW: NW, nodeH: NH });
   const { over, setNode, clear, count } = useCanvasOverrides(storageKey);
   const { eff, width, height } = effLayout(base, flow.stages.map((s) => s.id), over, NW, NH);
   const center = (i) => ({ x: eff[i].x + eff[i].w / 2, y: eff[i].y + eff[i].h / 2 });
+  const sW = Math.round(width * scale), sH = Math.round(height * scale);
   return (
-    <div style={{ marginTop: 16 }}>
+    <div style={{ marginTop: 16, flex: 1, minWidth: 0 }}>
       <div className="spread" style={{ padding: "0 0 8px" }}>
         <span className="side-label" style={{ padding: 0 }}>{flow.name || "Flow"} · {flow.stages.length} stage{flow.stages.length === 1 ? "" : "s"}</span>
         {count > 0 && <button className="uxv-chip reset" title="Clear manual positions for this flow" onClick={clear}>↺ reset positions</button>}
       </div>
-      <div className="uxv-canvas" style={{ minHeight: height }}>
-        <div className="uxv-canvasinner" style={{ width, height }}>
+      <div className="uxv-canvas" style={{ minHeight: sH, overflow: "hidden" }}>
+        <div className="uxv-canvasinner" style={{ width: sW, height: sH, transform: scale < 1 || scale > 1 ? `scale(${scale})` : undefined, transformOrigin: "top left" }}>
           <svg className="uxv-edges" width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
             {flow.stages.slice(1).map((s, i) => {
               const a = center(i), b = center(i + 1), mx = (a.x + b.x) / 2;
@@ -234,8 +242,10 @@ function FlowCanvasOne({ flow, layoutMode, onEditStage, storageKey }) {
             })}
           </svg>
           {flow.stages.map((s, i) => (
-            <CanvasNode key={s.id} x={eff[i].x} y={eff[i].y} w={eff[i].w} h={eff[i].h} title="Drag to arrange · click to edit in Cards"
-              onMove={(x, y) => setNode(s.id, { x, y })} onResize={(w, h) => setNode(s.id, { w, h })} onSelect={onEditStage}>
+            <CanvasNode key={s.id} x={eff[i].x} y={eff[i].y} w={eff[i].w} h={eff[i].h} scale={scale}
+              selected={selStageId === s.id} title="Drag to arrange · click to select"
+              onMove={(x, y) => setNode(s.id, { x, y })} onResize={(w, h) => setNode(s.id, { w, h })}
+              onSelect={() => onSelectStage && onSelectStage(s.id)}>
               <span className="uxv-node-hd"><span className="uxv-ord">{String(i + 1).padStart(2, "0")}</span><b>{s.name}</b></span>
               <span className="uxv-node-sum">{s.systemPrompt ? s.systemPrompt.slice(0, 90) : "no system prompt"}</span>
               <span className="uxv-node-ft"><span className="uxv-tag">{s.tool || "opencode"}</span>{s.judge && <span className="uxv-tag running">⚖ judge</span>}{s.auto && <span className="uxv-dim">⚡ auto</span>}</span>
