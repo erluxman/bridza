@@ -1,0 +1,21 @@
+{
+  "v": 1,
+  "id": "test-idea-for-screenshot-verification",
+  "pipeline": "product",
+  "title": "Test idea for screenshot verification",
+  "ref": 5,
+  "type": "idea",
+  "flow": "feedback-roadmap",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/product/test-idea-for-screenshot-verification",
+  "stages": [
+    "fb-synthesize",
+    "fb-prioritize",
+    "fb-roadmap"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
