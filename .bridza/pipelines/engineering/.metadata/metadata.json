@@ -823,9 +823,9 @@
     "repro",
     "fix",
     "fix-review",
+    "dissect",
     "design-spec",
     "design",
-    "dissect",
     "__done__",
     "__archived__"
   ]
