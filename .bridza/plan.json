@@ -177,6 +177,10 @@
     "engineering/implement-merge-strategy": {
       "x": -231,
       "y": 911
+    },
+    "engineering/verify-merge-strategy": {
+      "x": -436,
+      "y": 761
     }
   },
   "sizes": {
