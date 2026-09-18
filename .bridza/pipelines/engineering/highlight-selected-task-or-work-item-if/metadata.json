@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "id": "highlight-selected-task-or-work-item-if",
+  "pipeline": "engineering",
+  "title": "highlight selected task or work item if it is inside running now list on left side panal",
+  "ref": 21,
+  "type": "idea",
+  "flow": "dissection",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/highlight-selected-task-or-work-item-if",
+  "target": "main",
+  "stages": [
+    "dissect"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
