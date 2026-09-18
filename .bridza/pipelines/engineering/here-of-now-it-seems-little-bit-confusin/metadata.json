@@ -1,0 +1,21 @@
+{
+  "v": 1,
+  "id": "here-of-now-it-seems-little-bit-confusin",
+  "pipeline": "engineering",
+  "title": "Here of now it seems little bit confusing whether the full details of our idea i",
+  "ref": 9,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/here-of-now-it-seems-little-bit-confusin",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
