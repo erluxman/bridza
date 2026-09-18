@@ -3,7 +3,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { useState } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { WelcomeDialog } from "../App.jsx";
+import { WelcomeDialog } from "../features/onboarding.jsx";
 
 // Mirror how the App mounts the dialog: rendered until dismissed.
 function Harness() {
