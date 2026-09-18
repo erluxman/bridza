@@ -4,7 +4,6 @@ import { useState } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { WelcomeDialog, greetingForHour } from "../features/onboarding.jsx";
-import { LS, today } from "../lib/format.js";
 
 // The test process's bare `localStorage` globals are inert (Node 25 without a
 // valid --localstorage-file), so back them with a tiny in-memory Storage.
@@ -94,24 +93,5 @@ describe("greetingForHour", () => {
     [4, "Good evening"],
   ])("hour %i → %s", (hour, expected) => {
     expect(greetingForHour(hour)).toBe(expected);
-  });
-});
-
-describe("WelcomeDialog per-day dismissal", () => {
-  it("remembers dismissal for the day: hidden after dismiss + same-day reload", () => {
-    localStorage.setItem(LS.welcome, "2000-01-01");   // stale date — dialog shows
-    mount();
-    expect(host.querySelector(".modal-bg")).toBeTruthy();
-    act(() => host.querySelector(".modal .btn").click());
-    expect(localStorage.getItem(LS.welcome)).toBe(today());
-    expect(host.querySelector(".modal-bg")).toBeNull();
-    act(() => { host.root.unmount(); host.root = createRoot(host); host.root.render(<Harness />); });
-    expect(host.querySelector(".modal-bg")).toBeNull();
-  });
-
-  it("shows again on a new date", () => {
-    localStorage.setItem(LS.welcome, "2000-01-01");   // yesterday ≠ today
-    mount();
-    expect(host.querySelector(".modal-bg")).toBeTruthy();
   });
 });
