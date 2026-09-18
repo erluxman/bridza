@@ -251,6 +251,9 @@
     ],
     "engineering/number-prefix-contract": [
       "engineering/every-task-when-they-are-converted-into"
+    ],
+    "engineering/define-merge-strategy": [
+      "engineering/better-merging-strategy-to-reference"
     ]
   },
   "pipeDeps": [
