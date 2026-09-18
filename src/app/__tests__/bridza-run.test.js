@@ -18,6 +18,7 @@ import {
   getTaskSession, setTaskSession, clearTaskSessions,
   taskTimeline, branchExists, currentBranch, git, taskBranchName, parseDiff, commitDiff, branchDiff, workingDiff,
   resolveRunnableTool, DEFAULT_STAGE_PROMPT, readTaskFile, saveTaskFile,
+  finishConflict, abortConflict, pendingConflict, conflictedFiles,
 } from "../../../server/bridza-run.js";
 import { rel, CLI_TOOLS } from "../../../core/domain.js";
 
@@ -410,6 +411,149 @@ describe("finalize → merge into main", () => {
     expect(git(root, ["log", "-1", "--format=%s", "main"]).trim()).toBe("bridza: finalize marketing/task-506 → main");
     // the task branch's own commits are reachable from main (true merge, not squash)
     expect(git(root, ["branch", "--contains", taskBranchName("marketing", "task-506"), "--list", "main"]).trim()).toContain("main");
+  });
+});
+
+describe("finalize → merge conflict", () => {
+  // A task branch whose app.txt and main's app.txt both move, so a squash into
+  // main conflicts. Returns the diverge already committed on both sides.
+  const diverge = () => {
+    fs.writeFileSync(path.join(root, "app.txt"), "line1\nline2\nline3\n");
+    git(root, ["add", "-A"]);
+    git(root, ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", "base"]);
+    stub("echo x > out.txt");
+    return run({});                                            // task worktree + branch commit, fork from main
+  };
+  const t = ["-c", "user.name=t", "-c", "user.email=t@t"];
+
+  it("returns a conflict (not a generic failure) and resolves it IN PLACE, app-driven", async () => {
+    await diverge();
+    const wt = taskWorktree(root, "marketing", "task-506");
+    fs.writeFileSync(path.join(wt, "app.txt"), "line1\ntask line\nline3\n");
+    git(wt, ["add", "-A"]); git(wt, [...t, "commit", "-m", "task change"]);
+    fs.writeFileSync(path.join(root, "app.txt"), "line1\nmain line\nline3\n");
+    git(root, ["add", "-A"]); git(root, [...t, "commit", "-m", "main change"]);
+
+    const r = finalizeTask(root, "marketing", "task-506", { style: "squash" });
+    expect(r.ok).toBe(false);
+    expect(r.conflict).toBe(true);
+    expect(r.files).toEqual(["app.txt"]);
+    expect(r.dir).toBe(root);                                  // the merge is paused in main's checkout
+    // the conflict survives with a real unmerged index + markers, ready for VS Code
+    expect(git(root, ["ls-files", "-u"]).trim().split("\n")).toHaveLength(3);
+    expect(fs.readFileSync(path.join(root, "app.txt"), "utf8")).toContain("<<<<<<< HEAD");
+    // the "dirty main" dialog can no longer show (or commit) marker text
+    const wd = workingDiff(root);
+    expect(wd.conflicts).toEqual(["app.txt"]);
+    expect(wd.files.every((f) => f.path !== "")).toBe(true);
+
+    // resolve like VS Code does (pick a side, stage it), then finish from the app
+    fs.writeFileSync(path.join(root, "app.txt"), "line1\nmerged line\nline3\n");
+    git(root, ["add", "app.txt"]);
+    const f = finishConflict(root, { dir: root, pipeline: "marketing", task: "task-506", target: "main" });
+    expect(f.ok).toBe(true);
+    expect(f.target).toBe("main");
+    expect(git(root, ["status", "--porcelain"]).trim()).toBe("");
+    expect(git(root, ["show", "HEAD:app.txt"]).trim()).toBe("line1\nmerged line\nline3");
+  });
+
+  it("keeps the conflict worktree OUT-OF-PLACE and finishes it without touching the user's checkout", async () => {
+    await diverge();
+    const wt = taskWorktree(root, "marketing", "task-506");
+    fs.writeFileSync(path.join(wt, "app.txt"), "line1\ntask line\nline3\n");
+    git(wt, ["add", "-A"]); git(wt, [...t, "commit", "-m", "task change"]);
+    fs.writeFileSync(path.join(root, "app.txt"), "line1\nmain line\nline3\n");
+    git(root, ["add", "-A"]); git(root, [...t, "commit", "-m", "main change"]);
+    git(root, ["checkout", "-qb", "feature-x"]);               // user's checkout sits on another branch
+
+    const r = finalizeTask(root, "marketing", "task-506", { style: "squash" });
+    expect(r.ok).toBe(false);
+    expect(r.conflict).toBe(true);
+    expect(r.files).toEqual(["app.txt"]);
+    expect(r.dir).not.toBe(root);
+    const mwt = r.dir;
+    // THE fix for the destroyed-evidence bug: the worktree that holds the merge
+    // is KEPT, not cleaned up, and the app knows exactly where the conflict is.
+    expect(fs.existsSync(path.join(mwt, ".git"))).toBe(true);
+    expect(git(mwt, ["ls-files", "-u"]).trim().split("\n")).toHaveLength(3);
+
+    // resolving it and finishing advances main; the user's checkout is untouched
+    fs.writeFileSync(path.join(mwt, "app.txt"), "line1\nmerged line\nline3\n");
+    git(mwt, ["add", "app.txt"]);
+    const f = finishConflict(root, { dir: mwt, pipeline: "marketing", task: "task-506", target: "main" });
+    expect(f.ok).toBe(true);
+    expect(f.target).toBe("main");
+    expect(fs.existsSync(path.join(mwt, ".git"))).toBe(false); // finished worktree torn down
+    expect(currentBranch(root)).toBe("feature-x");
+    expect(git(root, ["show", "main:app.txt"]).trim()).toBe("line1\nmerged line\nline3");
+  });
+
+  it("a second finalize re-surfaces (never destroys) the pending conflict, then finishes once resolved", async () => {
+    await diverge();
+    const wt = taskWorktree(root, "marketing", "task-506");
+    fs.writeFileSync(path.join(wt, "app.txt"), "line1\ntask line\nline3\n");
+    git(wt, ["add", "-A"]); git(wt, [...t, "commit", "-m", "task change"]);
+    fs.writeFileSync(path.join(root, "app.txt"), "line1\nmain line\nline3\n");
+    git(root, ["add", "-A"]); git(root, [...t, "commit", "-m", "main change"]);
+    git(root, ["checkout", "-qb", "feature-x"]);
+
+    const r1 = finalizeTask(root, "marketing", "task-506", { style: "squash" });
+    expect(r1.conflict).toBe(true);
+    const mwt = r1.dir;
+    // clicking Finalize again mid-conflict must NOT remove the worktree →
+    // re-run returns the same conflict instead of destroying it
+    const r2 = finalizeTask(root, "marketing", "task-506", { style: "squash" });
+    expect(r2.conflict).toBe(true);
+    expect(r2.dir).toBe(mwt);
+    expect(fs.existsSync(path.join(mwt, ".git"))).toBe(true);
+    expect(pendingConflict(root, "main")).toEqual({ dir: mwt, files: ["app.txt"], target: "main" });
+    // stash (the old "resolve dirty main" escape) can't run against a conflict
+    expect(finalizeTask(root, "marketing", "task-506", { style: "squash", resolveMain: "stash" }).conflict).toBe(true);
+
+    // finalizing into a DIFFERENT branch must not delete the paused merge
+    git(root, ["branch", "release", "main"]);
+    const rx = finalizeTask(root, "marketing", "task-506", { style: "squash", into: "release" });
+    expect(rx.conflict).toBe(true);
+    expect(rx.target).toBe("main");
+    expect(rx.dir).toBe(mwt);
+    expect(git(mwt, ["ls-files", "-u"]).trim().split("\n")).toHaveLength(3);
+
+    // resolve the markers, then the next Finalize simply lands the merge
+    fs.writeFileSync(path.join(mwt, "app.txt"), "line1\nmerged line\nline3\n");
+    git(mwt, ["add", "app.txt"]);
+    const r3 = finalizeTask(root, "marketing", "task-506", { style: "squash" });
+    expect(r3.ok).toBe(true);
+    expect(git(root, ["show", "main:app.txt"]).trim()).toBe("line1\nmerged line\nline3");
+    expect(fs.existsSync(path.join(mwt, ".git"))).toBe(false);
+  });
+
+  it("finishConflict refuses while files are still unmerged; abortConflict cancels cleanly", async () => {
+    await diverge();
+    const wt = taskWorktree(root, "marketing", "task-506");
+    fs.writeFileSync(path.join(wt, "app.txt"), "line1\ntask line\nline3\n");
+    git(wt, ["add", "-A"]); git(wt, [...t, "commit", "-m", "task change"]);
+    fs.writeFileSync(path.join(root, "app.txt"), "line1\nmain line\nline3\n");
+    git(root, ["add", "-A"]); git(root, [...t, "commit", "-m", "main change"]);
+
+    // in-place
+    const r = finalizeTask(root, "marketing", "task-506", { style: "squash" });
+    expect(r.conflict).toBe(true);
+    expect(finishConflict(root, { dir: root }).stillConflicting).toBe(true);   // not resolved yet
+    const a = abortConflict(root, { dir: root });
+    expect(a.ok).toBe(true);
+    expect(git(root, ["status", "--porcelain"]).trim()).toBe("");               // main restored, clean
+    expect(conflictedFiles(root)).toEqual([]);
+    expect(git(root, ["show", "HEAD:app.txt"]).trim()).toBe("line1\nmain line\nline3");
+
+    // out-of-place: abort just deletes the throwaway worktree
+    git(root, ["checkout", "-qb", "feature-x"]);
+    const r2 = finalizeTask(root, "marketing", "task-506", { style: "squash" });
+    expect(r2.conflict).toBe(true);
+    const mwt = r2.dir;
+    expect(abortConflict(root, { dir: mwt }).ok).toBe(true);
+    expect(fs.existsSync(path.join(mwt, ".git"))).toBe(false);
+    expect(currentBranch(root)).toBe("feature-x");
+    expect(git(root, ["show", "main:app.txt"]).trim()).toBe("line1\nmain line\nline3");  // main untouched
   });
 });
 

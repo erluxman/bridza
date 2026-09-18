@@ -144,7 +144,7 @@ export function DiffView({ dir, commit, commits = [], onCommit, branch, working,
             {single && <span className="mono" style={{ fontSize: 11, color: "var(--txt-3)" }}>{commit.slice(0, 7)}</span>}
             <b style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 13 }}>
               {data
-                ? working ? `Uncommitted on ${data.base || "main"} · ${files.length} file${files.length === 1 ? "" : "s"}${data.untracked && data.untracked.length ? ` · +${data.untracked.length} untracked` : ""}`
+                ? working ? `Uncommitted on ${data.base || "main"} · ${files.length} file${files.length === 1 ? "" : "s"}${data.untracked && data.untracked.length ? ` · +${data.untracked.length} untracked` : ""}${data.conflicts && data.conflicts.length ? ` · ${data.conflicts.length} conflicted` : ""}`
                   : branch ? `All changes · ${data.branch || ""} · ${files.length} file${files.length === 1 ? "" : "s"}`
                     : (data.subject || "changes")
                 : "loading…"}
@@ -165,6 +165,13 @@ export function DiffView({ dir, commit, commits = [], onCommit, branch, working,
             <button className="btn ghost sm" onClick={onClose}>✕</button>
           </div>
         </div>
+        {working && data && data.conflicts && data.conflicts.length > 0 && (
+          <div style={{ padding: "8px 14px", fontSize: 12, background: "var(--bg-2)", borderBottom: "1px solid var(--bd)", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <span style={{ color: "var(--danger)" }}>⚠</span>
+            <span>Merge in progress — these files still need a side picked before anything is committed (they're hidden here so no markup gets committed by accident):</span>
+            <span style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>{data.conflicts.map((c) => <code key={c} className="mono" style={{ fontSize: 11 }}>{c}</code>)}</span>
+          </div>
+        )}
         {onResolve && (
           <div className="diff-resolve">
             <span className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>Resolve before merging:</span>

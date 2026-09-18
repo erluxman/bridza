@@ -44,6 +44,13 @@ export function currentBranch(root) {
 export function isClean(root) {
   try { return git(root, ["status", "--porcelain"]).trim() === ""; } catch (e) { return false; }
 }
+// Files with unmerged (conflicted) index entries — the mark of a merge that hit
+// a conflict. Works for real merges (MERGE_HEAD present) and `--squash` merges
+// (no MERGE_HEAD) alike, and for any repo checkout or worktree.
+export function conflictedFiles(root) {
+  try { return git(root, ["diff", "--name-only", "--diff-filter=U"]).trim().split("\n").filter(Boolean); }
+  catch (e) { return []; }
+}
 // The branch new task branches fork from: prefer main/master, else current HEAD.
 export function baseBranchName(root) {
   for (const b of ["main", "master"]) if (branchExists(root, b)) return b;
@@ -68,6 +75,27 @@ export function worktreeBase(root) {
 }
 export function taskWorktree(root, pipeline, task) {
   return path.join(worktreeBase(root), safeRef(pipeline), safeRef(task));
+}
+
+// A merge conflict left BEHIND by an earlier finalize attempt. Either the repo's
+// own checkout is mid-conflict (in-place), or the disposable `_finalize`
+// worktree — which finalize now KEEPS on conflict — is still there holding the
+// markers. The `_finalize` worktree is checked whatever branch it holds — a
+// merge paused into ANOTHER target must be surfaced too, never deleted by a
+// finalize into a different branch. Returns { dir, files, target } | null.
+export function pendingConflict(root, target) {
+  if (currentBranch(root) === target) {
+    const files = conflictedFiles(root);
+    if (files.length) return { dir: path.resolve(root), files, target };
+  }
+  const mwt = path.join(worktreeBase(root), "_finalize");
+  try {
+    if (fs.existsSync(path.join(mwt, ".git"))) {
+      const files = conflictedFiles(mwt);
+      if (files.length || git(mwt, ["status", "--porcelain"]).trim()) return { dir: path.resolve(mwt), files, target: currentBranch(mwt) || target };
+    }
+  } catch (e) { /* not a mid-finalize worktree */ }
+  return null;
 }
 
 // ── task branch + worktree lifecycle ────────────────────────────────────────
@@ -152,6 +180,29 @@ export function removeTaskWorktree(root, pipeline, task) {
   try { git(root, ["worktree", "prune"]); } catch (e) { /* not a repo */ }
   return { ok: true, removed };
 }
+
+// Launch VS Code on a folder in a NEW window, preferring the `code` CLI, then
+// the macOS app, then a clear "install the code CLI" error. Shared by opening a
+// task's worktree and handing a merge conflict over to the editor. `extraPaths`
+// are opened as tabs alongside the folder (used for conflicted files).
+function launchEditor(dir, extraPaths = []) {
+  const extras = extraPaths.map((p) => path.resolve(dir, String(p)));
+  const tries = [
+    ["code", ["-n", dir, ...extras]],
+    ["open", ["-na", "Visual Studio Code", "--args", "-n", dir, ...extras]],
+  ];
+  for (const [bin, args] of tries) {
+    try { execFileSync(bin, args, { timeout: 15000, stdio: "ignore" }); return { ok: true, dir }; }
+    catch (e) { /* try next */ }
+  }
+  return { ok: false, dir, error: "couldn't launch VS Code — install the 'code' CLI (VS Code → Cmd+Shift+P → \"Shell Command: Install 'code' command in PATH\")" };
+}
+// Open ANY folder in a new VS Code window — used to hand a merge conflict over
+// to the editor: its Source Control auto-detects the `UU` entries and shows
+// "Merge Changes" with Accept Current / Accept Incoming / Accept Both and the
+// integrated 3-way merge editor. Conflicted files passed in `paths` open as
+// tabs, where VS Code's CodeLens offers the same Accept buttons in place.
+export function openDir(dir, paths = []) { return launchEditor(path.resolve(dir), paths); }
 
 // Open the task's branch in a new VS Code window. The branch is checked out in
 // its worktree (outside the repo); ensure it exists, then launch `code -n` on
@@ -1024,10 +1075,22 @@ export function finalizeTask(root, pipeline, task, { style = "squash", into, res
     }
   } catch (e) { /* if autocommit fails, still try to merge what's committed */ }
 
-  // 2) resolve a dirty target checkout (the in-place merge target). Instead of
+  // 2) a conflict can already be pending from an earlier finalize attempt —
+  //    NEVER trample a half-finished merge. Re-surface the open conflict (the UI
+  //    re-opens its dialog), or land a resolved out-of-place one instead of
+  //    destroying the worktree that holds it.
+  const inPlace = currentBranch(root) === target;
+  const pending = pendingConflict(root, target);
+  // a merge paused into a different target is only ever finished or aborted
+  // explicitly — never landed as a side effect of finalizing somewhere else
+  if (pending && (pending.files.length || pending.target !== target))
+    return { ok: false, conflict: true, target: pending.target, style, files: pending.files, dir: pending.dir, autocommit };
+  if (pending)
+    return { ...finishConflict(root, { dir: pending.dir, pipeline, task, target, message: mainCommitMessage }), autocommit };
+
+  // 3) resolve a dirty target checkout (the in-place merge target). Instead of
   //    erroring, tell the UI to show a diff dialog; it re-calls with resolveMain
   //    = "stash" or "commit" (optionally a message — else opencode writes one).
-  const inPlace = currentBranch(root) === target;
   let mainResolved = null;
   if (inPlace && !isClean(root)) {
     if (resolveMain === "stash") {
@@ -1045,7 +1108,7 @@ export function finalizeTask(root, pipeline, task, { style = "squash", into, res
     }
   }
 
-  // 3) merge the branch into the target.
+  // 4) merge the branch into the target.
   let mwt = root, cleanup = null;
   try {
     if (!inPlace) {
@@ -1079,9 +1142,71 @@ export function finalizeTask(root, pipeline, task, { style = "squash", into, res
     if (cleanup) cleanup();
     return { ok: true, target, style, head, autocommit, mainResolved };
   } catch (e) {
+    const files = conflictedFiles(mwt);
+    if (files.length) {
+      // A merge conflict — and it's a THIRD outcome, not a generic failure. Keep
+      // the merge right where git left it (the repo's checkout in-place, or the
+      // `_finalize` worktree out-of-place) and hand the app the conflicted file
+      // list + the directory to open. NEVER `cleanup()` here — that worktree is
+      // the ONLY copy of the conflict.
+      return { ok: false, conflict: true, target, style, files, dir: mwt, autocommit, mainResolved };
+    }
     if (cleanup) cleanup();
-    return { ok: false, error: firstLine(e), autocommit };
+    return { ok: false, error: firstLine(e), autocommit, mainResolved };
   }
+}
+
+// Finish a paused merge after the conflict is resolved (in VS Code, or by the
+// user closing the markers by hand): stage everything, commit the resolution,
+// and — when the merge ran in the disposable `_finalize` worktree — tear that
+// worktree down now that the finished result is safely on the target branch.
+// Refuses to run while files are still unmerged, and when there's nothing to
+// commit (a clean tree isn't a resolved merge).
+export function finishConflict(root, { dir, pipeline, task, target, message } = {}) {
+  const mwt = dir && fs.existsSync(dir) ? path.resolve(dir) : null;
+  if (!mwt) return { ok: false, error: "no conflict directory given" };
+  const files = conflictedFiles(mwt);
+  if (files.length) return { ok: false, stillConflicting: true, files, error: files.length + " file(s) still conflict — resolve them in the editor first" };
+  let pendingChanges;
+  try { pendingChanges = git(mwt, ["status", "--porcelain"]).trim(); } catch (e) { return { ok: false, error: "not a git checkout: " + firstLine(e) }; }
+  if (!pendingChanges) return { ok: false, error: "nothing to finish — the merge has no pending changes" };
+  const cb = currentBranch(mwt) || target;
+  if (!cb) return { ok: false, error: "that folder isn't a branch checkout" };
+  const ident = ["-c", "user.name=bridza", "-c", "user.email=bridza@local"];
+  try {
+    git(mwt, ["add", "-A"]);
+    const msg = (message && String(message).trim()) || `bridza: resolve merge conflict → ${cb}`;
+    git(mwt, [...ident, "commit", "-m", msg]);
+    const head = git(mwt, ["rev-parse", cb]).trim();
+    if (mwt !== path.resolve(root)) {
+      try { git(root, ["worktree", "remove", "--force", mwt]); } catch (e) { fs.rmSync(mwt, { recursive: true, force: true }); }
+      try { git(root, ["worktree", "prune"]); } catch (e) { /* */ }
+    }
+    return { ok: true, target: cb, head };
+  } catch (e) { return { ok: false, error: firstLine(e) }; }
+}
+
+// Abandon a paused merge. In the repo's own checkout the conflict is aborted
+// (real merges via `git merge --abort`, a rebase via `git rebase --abort`,
+// else — squash merges write no MERGE_HEAD — a hard reset back to the clean
+// pre-merge HEAD). Out-of-place, the disposable `_finalize` worktree that holds
+// the conflict is simply deleted; the user's checkout is never touched.
+export function abortConflict(root, { dir } = {}) {
+  if (!dir) return { ok: false, error: "no directory given" };
+  const mwt = path.resolve(String(dir));
+  if (mwt !== path.resolve(root)) {
+    try { git(root, ["worktree", "remove", "--force", mwt]); } catch (e) { fs.rmSync(mwt, { recursive: true, force: true }); }
+    try { git(root, ["worktree", "prune"]); } catch (e) { /* */ }
+    return { ok: true };
+  }
+  const abort = (args) => { try { git(root, args); return true; } catch (e) { return false; } };
+  let gd = null;
+  try { gd = git(root, ["rev-parse", "--git-dir"]).trim(); } catch (e) { /* */ }
+  const inRebase = gd && (fs.existsSync(path.join(root, gd, "rebase-merge")) || fs.existsSync(path.join(root, gd, "rebase-apply")));
+  if (inRebase && abort(["rebase", "--abort"])) return { ok: true, target: currentBranch(root) };
+  if (abort(["merge", "--abort"])) return { ok: true, target: currentBranch(root) };
+  try { git(root, ["reset", "--hard", "HEAD"]); return { ok: true, target: currentBranch(root) }; }
+  catch (e) { return { ok: false, error: "couldn't abort the merge: " + firstLine(e) }; }
 }
 
 // Parse a unified `git diff` patch into files → hunks → lines (with old/new
@@ -1158,7 +1283,16 @@ export function workingDiff(root) {
   if (patch.length > 400000) patch = patch.slice(0, 400000) + "\n@@ … (diff truncated) @@\n";
   let untracked = [];
   try { untracked = git(root, ["ls-files", "--others", "--exclude-standard"]).trim().split("\n").filter(Boolean); } catch (e) { /* */ }
-  return { ok: true, base: baseBranchName(root), files: parseDiff(patch), untracked };
+  const conflicts = conflictedFiles(root);
+  let files = parseDiff(patch);
+  if (conflicts.length) {
+    // Unmerged entries diff as `diff --git c/<f> w/<f>` — a header parseDiff
+    // can't attach a path to, so it would render a broken file entry full of
+    // raw markers. Drop those and surface them as `conflicts` instead, so the
+    // dialog can list them but can never show or commit markup garbage.
+    files = files.filter((f) => f.path && !conflicts.includes(f.path));
+  }
+  return { ok: true, base: baseBranchName(root), files, untracked, conflicts };
 }
 
 // ── blast radius: reverse import-graph closure of the task's changed files ──

@@ -18,13 +18,14 @@
 //   POST /api/bridza/run/stage    run a stage (ndjson timeline stream)
 //   GET  /api/bridza/timeline     the task branch commit timeline
 //   POST /api/bridza/finalize     merge a task branch into main
+//   POST /api/bridza/conflict/*   open / finish / abort a paused conflict merge
 
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { DATA_DIR, CLI_TOOLS, pipelineFlows } from "../core/domain.js";
 import { readProject, createPipeline, savePipeline, archivePipeline, deletePipeline, createTask, deleteTask, readContext, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan, assignRefs, readPipelineDef } from "./bridza-store.js";
-import { runStage, automateTask, finalizeTask, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, retargetTask, setTaskReuse, listModels, termRun, ensureTaskWorktree, recommendPipelines, readTaskFile, saveTaskFile } from "./bridza-run.js";
+import { runStage, automateTask, finalizeTask, finishConflict, abortConflict, openDir, conflictedFiles, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, retargetTask, setTaskReuse, listModels, termRun, ensureTaskWorktree, recommendPipelines, readTaskFile, saveTaskFile } from "./bridza-run.js";
 
 function resolveDir(raw) {
   if (!raw) return null;
@@ -314,6 +315,24 @@ export async function handleApi(req, res) {
       if (!root) return void need(), true;
       const b = (await json(req)) || {};
       res.end(JSON.stringify(finalizeTask(root, b.pipeline, b.task, { style: b.style, into: b.into, resolveMain: b.resolveMain, mainCommitMessage: b.mainCommitMessage }))); return true;
+    }
+    if (M === "POST" && P === "/api/bridza/conflict/open") {
+      if (!root) return void need(), true;
+      const b = (await json(req)) || {};
+      if (!b.dir) { res.end(JSON.stringify({ ok: false, error: "no directory given" })); return true; }
+      // open the conflicted files as tabs too, so the editor shows the Accept
+      // Current / Incoming / Both CodeLens right on the markers
+      res.end(JSON.stringify(openDir(b.dir, conflictedFiles(b.dir)))); return true;
+    }
+    if (M === "POST" && P === "/api/bridza/conflict/finish") {
+      if (!root) return void need(), true;
+      const b = (await json(req)) || {};
+      res.end(JSON.stringify(finishConflict(root, { dir: b.dir, pipeline: b.pipeline, task: b.task, target: b.target, message: b.message }))); return true;
+    }
+    if (M === "POST" && P === "/api/bridza/conflict/abort") {
+      if (!root) return void need(), true;
+      const b = (await json(req)) || {};
+      res.end(JSON.stringify(abortConflict(root, { dir: b.dir }))); return true;
     }
     if (M === "POST" && P === "/api/bridza/run/stage") {
       if (!root) return void need(), true;

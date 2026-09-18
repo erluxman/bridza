@@ -44,6 +44,7 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   const [diffCommit, setDiffCommit] = useState(null);
   const [diffBranch, setDiffBranch] = useState(false);
   const [resolveOpen, setResolveOpen] = useState(false);
+  const [conflict, setConflict] = useState(null);   // #15 — paused merge conflict { files, dir, target }
   const [fileOpen, setFileOpen] = useState(null);   // #7 — path of a file opened in the editor
   const [automating, setAutomating] = useState(false);
   // ONE task-level terminal log: everything any run of this task prints (stage
@@ -147,6 +148,7 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   const finalize = async (resolveMain, mainCommitMessage) => {
     flash("finalizing… (committing any pending changes)", 8000);   // stays while opencode writes the message
     const r = await api.finalize(dir, { pipeline: pipeline.id, task: task.id, resolveMain, mainCommitMessage });
+    if (r.conflict) { setConflict(r); flash(`merge conflict on ${r.target} — ${r.files.length} file${r.files.length === 1 ? "" : "s"} need resolving`, 5000); return; }
     if (r.needsResolve) { setResolveOpen(true); flash("your checkout of main has uncommitted changes — review and resolve below", 4000); return; }
     setResolveOpen(false);
     if (r.ok) { flash(r.autocommit ? `committed “${r.autocommit.message}” + merged → ${r.target}` : (r.mainResolved ? `${r.mainResolved.action === "stash" ? "stashed main" : "committed main"} + merged → ${r.target}` : `merged → ${r.target}`), 4800); onChange(); }
@@ -156,6 +158,27 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
     flash("opening VS Code…");
     const r = await api.openEditor(dir, { pipeline: pipeline.id, task: task.id, workingDir: pipeline.workingDir });
     flash(r.ok ? `opened ${r.branch} in VS Code` : r.error);
+  };
+  // #15 — a merge hit a conflict: hand the RESOLUTION over to VS Code at the
+  // exact directory where the merge is paused (its Source Control shows the UU
+  // entries as "Merge Changes" with Accept Current / Incoming / Both), then
+  // finish or abort the paused merge from here — the loop stays app-driven.
+  const openConflictInVscode = async () => {
+    flash("opening the conflict in VS Code…");
+    const r = await api.openConflict(dir, { dir: conflict && conflict.dir });
+    flash(r.ok ? "opened the conflicted checkout in VS Code — pick what to keep per file" : r.error, 6000);
+  };
+  const finishConflictHere = async () => {
+    const r = await api.finishConflict(dir, { dir: conflict && conflict.dir, pipeline: pipeline.id, task: task.id, target: conflict && conflict.target });
+    if (r.ok) { setConflict(null); flash(`merge completed → ${r.target} updated`, 4800); onChange(); return; }
+    if (r.stillConflicting) flash(`still ${r.files.length} file${r.files.length === 1 ? "" : "s"} to resolve — open VS Code and pick what to keep`, 6000);
+    else flash(r.error || "couldn't finish the merge", 4800);
+  };
+  const abortMerge = async () => {
+    if (!window.confirm("Abort this merge? The paused merge is cancelled and the target branch is left exactly as it was before.")) return;
+    const r = await api.abortConflict(dir, { dir: conflict && conflict.dir });
+    if (r.ok) { setConflict(null); flash("merge aborted — nothing changed", 4000); onChange(); }
+    else flash(r.error || "couldn't abort the merge", 4800);
   };
   // Automate: run every stage of this task back-to-back. The prompt for each
   // stage is assembled from the task intent + the stage's own hint/system prompt.
@@ -381,8 +404,51 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
       {diffCommit && <DiffView dir={dir} commit={diffCommit} commits={timeline} onCommit={setDiffCommit} pipeline={pipeline.id} task={task.id} flash={flash} onEdited={() => { onChange(); loadTimeline(); }} onClose={() => setDiffCommit(null)} />}
       {diffBranch && <DiffView dir={dir} branch pipeline={pipeline.id} task={task.id} flash={flash} onEdited={() => { onChange(); loadTimeline(); }} onClose={() => setDiffBranch(false)} />}
       {resolveOpen && <DiffView dir={dir} working pipeline={pipeline.id} task={task.id} flash={flash} onResolve={(action, m) => finalize(action, m)} onClose={() => setResolveOpen(false)} />}
+      {conflict && <ConflictDialog conflict={conflict} openInVscode={openConflictInVscode} onFinish={finishConflictHere} onAbort={abortMerge} onClose={() => setConflict(null)} />}
       {fileOpen && <FileModal dir={dir} pipeline={pipeline.id} task={task.id} path={fileOpen} flash={flash} onEdited={() => { onChange(); loadTimeline(); }} onSaved={() => { onChange(); loadTimeline(); }} onClose={() => setFileOpen(null)} />}
     </>
+  );
+}
+
+/* #15 — a merge hit a conflict. The reporter's ask: don't make the user drop to
+   a terminal. Git is 'driven by the app' — the conflict is surfaced here, the
+   user is handed off to VS Code with the parameters already set (a window on the
+   EXACT directory where the merge is paused, so Source Control shows Accept
+   Current / Accept Incoming / Accept Both), and resolution is finished -- or the
+   merge abandoned -- back in this dialog. In-app accept buttons are a natural
+   follow-up; VS Code already has the eye-free 3-way editor baked in. */
+function ConflictDialog({ conflict, openInVscode, onFinish, onAbort, onClose }) {
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="diffwin" onClick={(e) => e.stopPropagation()}>
+        <div className="diff-hd">
+          <div className="row" style={{ gap: 8, minWidth: 0 }}>
+            <span className="mono" style={{ fontSize: 11, color: "var(--danger)", whiteSpace: "nowrap" }}>CONFLICT</span>
+            <b style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 13 }}>
+              {conflict.files.length} file{conflict.files.length === 1 ? "" : "s"} conflict on {conflict.target}
+            </b>
+          </div>
+          <div className="row">
+            <button className="btn ghost sm" onClick={onClose} title="Keep the merge paused and close this dialog">✕</button>
+          </div>
+        </div>
+        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>
+            The merge into <code className="mono">{conflict.target}</code> needs a decision on each file below.
+            Open them in VS Code and pick what to keep — <b>Accept Current</b>, <b>Accept Incoming</b> or
+            <b> Accept Both</b> — then finish the merge here. No terminal needed.
+          </p>
+          <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
+            {conflict.files.map((f) => <code key={f} className="mono" style={{ fontSize: 11, padding: "2px 6px", background: "var(--bg-2)", borderRadius: 4, border: "1px solid var(--bd)" }}>{f}</code>)}
+          </div>
+          <div className="row" style={{ gap: 6 }}>
+            <button className="btn" onClick={openInVscode} title="Opens a VS Code window on the exact folder where the merge is paused — its Source Control lists these files as 'Merge Changes'">⧉ Resolve in VS Code</button>
+            <button className="btn primary" onClick={onFinish} title="Every conflict resolved in the editor — commit the finished merge and update main">✓ Finish merge</button>
+            <button className="btn danger" onClick={onAbort} title="Cancel the merge; the target branch returns to how it was before">Abort merge</button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
