@@ -31,7 +31,8 @@
       "title": "Major Bug Fix",
       "due": "",
       "tasks": [
-        "engineering/every-stage-floor-should-be-in-auto"
+        "engineering/every-stage-floor-should-be-in-auto",
+        "engineering/you-just-should-be-able-to-change-the"
       ],
       "needs": []
     }
