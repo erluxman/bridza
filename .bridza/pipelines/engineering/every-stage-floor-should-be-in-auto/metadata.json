@@ -1,0 +1,21 @@
+{
+  "v": 1,
+  "id": "every-stage-floor-should-be-in-auto",
+  "pipeline": "engineering",
+  "title": "Every stage floor should be in auto advance by default.",
+  "ref": 13,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/every-stage-floor-should-be-in-auto",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
