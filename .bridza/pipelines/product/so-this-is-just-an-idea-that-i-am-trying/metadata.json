@@ -1,0 +1,24 @@
+{
+  "v": 1,
+  "id": "so-this-is-just-an-idea-that-i-am-trying",
+  "pipeline": "product",
+  "title": "So, this is just an idea that I am trying to record and send it to a flow, check",
+  "ref": 6,
+  "type": "idea",
+  "flow": "product-spec",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/product/so-this-is-just-an-idea-that-i-am-trying",
+  "stages": [
+    "ps-concept",
+    "ps-requirements",
+    "ps-ux",
+    "ps-architecture",
+    "ps-breakdown",
+    "ps-spec-pdf"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
