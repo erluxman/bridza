@@ -1,4 +1,11 @@
 {
   "v": 1,
-  "items": []
+  "items": [
+    {
+      "id": "in-xqnb85",
+      "kind": "idea",
+      "text": "Ok, when I press command and mouse will, it should be able to zoom in and zoom out the plan view canvas. Also, there may be other side effect features that needs to be, you know, thought about it. Make sure to research well about it first and then implement it.",
+      "time": "2026-09-18T20:53:05.278Z"
+    }
+  ]
 }
