@@ -16,5 +16,61 @@
   "routing": {},
   "status": "in-progress",
   "finalized": false,
-  "tracking": {}
+  "tracking": {
+    "dissect": {
+      "status": "done",
+      "seconds": 637,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Better merging strategy to reference branch\n\nIt appears that whenever we are done with one feature and we try to merge it with the reference friends by squashing all the comments into one it seems to be You know It seems to be a problem every single time So we should fix it you should fix it We should have a better way of like not having lots of comments But then being able to merge it easily with the reference brands, which is main most most of the time\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-18T22:35:51.093Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Better merging strategy to reference branch\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-18T22:37:59.238Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T22:39:45.568Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/define-merge-strategy/context.md",
+            ".bridza/pipelines/engineering/define-merge-strategy/metadata.json",
+            ".bridza/pipelines/engineering/implement-merge-strategy/context.md",
+            ".bridza/pipelines/engineering/implement-merge-strategy/metadata.json",
+            ".bridza/pipelines/engineering/verify-merge-strategy/context.md",
+            ".bridza/pipelines/engineering/verify-merge-strategy/metadata.json",
+            ".bridza/plan.json"
+          ],
+          "sessionId": "ses_f49549f5bffe8De8jsHnP10doy",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a tech lead. Split the feature described in the task intent into small, independently-deliverable sub-tasks that each satisfy IN…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n· step · 18711 tokens\n· step · 23336 tokens\n· step · 25421 tokens\n· step · 27678 tokens\n· step · 27940 tokens\n· step · 28129 tokens\n· step · 29020 tokens\n· step · 29116 tokens\n· step · 29358 tokens\n· step · 30202 tokens\n· step · 30539 tokens\n· step · 30959 tokens\n· step · 31312 tokens\n· step · 43157 tokens\n· step · 48466 tokens\n· step · 49353 tokens\n· step · 49520 tokens\n· step · 49719 tokens\n· step · 49896 tokens\n· step · 50095 tokens\n· step · 50398 tokens\n· step · 50540 tokens\n· step · 56716 tokens\nThe feature has been split into the following sub-tasks:\n\n1. **Define merging strategy specification** (`define-merge-strategy`): Define the new merging strategy to maintain commit context. (2 hours)\n2. **Implement merging strategy in backend runner** (`implement-merge-strategy`): Update `server/bridza-run.js` to execute the strategy. (4 hours)\n3. **Verify merge strategy and test conflicts** (`verify-merge-strategy`): Validate the strategy and update documentation. (2 hours)\n\nThese tasks are grouped in the new milestone: \"Better Merging Strategy\".\n\nThe merge into `main` will be clean as I have only added new task files and updated `.bridza/plan.json`.\n· step · 56981 tokens"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Better merging strategy to reference branch\n\nDo not make minute work items if its not necessary, if its not big emough and can share content, it better be one work item. in your current dissection, i feel like you have tried to over engineer it, feel free to disagree with em and provide enough reason if necessary to devide into smaller work itemsw \n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-18T22:42:34.238Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T22:51:02.843Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/define-merge-strategy/context.md",
+            ".bridza/pipelines/engineering/define-merge-strategy/metadata.json",
+            ".bridza/pipelines/engineering/implement-merge-strategy/context.md",
+            ".bridza/pipelines/engineering/implement-merge-strategy/metadata.json",
+            ".bridza/pipelines/engineering/verify-merge-strategy/context.md",
+            ".bridza/pipelines/engineering/verify-merge-strategy/metadata.json",
+            ".bridza/plan.json"
+          ],
+          "sessionId": "ses_f49506d38ffeGO746OLYD72Mha",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a tech lead. Split the feature described in the task intent into small, independently-deliverable sub-tasks that each satisfy IN…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n· step · 18752 tokens\n· step · 19002 tokens\n· step · 23459 tokens\n· step · 23513 tokens\n· step · 23575 tokens\n· step · 23816 tokens\n· step · 24061 tokens\n· step · 24183 tokens\n· step · 26896 tokens\n· step · 26947 tokens\n· step · 30413 tokens\n· step · 32436 tokens\n· step · 32593 tokens\n· step · 33488 tokens\n· step · 33569 tokens\n· step · 34084 tokens\n· step · 34325 tokens\n· step · 35592 tokens\n· step · 35650 tokens\n· step · 35955 tokens\n· step · 36257 tokens\n· step · 36537 tokens\n· step · 36829 tokens\n· step · 37443 tokens\n· step · 37981 tokens\n· step · 38080 tokens\n· step · 38811 tokens\n· step · 40051 tokens\n# Plan Board — Better Merging Strategy\n\n- **Milestone:** `ms-better-merging` (Better Merging Strategy)\n- **Sub-tasks:**\n  1. `engineering/define-merge-strategy` (2h)\n  2. `engineering/implement-merge-strategy` (4h) — Depends on `define-merge-strategy`\n  3. `engineering/verify-merge-strategy` (2h) — Depends on `implement-merge-strategy`\n- **Merge Readiness:** The merge into `main` will be **clean** (`git merge-tree main HEAD` exits successfully with zero conflicts).\n· step · 42924 tokens"
+        }
+      ]
+    }
+  }
 }

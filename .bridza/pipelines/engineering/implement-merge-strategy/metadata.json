@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "id": "implement-merge-strategy",
+  "pipeline": "engineering",
+  "title": "Implement merging strategy in backend runner",
+  "type": "subtask",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": ["spec", "build", "review"],
+  "tracking": {}
+}

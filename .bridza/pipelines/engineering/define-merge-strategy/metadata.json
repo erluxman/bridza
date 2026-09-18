@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "id": "define-merge-strategy",
+  "pipeline": "engineering",
+  "title": "Define merging strategy specification",
+  "type": "subtask",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": ["spec", "build", "review"],
+  "tracking": {}
+}

@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "id": "verify-merge-strategy",
+  "pipeline": "engineering",
+  "title": "Verify merge strategy and test conflicts",
+  "type": "subtask",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": ["spec", "build", "review"],
+  "tracking": {}
+}

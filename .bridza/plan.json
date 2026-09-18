@@ -14,153 +14,191 @@
       "any": []
     },
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": {
-      "all": [
-        "engineering/welcome-dialog-on-open"
-      ],
-      "any": []
+        "all": [
+          "engineering/welcome-dialog-on-open"
+        ],
+        "any": []
+      },
+      "engineering/implement-merge-strategy": {
+        "all": [
+          "engineering/define-merge-strategy"
+        ],
+        "any": []
+      },
+      "engineering/verify-merge-strategy": {
+        "all": [
+          "engineering/implement-merge-strategy"
+        ],
+        "any": []
+      }
+    },
+    "milestones": [
+      {
+        "id": "ms-welcome-dialog",
+        "title": "Welcome dialog on app open",
+        "due": "",
+        "tasks": [
+          "engineering/welcome-dialog-on-open",
+          "engineering/per-day-dismissal",
+          "engineering/time-aware-greeting",
+          "engineering/okay-i-just-have-an-idea-that-when-i-ope"
+        ],
+        "needs": []
+      },
+      {
+        "id": "ms-better-merging",
+        "title": "Better Merging Strategy",
+        "due": "",
+        "tasks": [
+          "engineering/define-merge-strategy",
+          "engineering/implement-merge-strategy",
+          "engineering/verify-merge-strategy"
+        ],
+        "needs": []
+      },
+      {
+        "id": "ms-ay5tg",
+        "title": "Major Bug Fix",
+        "due": "",
+        "tasks": [
+          "engineering/every-stage-floor-should-be-in-auto",
+          "engineering/you-just-should-be-able-to-change-the",
+          "engineering/more-conflicts-user-experience-should",
+          "engineering/every-task-when-they-are-converted-into"
+        ],
+        "needs": [
+          "ms-welcome-dialog"
+        ]
+      },
+      {
+        "id": "ms-xyzmr",
+        "title": "UX Impromement",
+        "due": "",
+        "tasks": [
+          "engineering/i-should-be-able-to-rearrange-the",
+          "engineering/kanban-archive-issue-cards",
+          "engineering/kanban-columns-drag-reorder"
+        ],
+        "needs": []
+      }
+    ],
+    "pos": {
+      "marketing-growth/a-tiktok-video-about-what-bridza-harness": {
+        "x": -437,
+        "y": 1068
+      },
+      "engineering/welcome-dialog-on-open": {
+        "x": -469,
+        "y": 176
+      },
+      "engineering/per-day-dismissal": {
+        "x": 80,
+        "y": 135
+      },
+      "engineering/time-aware-greeting": {
+        "x": 51,
+        "y": 48
+      },
+      "engineering/okay-i-just-have-an-idea-that-when-i-ope": {
+        "x": -626,
+        "y": 58
+      },
+      "engineering/define-merge-strategy": {
+        "x": 100,
+        "y": 200
+      },
+      "engineering/implement-merge-strategy": {
+        "x": 200,
+        "y": 200
+      },
+      "engineering/verify-merge-strategy": {
+        "x": 300,
+        "y": 200
+      },
+      "engineering/every-stage-floor-should-be-in-auto": {
+        "x": 503,
+        "y": -13
+      },
+      "engineering/you-just-should-be-able-to-change-the": {
+        "x": 502,
+        "y": 98
+      },
+      "engineering/more-conflicts-user-experience-should": {
+        "x": 520,
+        "y": 163
+      },
+      "engineering/every-task-when-they-are-converted-into": {
+        "x": 646,
+        "y": 233
+      },
+      "engineering/i-should-be-able-to-rearrange-the": {
+        "x": -432,
+        "y": 359
+      },
+      "engineering/kanban-archive-issue-cards": {
+        "x": -432,
+        "y": 445
+      },
+      "engineering/kanban-columns-drag-reorder": {
+        "x": -432,
+        "y": 531
+      },
+      "engineering/ok-when-i-press-command-and-mouse-will": {
+        "x": -69,
+        "y": 623
+      },
+      "engineering/highlight-selected-task-or-work-item-if": {
+        "x": -74,
+        "y": 696
+      },
+      "engineering/auto-advance-seems-to-only-works-at-the": {
+        "x": -101,
+        "y": 759
+      }
+    },
+    "sizes": {
+      "engineering/the-title-is-taking-a-lot-of-vertical-sp": {
+        "w": 345,
+        "h": 59
+      },
+      "engineering/when-i-am-recording-an-idea-in-the-inbox": {
+        "w": 377,
+        "h": 62
+      },
+      "engineering/okay-i-just-have-an-idea-that-when-i-ope": {
+        "w": 504,
+        "h": 65
+      },
+      "marketing-growth/a-tiktok-video-about-what-bridza-harness": {
+        "w": 399,
+        "h": 46
+      },
+      "engineering/you-just-should-be-able-to-change-the": {
+        "w": 357,
+        "h": 44
+      },
+      "engineering/more-conflicts-user-experience-should": {
+        "w": 331,
+        "h": 58
+      },
+      "engineering/every-stage-floor-should-be-in-auto": {
+        "w": 305,
+        "h": 66
+      }
+    },
+    "links": {},
+    "pipeDeps": [
+      {
+        "from": "product",
+        "to": "engineering"
+      }
+    ],
+    "est": {
+      "engineering/welcome-dialog-on-open": 3,
+      "engineering/per-day-dismissal": 2,
+      "engineering/time-aware-greeting": 1,
+      "engineering/define-merge-strategy": 2,
+      "engineering/implement-merge-strategy": 4,
+      "engineering/verify-merge-strategy": 2
     }
-  },
-  "milestones": [
-    {
-      "id": "ms-welcome-dialog",
-      "title": "Welcome dialog on app open",
-      "due": "",
-      "tasks": [
-        "engineering/welcome-dialog-on-open",
-        "engineering/per-day-dismissal",
-        "engineering/time-aware-greeting",
-        "engineering/okay-i-just-have-an-idea-that-when-i-ope"
-      ],
-      "needs": []
-    },
-    {
-      "id": "ms-ay5tg",
-      "title": "Major Bug Fix",
-      "due": "",
-      "tasks": [
-        "engineering/every-stage-floor-should-be-in-auto",
-        "engineering/you-just-should-be-able-to-change-the",
-        "engineering/more-conflicts-user-experience-should",
-        "engineering/every-task-when-they-are-converted-into"
-      ],
-      "needs": [
-        "ms-welcome-dialog"
-      ]
-    },
-    {
-      "id": "ms-xyzmr",
-      "title": "UX Impromement",
-      "due": "",
-      "tasks": [
-        "engineering/i-should-be-able-to-rearrange-the",
-        "engineering/kanban-archive-issue-cards",
-        "engineering/kanban-columns-drag-reorder"
-      ],
-      "needs": []
-    }
-  ],
-  "pos": {
-    "marketing-growth/a-tiktok-video-about-what-bridza-harness": {
-      "x": -437,
-      "y": 1068
-    },
-    "engineering/welcome-dialog-on-open": {
-      "x": -469,
-      "y": 176
-    },
-    "engineering/per-day-dismissal": {
-      "x": 80,
-      "y": 135
-    },
-    "engineering/time-aware-greeting": {
-      "x": 51,
-      "y": 48
-    },
-    "engineering/okay-i-just-have-an-idea-that-when-i-ope": {
-      "x": -626,
-      "y": 58
-    },
-    "engineering/every-stage-floor-should-be-in-auto": {
-      "x": 503,
-      "y": -13
-    },
-    "engineering/you-just-should-be-able-to-change-the": {
-      "x": 502,
-      "y": 98
-    },
-    "engineering/more-conflicts-user-experience-should": {
-      "x": 520,
-      "y": 163
-    },
-    "engineering/every-task-when-they-are-converted-into": {
-      "x": 646,
-      "y": 233
-    },
-    "engineering/i-should-be-able-to-rearrange-the": {
-      "x": -432,
-      "y": 359
-    },
-    "engineering/kanban-archive-issue-cards": {
-      "x": -432,
-      "y": 445
-    },
-    "engineering/kanban-columns-drag-reorder": {
-      "x": -432,
-      "y": 531
-    },
-    "engineering/ok-when-i-press-command-and-mouse-will": {
-      "x": -69,
-      "y": 623
-    },
-    "engineering/highlight-selected-task-or-work-item-if": {
-      "x": -74,
-      "y": 696
-    },
-    "engineering/auto-advance-seems-to-only-works-at-the": {
-      "x": -101,
-      "y": 759
-    }
-  },
-  "sizes": {
-    "engineering/the-title-is-taking-a-lot-of-vertical-sp": {
-      "w": 345,
-      "h": 59
-    },
-    "engineering/when-i-am-recording-an-idea-in-the-inbox": {
-      "w": 377,
-      "h": 62
-    },
-    "engineering/okay-i-just-have-an-idea-that-when-i-ope": {
-      "w": 504,
-      "h": 65
-    },
-    "marketing-growth/a-tiktok-video-about-what-bridza-harness": {
-      "w": 399,
-      "h": 46
-    },
-    "engineering/you-just-should-be-able-to-change-the": {
-      "w": 357,
-      "h": 44
-    },
-    "engineering/more-conflicts-user-experience-should": {
-      "w": 331,
-      "h": 58
-    },
-    "engineering/every-stage-floor-should-be-in-auto": {
-      "w": 305,
-      "h": 66
-    }
-  },
-  "links": {},
-  "pipeDeps": [
-    {
-      "from": "product",
-      "to": "engineering"
-    }
-  ],
-  "est": {
-    "engineering/welcome-dialog-on-open": 3,
-    "engineering/per-day-dismissal": 2,
-    "engineering/time-aware-greeting": 1
   }
-}
