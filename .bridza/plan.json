@@ -50,6 +50,18 @@
         "engineering/task-creation-write-path"
       ],
       "any": []
+    },
+    "engineering/implement-merge-strategy": {
+      "all": [
+        "engineering/define-merge-strategy"
+      ],
+      "any": []
+    },
+    "engineering/verify-merge-strategy": {
+      "all": [
+        "engineering/implement-merge-strategy"
+      ],
+      "any": []
     }
   },
   "milestones": [
@@ -62,6 +74,17 @@
         "engineering/per-day-dismissal",
         "engineering/time-aware-greeting",
         "engineering/okay-i-just-have-an-idea-that-when-i-ope"
+      ],
+      "needs": []
+    },
+    {
+      "id": "ms-better-merging",
+      "title": "Better Merging Strategy",
+      "due": "",
+      "tasks": [
+        "engineering/define-merge-strategy",
+        "engineering/implement-merge-strategy",
+        "engineering/verify-merge-strategy"
       ],
       "needs": []
     },
@@ -229,6 +252,9 @@
     "engineering/task-creation-write-path": 3,
     "engineering/naming-contract-tests": 2,
     "engineering/ui-ref-display": 3,
-    "engineering/migration-existing-tasks": 4
+    "engineering/migration-existing-tasks": 4,
+    "engineering/define-merge-strategy": 2,
+    "engineering/implement-merge-strategy": 4,
+    "engineering/verify-merge-strategy": 2
   }
 }
