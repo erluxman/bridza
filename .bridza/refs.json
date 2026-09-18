@@ -1,9 +1,12 @@
 {
   "v": 1,
-  "next": 10,
+  "next": 13,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
-    "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4
+    "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
+    "engineering/per-day-dismissal": 10,
+    "engineering/time-aware-greeting": 11,
+    "engineering/welcome-dialog-on-open": 12
   },
   "deleted": [
     "engineering/truncation-check-idea",
