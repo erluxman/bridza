@@ -1,0 +1,21 @@
+{
+  "v": 1,
+  "id": "more-conflicts-user-experience-should",
+  "pipeline": "engineering",
+  "title": "More conflicts, user experience should be easier.",
+  "ref": 15,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/more-conflicts-user-experience-should",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
