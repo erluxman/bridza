@@ -1,6 +1,13 @@
 {
   "v": 1,
-  "deps": {},
+  "deps": {
+    "engineering/when-i-am-recording-an-idea-in-the-inbox": {
+      "all": [
+        "engineering/the-title-is-taking-a-lot-of-vertical-sp"
+      ],
+      "any": []
+    }
+  },
   "milestones": [],
   "pos": {
     "engineering/when-i-am-recording-an-idea-in-the-inbox": {
