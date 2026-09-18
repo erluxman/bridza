@@ -1,0 +1,21 @@
+{
+  "v": 1,
+  "id": "the-title-is-taking-a-lot-of-vertical-sp",
+  "pipeline": "engineering",
+  "title": "The title is taking a lot of vertical space, causing UI to look really bad And I want the title or the description of this of any task to be a small text which has its own separate line so that it does not interfere with the rest of the UI",
+  "ref": 3,
+  "type": "",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/the-title-is-taking-a-lot-of-vertical-sp",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
