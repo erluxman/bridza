@@ -1,13 +1,14 @@
 {
   "v": 1,
-  "next": 14,
+  "next": 15,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
     "engineering/per-day-dismissal": 10,
     "engineering/time-aware-greeting": 11,
     "engineering/welcome-dialog-on-open": 12,
-    "engineering/every-stage-floor-should-be-in-auto": 13
+    "engineering/every-stage-floor-should-be-in-auto": 13,
+    "engineering/you-just-should-be-able-to-change-the": 14
   },
   "deleted": [
     "engineering/truncation-check-idea",
