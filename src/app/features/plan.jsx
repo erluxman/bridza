@@ -152,11 +152,17 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
   const maxTitle = Math.max(8, ...tasks.map((t) => t.title.length));
   const W = wide ? Math.min(380, Math.max(190, 30 + maxTitle * 7)) : 170;
   const COL = W + 96;
-  const titleChars = wide ? 999 : 21;
-  // #13 — per-task card size (falls back to the uniform default). live sizes while
-  // dragging a resize handle override the saved ones.
-  const wOf = (k) => (sizeLive[k] && sizeLive[k].w) || (plan.sizes && plan.sizes[k] && plan.sizes[k].w) || W;
+  // #13 — per-task card size (falls back to a default sized to that task's own
+  // title, so short titles stay compact and long ones get more room without
+  // needing a manual resize). live sizes while dragging a resize handle
+  // override the saved ones.
+  const defWOf = (k) => { const t = byKey.get(k); return Math.min(wide ? 380 : 280, Math.max(W, 30 + ((t && t.title.length) || 0) * 6.5)); };
+  const wOf = (k) => (sizeLive[k] && sizeLive[k].w) || (plan.sizes && plan.sizes[k] && plan.sizes[k].w) || defWOf(k);
   const hOf = (k) => (sizeLive[k] && sizeLive[k].h) || (plan.sizes && plan.sizes[k] && plan.sizes[k].h) || PN.H;
+  // title truncation now tracks the CARD'S ACTUAL WIDTH (manually resized or
+  // auto-sized) instead of a fixed character count, so dragging the resize
+  // handle grows/shrinks how much of the title is visible.
+  const titleCharsFor = (w) => Math.max(4, Math.floor((w - 24) / 6.1));
 
   // positions: auto layout, overridden by saved manual positions (plan.pos),
   // then auto-only members get shifted down until milestone boxes don't overlap
@@ -496,7 +502,7 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
                     <rect className="pn-prog" x="1" y={nh - 4} width={Math.max(0, (nw - 2) * t.progress / 100)} height="3" rx="1.5" />
                     <circle className="pn-pin" cx="0" cy={nh / 2} r="3" />
                     <circle className="pn-pin" cx={nw} cy={nh / 2} r="3" />
-                    <text className="pn-title" x="14" y="20">{trunc(t.title, titleChars)}</text>
+                    <text className="pn-title" x="14" y="20">{trunc(t.title, titleCharsFor(nw))}</text>
                     <text className="pn-sub" x="14" y="36"><tspan fill={pipeColor(t.pid)} style={{ fontWeight: 600 }}>{trunc(t.pipe, wide ? 40 : 12)}</tspan> · {st === "done" ? "✓ done" : st === "running" ? "● running" : st === "blocked" ? "⛔ blocked" : "○ ready"}</text>
                     {est[t.key] > 0 && <text className="pn-est" x={nw - 10} y="20" textAnchor="end">~{est[t.key]}h</text>}
                     {/* #13 — resize handle (⌘/Ctrl-drag resizes every card) */}

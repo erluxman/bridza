@@ -103,7 +103,42 @@ export function ensureTaskWorktree(root, pipeline, task, { workingDir = "." } = 
     // tree — every change on the branch — is materialised and runnable.
     try { if (git(wt, ["sparse-checkout", "list"]).trim()) git(wt, ["sparse-checkout", "disable"]); } catch (e) { /* not sparse */ }
   }
+  seedTaskFiles(root, wt, pipeline, task);
   return { ok: true, branch: t.branch, worktree: wt };
+}
+
+// The task branch forks from main/master, but the task itself (metadata.json
+// with its flow + stage list, context.md) was committed on whatever branch the
+// repo had checked out. Copy the task's identity into the worktree so the first
+// run doesn't write a blank, flow-less metadata (a Bugfix task suddenly showing
+// every flow's stages, STLC first); the first stage commit carries it.
+function seedTaskFiles(root, wt, pipeline, task) {
+  const readJ = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) { return null; } };
+  const ctx = rel.taskContext(pipeline, task), metaRel = rel.taskMeta(pipeline, task);
+  try {
+    if (!fs.existsSync(path.join(wt, ctx)) && fs.existsSync(path.join(root, ctx))) {
+      fs.mkdirSync(path.dirname(path.join(wt, ctx)), { recursive: true });
+      fs.copyFileSync(path.join(root, ctx), path.join(wt, ctx));
+    }
+    const src = readJ(path.join(root, metaRel));
+    const cur = readJ(path.join(wt, metaRel));
+    const next = cur ? healTaskFlow(cur, src) : src;
+    if (next && next !== cur) writeTaskMeta(wt, pipeline, task, next);
+  } catch (e) { /* best-effort: a run still works, just without the seed */ }
+}
+
+// A task branch forks from main, so a task created while another branch was
+// checked out can land on its branch WITHOUT its metadata; the first run then
+// wrote a blank one and the task lost its flow. Re-adopt the flow + its stage
+// list (and identity) from a copy that still has them.
+export function healTaskFlow(cur, src) {
+  if (!cur || cur.flow || cur.template || !src || !(src.flow || src.template)) return cur;
+  return {
+    ...cur,
+    flow: src.flow || "", template: src.template || "", type: cur.type || src.type || "",
+    title: cur.title || src.title, ref: cur.ref || src.ref,
+    stages: [...new Set([...(src.stages || []), ...(cur.stages || [])])],
+  };
 }
 
 export function removeTaskWorktree(root, pipeline, task) {

@@ -145,6 +145,13 @@ textarea.input { resize: vertical; min-height: 64px; }
 .run-files code { font-size: 11px; background: var(--bg-3); border: 1px solid var(--line-2); padding: 1px 6px; border-radius: 5px; color: var(--txt-2); }
 .topbar { padding: 16px 22px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .topbar h1 { font-size: 18px; margin: 0; font-family: "Space Grotesk", var(--sans); }
+/* the task title is free text — clamp it to one line so a long one can never
+   squeeze the view switcher / action buttons out of the topbar. The full text
+   is the tooltip, and the detail lives in the Brief card. min-width keeps the
+   title from being flexed away to nothing on a narrow window. */
+.topbar .row:first-child { min-width: 0; flex: 1 1 auto; }
+.topbar .row:last-child { flex: 0 0 auto; }
+h1.task-title { flex: 1 1 auto; min-width: 8ch; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .content { padding: 20px 22px; }
 
 .cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
@@ -169,7 +176,9 @@ textarea.input { resize: vertical; min-height: 64px; }
 .kcol-body { padding: 10px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
 .kcard { background: var(--bg-2); border: 1px solid var(--line); border-radius: 9px; padding: 11px; cursor: pointer; transition: .12s; }
 .kcard:hover { border-color: var(--line-2); background: var(--bg-3); }
-.kcard > .spread > b { font-size: 13.5px; }
+/* board card titles: wrap to at most two lines rather than stretching the card */
+.kcard > .spread { align-items: flex-start; }
+.kcard > .spread > b { font-size: 13.5px; min-width: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .kcard-branch { font-size: 10px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kcol-empty { color: var(--line-2); text-align: center; font-size: 13px; padding: 8px 0; }
 

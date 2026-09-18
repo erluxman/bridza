@@ -1,7 +1,32 @@
 {
   "v": 1,
-  "deps": {},
-  "milestones": [],
+  "deps": {
+    "engineering/per-day-dismissal": {
+      "all": [
+        "engineering/welcome-dialog-on-open"
+      ],
+      "any": []
+    },
+    "engineering/time-aware-greeting": {
+      "all": [
+        "engineering/welcome-dialog-on-open"
+      ],
+      "any": []
+    }
+  },
+  "milestones": [
+    {
+      "id": "ms-welcome-dialog",
+      "title": "Welcome dialog on app open",
+      "due": "",
+      "tasks": [
+        "engineering/welcome-dialog-on-open",
+        "engineering/per-day-dismissal",
+        "engineering/time-aware-greeting"
+      ],
+      "needs": []
+    }
+  ],
   "pos": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": {
       "x": 26,
@@ -33,5 +58,9 @@
       "to": "engineering"
     }
   ],
-  "est": {}
+  "est": {
+    "engineering/welcome-dialog-on-open": 3,
+    "engineering/per-day-dismissal": 2,
+    "engineering/time-aware-greeting": 1
+  }
 }

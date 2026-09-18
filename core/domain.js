@@ -40,6 +40,41 @@ export function taskBranchName(pipeline, task) {
   return "bridza/" + safeRef(pipeline) + "/" + safeRef(task);
 }
 
+// A headline for a blob of prose (an inbox item, a pasted brief). Titles are
+// read at a glance in the board and the task topbar, so cap them at a dozen
+// words — the FULL text is never lost, it lives on in the task's context.md.
+// Plain words with spaces: the dashed form is only ever the on-disk id.
+export const TITLE_WORDS = 12;
+export const TITLE_CHARS = 72;
+export function shortTitle(text, { words = TITLE_WORDS, chars = TITLE_CHARS } = {}) {
+  const first = String(text || "").split("\n").map((l) => l.replace(/^#+\s*/, "").trim()).find(Boolean) || "";
+  const parts = first.split(/\s+/).filter(Boolean);
+  let out = parts.slice(0, words).join(" ");
+  let cut = parts.length > words;
+  if (out.length > chars) {
+    // never slice mid-word: back off to the last space inside the budget
+    const hard = out.slice(0, chars);
+    const sp = hard.lastIndexOf(" ");
+    out = (sp > chars * 0.5 ? hard.slice(0, sp) : hard).trimEnd();
+    cut = true;
+  }
+  // a trailing comma/dash before the ellipsis reads like a typo
+  out = out.replace(/[\s,;:–—-]+$/, "");
+  return out ? out + (cut ? "…" : "") : "";
+}
+
+// The on-disk / branch-name form of a title. Unlike slug-then-slice this cuts
+// on a word boundary, so a branch reads `…-a-little-bit` and not
+// `…-a-little-bit-confusin`.
+export function taskSlug(title, max = 40) {
+  const s = safeRef(String(title || "")).toLowerCase().replace(/-+/g, "-");
+  const cut = s.length <= max ? s : (() => {
+    const head = s.slice(0, max), dash = head.lastIndexOf("-");
+    return dash > max * 0.5 ? head.slice(0, dash) : head;
+  })();
+  return cut.replace(/^-+|-+$/g, "");
+}
+
 // Relative paths (POSIX, repo-root-relative) for every entity. Callers join
 // these onto a repo root or a worktree root. Slugging here keeps the on-disk
 // names legal and stable regardless of the human-facing ids.

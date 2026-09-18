@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "id": "welcome-dialog-on-open",
+  "pipeline": "engineering",
+  "title": "Welcome dialog appears when the app opens",
+  "type": "subtask",
+  "status": "in-progress",
+  "finalized": false,
+  "flow": "feature",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "tracking": {}
+}

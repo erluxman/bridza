@@ -6,8 +6,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { DATA_DIR, rel, safeRef, pipelineFlows, flattenFlows } from "../core/domain.js";
-import { git, isGitRepo, branchExists, ensureTaskBranch, taskBranchName, removeTaskWorktree, stopRuns } from "./bridza-run.js";
+import { DATA_DIR, rel, safeRef, shortTitle, taskSlug, pipelineFlows, flattenFlows } from "../core/domain.js";
+import { git, isGitRepo, branchExists, ensureTaskBranch, taskBranchName, removeTaskWorktree, stopRuns, healTaskFlow } from "./bridza-run.js";
 
 const BIDENT = ["-c", "user.name=bridza", "-c", "user.email=bridza@local"];
 
@@ -23,6 +23,9 @@ function writeJSON(file, obj) {
 function writeText(file, text) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, text);
+}
+function readText(file) {
+  try { return fs.readFileSync(file, "utf8"); } catch (e) { return ""; }
 }
 function listDirs(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -273,7 +276,7 @@ export function readTaskMeta(root, pipeline, task) {
   const branch = taskBranchName(pipeline, task);
   const relPath = rel.taskMeta(pipeline, task);
   if (branchExists(root, branch)) {
-    try { const j = JSON.parse(git(root, ["show", branch + ":" + relPath])); j._live = true; return j; }
+    try { const j = healTaskFlow(JSON.parse(git(root, ["show", branch + ":" + relPath])), readJSON(path.join(root, relPath))); j._live = true; return j; }
     catch (e) { /* branch exists but no metadata yet — fall through */ }
   }
   const disk = readJSON(path.join(root, relPath));
@@ -861,19 +864,40 @@ export function discardInbox(root, id) {
 
 // Route an inbox item into a pipeline as a new task (carrying its text into the
 // task's context.md), then remove it from the inbox.
-export function promoteInbox(root, { id, pipeline }) {
+export function promoteInbox(root, { id, pipeline, flow = "", title: titleIn = "", description = null }) {
   const items = readInbox(root);
   const item = items.find((i) => i.id === id);
   if (!item) return { ok: false, error: "item not found" };
   if (!pipeline) return { ok: false, error: "pick a pipeline" };
-  const title = (item.text || "").split("\n")[0].slice(0, 80).trim() || item.kind;
-  const taskId = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || id;
-  const r = createTask(root, { pipeline, id: taskId, title, type: item.kind });
+  // Title: what the user typed in the promote dialog, else a dozen-word
+  // headline off the item. Body: the FULL item text (edits included) — it is
+  // the task's brief, so nothing the user captured is ever dropped.
+  const body = String(description == null ? item.text || "" : description).trim();
+  const title = shortTitle(titleIn, { words: 24, chars: 120 }) || shortTitle(body) || item.kind;
+  const taskId = taskSlug(title) || id;
+  const r = createTask(root, { pipeline, id: taskId, title, type: item.kind, flow });
   if (!r.ok) return r;
-  try { saveContext(root, { pipeline, task: r.id, text: (title ? "# " + title + "\n\n" : "") + (item.text || "") + "\n" }); } catch (e) { /* best-effort */ }
+  try { saveContext(root, { pipeline, task: r.id, text: "# " + title + "\n\n" + body + "\n" }); } catch (e) { /* best-effort */ }
   writeInbox(root, items.filter((i) => i.id !== id));
   commitPaths(root, [rel.inbox()], `bridza: inbox promote (${item.kind}) "${title.slice(0, 40)}" → task ${r.ref ? "#" + r.ref + " " : ""}${safeRef(pipeline)}/${r.id}`);
-  return { ok: true, task: r };
+  return { ok: true, task: { ...r, title } };
+}
+
+// The natural-language context (the brief) for a task or a stage. Read like
+// task metadata: the working tree first, then any bridza branch carrying it —
+// a task created on another task's branch has no working-tree copy.
+export function readContext(root, { pipeline, task, stage }) {
+  if (!pipeline || !task) return { ok: false, error: "pipeline and task required" };
+  const p = stage ? rel.stageContext(pipeline, task, stage) : rel.taskContext(pipeline, task);
+  const own = readText(path.join(root, p));
+  if (own.trim()) return { ok: true, text: own };
+  for (const b of scanBranches(root).branches || []) {
+    try {
+      const t = git(root, ["show", b + ":" + p]);
+      if (t && t.trim()) return { ok: true, text: t };
+    } catch (e) { /* next branch */ }
+  }
+  return { ok: true, text: own };
 }
 
 // Edit the natural-language context for a task or a stage.
