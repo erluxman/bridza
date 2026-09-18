@@ -1,0 +1,25 @@
+{
+  "v": 1,
+  "id": "fadfasdfa",
+  "pipeline": "engineering",
+  "title": "fadfasdfa",
+  "ref": 8,
+  "type": "idea",
+  "flow": "full-sdlc",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/fadfasdfa",
+  "stages": [
+    "vision",
+    "requirements",
+    "architecture",
+    "planning",
+    "implementation",
+    "testing",
+    "release"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
