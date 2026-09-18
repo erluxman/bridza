@@ -12,6 +12,12 @@
         "engineering/welcome-dialog-on-open"
       ],
       "any": []
+    },
+    "engineering/okay-i-just-have-an-idea-that-when-i-ope": {
+      "all": [
+        "engineering/welcome-dialog-on-open"
+      ],
+      "any": []
     }
   },
   "milestones": [
