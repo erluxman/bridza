@@ -1,3 +1,3 @@
 # Here of now it seems little bit confusing whether the full details of our idea i
 
-Describe the intent of this task.
+Here of now it seems little bit confusing whether the full details of our idea is recorded in a card or not. I think it is truncated at some point. So some of the idea is lost in the thin air. It should not be lost. Everything that we have when we send an idea in the inbox should be preserved in that task. It may not be displayable everywhere because it is long but it should be there preserved.
