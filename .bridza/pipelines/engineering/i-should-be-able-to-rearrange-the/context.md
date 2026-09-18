@@ -1,0 +1,3 @@
+# I should be able to rearrange the various columns in the Kanban…
+
+Describe the intent of this task.

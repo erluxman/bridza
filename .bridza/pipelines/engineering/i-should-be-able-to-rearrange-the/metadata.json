@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "id": "i-should-be-able-to-rearrange-the",
+  "pipeline": "engineering",
+  "title": "I should be able to rearrange the various columns in the Kanban…",
+  "ref": 16,
+  "type": "idea",
+  "flow": "dissection",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/i-should-be-able-to-rearrange-the",
+  "target": "main",
+  "stages": [
+    "dissect"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
