@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "id": "every-task-when-they-are-converted-into",
+  "pipeline": "engineering",
+  "title": "every task when they are converted into folders should contain the…",
+  "ref": 17,
+  "type": "idea",
+  "flow": "dissection",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/every-task-when-they-are-converted-into",
+  "target": "main",
+  "stages": [
+    "dissect"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
