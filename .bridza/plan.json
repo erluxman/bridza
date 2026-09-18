@@ -239,6 +239,9 @@
   "links": {
     "engineering/ui-ref-display": [
       "engineering/every-task-when-they-are-converted-into"
+    ],
+    "engineering/task-enumeration-read-path": [
+      "engineering/every-task-when-they-are-converted-into"
     ]
   },
   "pipeDeps": [
