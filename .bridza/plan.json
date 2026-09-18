@@ -22,7 +22,8 @@
       "tasks": [
         "engineering/welcome-dialog-on-open",
         "engineering/per-day-dismissal",
-        "engineering/time-aware-greeting"
+        "engineering/time-aware-greeting",
+        "engineering/okay-i-just-have-an-idea-that-when-i-ope"
       ],
       "needs": []
     },
