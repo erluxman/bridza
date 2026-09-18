@@ -823,10 +823,10 @@
     "review",
     "repro",
     "fix",
+    "__done__",
     "fix-review",
     "design-spec",
     "design",
-    "__done__",
     "__archived__"
   ]
 }
