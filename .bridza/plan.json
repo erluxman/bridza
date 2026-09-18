@@ -30,7 +30,9 @@
       "id": "ms-ay5tg",
       "title": "Major Bug Fix",
       "due": "",
-      "tasks": [],
+      "tasks": [
+        "engineering/every-stage-floor-should-be-in-auto"
+      ],
       "needs": []
     }
   ],
