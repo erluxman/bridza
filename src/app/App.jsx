@@ -41,6 +41,7 @@ export default function App() {
   const [toast, setToast] = useState("");
   const toastTimer = useRef(null);
   const [modal, setModal] = useState(null);
+  const [welcomeOpen, setWelcomeOpen] = useState(true);
   const [sideCollapsed, setSideCollapsed] = useState(() => localStorage.getItem(LS.side) === "1");
   const [flowOpen, setFlowOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
@@ -144,6 +145,7 @@ export default function App() {
         <NewTaskModal dir={dir} pipeline={pipeline} onClose={() => setModal(null)}
           onDone={(tid) => { setModal(null); refresh().then(() => setActiveTask(tid)); flash("task created"); }} flash={flash} />
       )}
+      {welcomeOpen && <WelcomeDialog onClose={() => setWelcomeOpen(false)} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
   );
@@ -2017,6 +2019,25 @@ function NewTaskModal({ dir, pipeline, onClose, onDone, flash }) {
         ? <>Flow <b>{chosen.name}</b>: {(chosen.stages || []).map((s) => s.name).join(" → ")}. Gets a #ref and branch <code>bridza/{pipeline.id}/…</code>.</>
         : <>Pick the flow this task constitutes. Don't sweat a borderline call — at implementation time the flow's ⚖ judge stage re-checks the fit (with the research/requirements in hand) and flags a mis-filed task.</>}</p>
     </Modal>
+  );
+}
+
+export function WelcomeDialog({ onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="Welcome" onClick={(e) => e.stopPropagation()}>
+        <div className="spread" style={{ marginBottom: 10 }}>
+          <h2 style={{ marginTop: 0, fontSize: 17 }}>Welcome 👋</h2>
+          <button className="btn ghost sm" onClick={onClose} title="Dismiss">✕</button>
+        </div>
+        <p style={{ margin: 0 }}>Good luck with today's work — make it count.</p>
+      </div>
+    </div>
   );
 }
 
