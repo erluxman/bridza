@@ -43,7 +43,9 @@
         "engineering/more-conflicts-user-experience-should",
         "engineering/every-task-when-they-are-converted-into"
       ],
-      "needs": []
+      "needs": [
+        "ms-welcome-dialog"
+      ]
     },
     {
       "id": "ms-xyzmr",
