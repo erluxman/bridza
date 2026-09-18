@@ -194,6 +194,19 @@ export function judgeStageId(flow) {
   return impl ? impl.id : null;
 }
 
+// The flow's MERGE-READINESS gate: the stage where a delivered task's change is
+// prepared to land on its target branch — the review/release step when the flow
+// has one (bugfix `fix-review`, feature `review`, sdlc `release`), else the
+// flow's final stage (product flows end on their deliverable). Runs on that
+// stage get a block naming the task's target branch and mandating a merge-ready
+// handoff, so every flow really reviews against — and prepares a merge into —
+// the branch the change is going to land on.
+export function mergeGateStageId(flow) {
+  const st = (flow && flow.stages) || [];
+  const byName = st.find((s) => /review|release|merge/i.test((s.name || "") + " " + (s.id || "")));
+  return byName ? byName.id : (st.length ? st[st.length - 1].id : null);
+}
+
 // Fit check — appended to the JUDGE stage's run prompt when the pipeline has
 // several flows. By now the earlier stages' outputs are on the branch, so the
 // judgement is informed: is this really one task of this flow, or e.g. a

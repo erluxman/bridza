@@ -31,6 +31,7 @@ export const deletePipeline = (dir, body) => post("/pipeline/delete", dir, body)
 export const createTask = (dir, body) => post("/task", dir, body);
 export const deleteTask = (dir, body) => post("/task/delete", dir, body);
 export const retargetTask = (dir, body) => post("/task/retarget", dir, body);
+export const getBranches = (dir) => get("/branches", dir);
 export const setTaskReuse = (dir, body) => post("/task/reuse", dir, body);
 export const stopRun = (dir, body) => post("/run/stop", dir, body);
 export const getContext = (dir, pipeline, task, stage = "") => get(`/context?pipeline=${encodeURIComponent(pipeline)}&task=${encodeURIComponent(task)}&stage=${encodeURIComponent(stage)}`, dir);

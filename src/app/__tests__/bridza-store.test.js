@@ -521,3 +521,38 @@ describe("context editing", () => {
     expect(fs.readFileSync(path.join(root, rel.taskContext("marketing", "task-9")), "utf8")).toBe("New intent.\n");
   });
 });
+
+describe("task target branch", () => {
+  it("createTask persists + returns a target and readProject exposes it", () => {
+    createPipeline(root, MARKETING);
+    const init = git(root, ["rev-parse", "main"]).trim();
+    git(root, ["branch", "release/1.x"]);
+    fs.writeFileSync(path.join(root, "main2.txt"), "movin on main\n");   // now main ≠ release/1.x
+    execFileSync("git", ["add", "-A"], { cwd: root });
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", "release head"], { cwd: root });
+    const mainCmt = git(root, ["rev-parse", "main"]).trim();
+    expect(mainCmt).not.toBe(init);                          // sanity: the two branches diverged
+    // a target that doesn't exist is rejected BEFORE anything is written
+    expect(createTask(root, { pipeline: "marketing", id: "task-bad", target: "nope" }).error).toMatch(/does not exist/);
+    expect(fs.existsSync(path.join(root, ".bridza/pipelines/marketing/tasks/task-bad/meta.json"))).toBe(false);
+    const r = createTask(root, { pipeline: "marketing", id: "task-target", title: "Ship to release", target: "release/1.x" });
+    expect(r.ok).toBe(true);
+    expect(r.target).toBe("release/1.x");
+    const p = readProject(root).pipelines[0];
+    const t = p.tasks.find((x) => x.id === "task-target");
+    expect(t.target).toBe("release/1.x");
+    expect(t.title).toBe("Ship to release");
+    // the metadata file (committed on main; on the task branch runStage lands it) + the commit message carry the target
+    const meta = JSON.parse(fs.readFileSync(path.join(root, rel.taskMeta("marketing", "task-target")), "utf8"));
+    expect(meta.target).toBe("release/1.x");
+    expect(git(root, ["log", "main", "--format=%B", "-1"])).toMatch(/Target: release\/1\.x/);
+    expect(git(root, ["rev-parse", t.branch]).trim()).toBe(init);     // forked from release/1.x (= init)
+    expect(git(root, ["rev-parse", t.branch]).trim()).not.toBe(mainCmt); // …not from main's newer tip
+    // default target = the repo's default branch
+    const d = createTask(root, { pipeline: "marketing", id: "task-plain", title: "Plain" });
+    expect(d.target).toBe("main");
+    const d2 = readProject(root).pipelines[0].tasks.find((x) => x.id === "task-plain");
+    expect(d2.target).toBe("main");
+    expect(git(root, ["rev-parse", d.branch]).trim()).toBe(git(root, ["rev-parse", "main"]).trim());
+  });
+});

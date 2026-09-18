@@ -17,5 +17,77 @@
   "routing": {},
   "status": "in-progress",
   "finalized": false,
-  "tracking": {}
+  "tracking": {
+    "repro": {
+      "status": "done",
+      "seconds": 184,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: You just should be able to change the target branch of the task or the issue\n\nAnd the thing that I am seeing is we should have a target branch rather than always merging domain because main-minute we always have the target so we should have a target branch where this particular feature will merge to and of this make sure in every single flow in engineering or product whatever it is after writing any code in the review process there must be a step where it makes the change ready to be merged to the reference branch where it is going to be merged",
+          "startedAt": "2026-09-18T19:29:08.074Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T19:32:12.396Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/you-just-should-be-able-to-change-the/repro/outputs/repro.md"
+          ],
+          "sessionId": "ses_f4a0185dfffeBOweZ64dWrYJnI",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a debugger. Reproduce the reported bug: find the failing path, capture exact steps/inputs and the observed vs expected behavior,…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n· step · 18815 tokens\n· step · 24549 tokens\n· step · 26470 tokens\n\n\n\n· step · 43990 tokens\n· step · 48086 tokens\n· step · 53138 tokens\n· step · 55267 tokens\n· step · 60167 tokens\n\n\n\n· step · 63659 tokens\n· step · 65685 tokens\n· step · 68053 tokens\n· step · 68611 tokens\n· step · 72727 tokens\n· step · 74005 tokens\nNow I have enough understanding. Let me write and run a reproduction script using the real server modules against temp git repos.\n· step · 76461 tokens\n· step · 77023 tokens\n· step · 77152 tokens\nReproduction confirmed. Let me check the repro outputs dir conventions before writing `repro.md`.\n· step · 78053 tokens\nNow writing the reproduction report.\n· step · 80337 tokens\n· step · 80537 tokens\nReproduction complete. `repro.md` written to `.bridza/pipelines/engineering/you-just-should-be-able-to-change-the/repro/outputs/repro.md`.\n\n**Root cause:** the \"target branch\" concept doesn't exist. Verified end-to-end in a temp repo with a real `release/1.x` integration branch:\n\n1. Task metadata has no target field (`bridza-store.js:600`), task branch forks from `main` (`bridza-run.js:82`), branch diff/review always vs `main` (`bridza-run.js:1143`).\n2. `retargetTask` (only post-creation mutation API) handles `flow`/`type` only — `target` is silently ignored; no UI control anywhere.\n3. Finalize defaults to `into || main` (`bridza-run.js:1010`); the UI never passes `into` and the button is hard-coded \"Finalize → main\" (`task.jsx:147-152,277`).\n\nResult: `finalize` merged to `main` and `release/1.x` did **not** contain the feature. Also confirmed no flow step in engineering/product queues makes a change merge-ready against the reference branch.\n· step · 81355 tokens"
+        }
+      ]
+    },
+    "fix": {
+      "status": "done",
+      "seconds": 845,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: You just should be able to change the target branch of the task or the issue\n\nAnd the thing that I am seeing is we should have a target branch rather than always merging domain because main-minute we always have the target so we should have a target branch where this particular feature will merge to and of this make sure in every single flow in engineering or product whatever it is after writing any code in the review process there must be a step where it makes the change ready to be merged to the reference branch where it is going to be merged\n\nFit check — this task was filed under the \"Bugfix\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Bugfix\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Feature\" (Spec → Build → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-18T19:32:12.447Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T19:46:17.022Z",
+          "exit": 0,
+          "files": [
+            "core/domain.js",
+            "server/bridge.js",
+            "server/bridza-run.js",
+            "server/bridza-store.js",
+            "src/app/__tests__/bridza-run.test.js",
+            "src/app/__tests__/bridza-store.test.js",
+            "src/app/api/client.js",
+            "src/app/features/task.jsx",
+            "src/app/lib/format.js"
+          ],
+          "sessionId": "ses_f49feb589ffeUQvoveALiliQPz",
+          "error": null,
+          "log": "/bridza-flow-branch.test.js`: test conventions and insertion points for target regressions.\n· step · 49309 tokens\nContinue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.\nNo frozen assertions to worry about. Now the tests — let me check the import block and file structure of `bridza-run.test.js`:\n· step · 39725 tokens\n· step · 40588 tokens\n· step · 41179 tokens\n\n\n\n· step · 42252 tokens\n· step · 43927 tokens\nThe `main2.txt` assertion is vacuous — `gc` writes `commit.txt`. Let me make it explicit:\n· step · 45437 tokens\nNow the store test — check its imports:\n\n\n· step · 45585 tokens\n· step · 46572 tokens\n· step · 48313 tokens\nTwo bugs in that test: the \"Target:\" line is in the body (needs `%B`), and the first commit after branching is empty. Let me fix:\n· step · 50309 tokens\n· step · 50638 tokens\nNow run the two test suites:\n· step · 50756 tokens\n· step · 51288 tokens\nDependencies not installed. Installing:\n· step · 51941 tokens\n· step · 52142 tokens\n`putMeta` needs to create parent dirs:\n· step · 53376 tokens\n· step · 53476 tokens\nAll 37 pass, including the `retargetTask` / `finalize` / `branchDiff` target behavior. Now the store suite:\n· step · 53706 tokens\nThe metadata commit lives on `main`, not the task branch (runStage commits it there later). Assert on the working-tree file:\n· step · 54816 tokens\n· step · 54914 tokens\n· step · 55153 tokens\nThe plain task forked from `main` *after* createTask's own commit advanced it. Compare against current main:\n· step · 55827 tokens\n· step · 55927 tokens\nAll green. Full suite + typecheck + lint:\n· step · 56104 tokens\n· step · 56354 tokens\n· step · 56739 tokens\nAll clean. Final review of the change surface:\n· step · 56848 tokens\nA task metadata change slipped in — let me inspect it:\n· step · 57174 tokens\nThat `metadata.json` diff is the task's own live tracking (the agent started the `fix` stage) — legitimate in-progress state, not mine to touch. Now let me verify the `finalizeTask` body reads correctly end-to-end:\n· step · 58700 tokens\n· step · 58942 tokens\nAll coherent. Updating the todo list:\n· step · 60358 tokens\nDone. The target-branch feature is implemented end-to-end and verified.\n\n**What changed:**\n- **`taskTarget(root, pipeline, task)`** (`server/bridza-run.js:58`) — single source of \"where this task's work lands\": reads the freshest `meta.target` (task-branch tip first, else working-tree file), defaults to `main/master`. Fork (`ensureTaskBranch`), `branchDiff`, `blastRadius`, `taskTimeline`, and finalize (`into || taskTarget`) all resolve through it.\n- **`retargetTask`** now accepts `{ target }` — validates the ref exists (`\"target branch X does not exist\"`), persists it, 3-way commit message, returns it; finalized guard covers target too.\n- **`createTask`/`readProject`** (`bridza-store.js`) — persist + return `target`, reject a missing branch before any commit, show it in `readProject`.\n- **UI** (`task.jsx`) — new disabled-`select` **Target** control in the task rail (options = existing branches, current target always present), Finalize button now reads `Finalize → <target>`.\n- **Review makes it merge-ready** — `mergeGateStageId` (`core/domain.js`) finds each flow's review/release gate (else last stage); `mergeStepFor` (`format.js`) is appended into `runPrompt` so review-stage runs name the real target branch and make `git diff <target>...HEAD` / conflict/merge-readiness the reviewer's job.\n- **API** — `GET /api/bridza/branches` + `getBranches()`.\n\n**Verified:** 183 tests pass (`--all`), `tsc -b && vite build` clean, eslint clean. Six new regression tests cover fork-from-target, branchDiff vs target (target's own newer commits stay out), retarget set/reject, finalize-into-target (feature lands on `release/1.x`, not `main`), and store persistence.\n\nNote: `.bridza/.../metadata.json` shows an in-progress `fix` run in its tracking — that's the task agent's own state, not part of this change, and I left it untouched.\n· step · 61212 tokens"
+        }
+      ]
+    },
+    "fix-review": {
+      "status": "done",
+      "seconds": 273,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: You just should be able to change the target branch of the task or the issue\n\nAnd the thing that I am seeing is we should have a target branch rather than always merging domain because main-minute we always have the target so we should have a target branch where this particular feature will merge to and of this make sure in every single flow in engineering or product whatever it is after writing any code in the review process there must be a step where it makes the change ready to be merged to the reference branch where it is going to be merged",
+          "startedAt": "2026-09-18T19:46:17.079Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T19:50:50.231Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/you-just-should-be-able-to-change-the/fix-review/outputs/review.md"
+          ],
+          "sessionId": "ses_f49f1d23affe8fz193DgqsIdsU",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a reviewer. Verify the fix addresses the root cause in repro.md, check for regressions in sibling callers, and confirm the regre…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n\n\n\n· step · 18707 tokens\n· step · 20227 tokens\n· step · 21514 tokens\n· step · 23770 tokens\n· step · 25922 tokens\nNow let me examine the actual fix diff.\n· step · 27558 tokens\n· step · 31690 tokens\n· step · 35448 tokens\n· step · 37227 tokens\n· step · 40775 tokens\n· step · 45639 tokens\n· step · 48145 tokens\n· step · 50566 tokens\n· step · 51657 tokens\n· step · 52740 tokens\nAll tests pass. Now let me verify the regression tests fail without the fix by running them against the pre-fix commit.\n\n\n· step · 53531 tokens\n· step · 53875 tokens\n· step · 54011 tokens\nRegression tests confirmed: 5 fail without the fix. Let me also check the repro script referenced in repro.md and confirm the fix against it, plus check for sibling-caller regressions.\n· step · 55742 tokens\n· step · 56139 tokens\n\n\n\n· step · 57963 tokens\nThe fix works: `retargetTask` now stores the target, and `finalizeTask` merges into `release/1.x`. Now let me check for regressions in sibling callers — especially remaining `baseBranchName` usages that may now be inconsistent with target-awareness.\n· step · 59674 tokens\n· step · 61786 tokens\n· step · 62704 tokens\nLet me check the flow/stage definitions to verify `mergeGateStageId` and `mergeStepFor` actually target review steps across all flows.\n· step · 65296 tokens\n· step · 67492 tokens\n· step · 70820 tokens\nLet me review `finalizeTask` fully for any remaining hard-coded main assumptions.\n· step · 75981 tokens\n\n\n\n· step · 78340 tokens\n· step · 82584 tokens\nLet me run lint on the changed files and verify the whole suite once more.\n· step · 83737 tokens\n· step · 83937 tokens\n\n\n\n· step · 86007 tokens\nAll checks pass. Let me confirm where the review output belongs for this stage.\n· step · 86494 tokens\nNow let me verify the UI changes compile (TypeScript build) since task.jsx and format.js changed.\n· step · 88576 tokens\nAll verification complete. Writing the review.\n· step · 90723 tokens\n\n\n\n· step · 90909 tokens\nReview complete. Summary of what I verified and wrote to `review.md`:\n\n**Verdict: APPROVED.**\n\n- **Root cause (repro.md) — all 5 points fixed:** `target` persisted in metadata + exposed via `readProject`; `ensureTaskBranch` forks from `taskTarget()`; `branchDiff`/`blastRadius`/`taskTimeline` diff against the target; `finalizeTask` merges into the stored target (not just `into || main`); user can change it via `retargetTask` + a new UI `<select>` listing local branches. The second complaint (a merge-readiness step in every flow's review) is covered by `mergeGateStageId` + `mergeStepFor`, which name the target branch in the review-stage prompt for all engineering and product flows.\n- **Sibling callers:** full suite 183/183 pass, `tsc -b` + `vite build` clean, `pnpm lint` clean; legacy tasks default to main as before; flow-switch retargeting is untouched.\n- **Regression test fails without the fix:** tests dropped onto pre-fix commit `9683b89` → **5 failed**; same tests on the fix → **5 passed**. The repro script now shows finalize landing on `release/1.x` instead of `main`.\n\nNon-blocking notes: cosmetic \"main\" wording in a couple of finalize flash messages/stash params, stale repro.md line references, and the git-diff merge block reading awkwardly on doc-only product flows.\n\nReview written to `.bridza/pipelines/engineering/you-just-should-be-able-to-change-the/fix-review/outputs/review.md`.\n· step · 91680 tokens"
+        }
+      ]
+    }
+  }
 }

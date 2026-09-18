@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DATA_DIR, rel, safeRef, shortTitle, taskSlug, pipelineFlows, flattenFlows } from "../core/domain.js";
-import { git, isGitRepo, branchExists, ensureTaskBranch, taskBranchName, removeTaskWorktree, stopRuns, healTaskFlow } from "./bridza-run.js";
+import { git, isGitRepo, branchExists, baseBranchName, ensureTaskBranch, taskBranchName, removeTaskWorktree, stopRuns, healTaskFlow } from "./bridza-run.js";
 
 const BIDENT = ["-c", "user.name=bridza", "-c", "user.email=bridza@local"];
 
@@ -355,6 +355,7 @@ export function readProject(root) {
   const refsAll = readRefs(root);
   const refs = refsAll.refs;
   const tombstones = new Set(refsAll.deleted);
+  const base = baseBranchName(root);
   const scan = scanBranches(root);
   const pids = [...new Set([...listDirs(pipelinesRoot), ...scan.found.keys()])];
   const pipelines = pids.map((pid) => {
@@ -381,6 +382,7 @@ export function readProject(root) {
         type: meta.type || "", template: meta.template || "", flow: meta.flow || meta.template || "",
         status: meta.status || "in-progress", finalized: !!meta.finalized, reuseSession: !!meta.reuseSession,
         stages, tracking: tr, branch: taskBranchName(pid, tid),
+        target: meta.target || base,
         progress: stages.length ? Math.round((done / stages.length) * 100) : 0,
         live: !!meta._live, onBranch: meta._onBranch || null,
       };
@@ -570,11 +572,16 @@ export function deletePipeline(root, { id }) {
   return { ok: true, id: pid, committed, tasks: taskIds.length };
 }
 
-export function createTask(root, { pipeline, id, title = "", type = "", outputMode = "docs", stages, flow = "", template = "", dependsOn = "", dependsOnAny = [], est = 0, milestone = null }) {
+export function createTask(root, { pipeline, id, title = "", type = "", outputMode = "docs", target, stages, flow = "", template = "", dependsOn = "", dependsOnAny = [], est = 0, milestone = null }) {
   const bad = !pipeline ? "pipeline required" : !id ? "task id required" : null;
   if (bad) return { ok: false, error: bad };
   const pid = safeRef(pipeline), tid = safeRef(id);
   const def = readPipelineDef(root, pid);
+  // the branch this task's work lands on: fork base, review base, finalize into.
+  // An explicit target must exist; default = the repo's default branch.
+  const rawTarget = target == null ? "" : String(target).trim();
+  if (rawTarget && !branchExists(root, rawTarget)) return { ok: false, error: "target branch " + rawTarget + " does not exist" };
+  const taskTargetResolved = rawTarget || baseBranchName(root);
   const flows = pipelineFlows(def);
   // Every task belongs to ONE flow. When the pipeline has several, the choice
   // is mandatory (the client enforces it; template is the legacy alias).
@@ -599,7 +606,7 @@ export function createTask(root, { pipeline, id, title = "", type = "", outputMo
   const ref = assignRefs(root, [pid + "/" + tid])[pid + "/" + tid];
   writeJSON(path.join(root, metaPath), {
     v: 1, id: tid, pipeline: pid, title: title || tid, ref, type: type || (tpl ? tpl.id : ""), flow: chosen ? chosen.id : "", template: tpl ? tpl.id : "", outputMode,
-    branch: taskBranchName(pid, tid), stages: stageIds, routing: {},
+    branch: taskBranchName(pid, tid), target: taskTargetResolved, stages: stageIds, routing: {},
     status: "in-progress", finalized: false, tracking: {},
   });
   // #17 — dependencies can be auto-wired at creation: dependsOn (string OR
@@ -632,6 +639,7 @@ export function createTask(root, { pipeline, id, title = "", type = "", outputMo
     `bridza: add task #${ref} "${(title || tid).slice(0, 50)}" (${pid}/${tid})`,
     "",
     `Branch: ${taskBranchName(pid, tid)}`,
+    `Target: ${taskTargetResolved}`,
     `Stages: ${stageIds.join(" → ")}`,
     ...(chosen ? [`Flow: ${chosen.name}`] : []),
     ...(tpl ? [`Template: ${tpl.label || tpl.id}`] : []),
@@ -680,7 +688,7 @@ export function createTask(root, { pipeline, id, title = "", type = "", outputMo
   }
   // create the task branch off the just-committed stub so its history starts clean
   const b = ensureTaskBranch(root, pid, tid);
-  return { ok: true, id: tid, pipeline: pid, ref, branch: b.branch, committed: commit.committed };
+  return { ok: true, id: tid, pipeline: pid, ref, branch: b.branch, target: taskTargetResolved, committed: commit.committed };
 }
 
 // ── delete a task ────────────────────────────────────────────────────────────

@@ -14,7 +14,7 @@ import { __resetLogs } from "../lib/autolog.js";
 
 const api = vi.hoisted(() => ({
   getPlan: vi.fn(), getTimeline: vi.fn(), getContext: vi.fn(), fetchTime: vi.fn(),
-  getBlast: vi.fn(), getModels: vi.fn(), automate: vi.fn(),
+  getBlast: vi.fn(), getModels: vi.fn(), getBranches: vi.fn(), automate: vi.fn(),
   runStage: vi.fn(), stopRun: vi.fn(), saveTime: vi.fn(), finalize: vi.fn(), openEditor: vi.fn(),
 }));
 vi.mock("../api/client.js", () => api);
@@ -74,6 +74,7 @@ beforeEach(() => {
   api.fetchTime.mockResolvedValue({ time: {} });
   api.getBlast.mockResolvedValue({ ok: true, seeds: [], impacted: [], edges: [] });
   api.getModels.mockResolvedValue({ models: [] });
+  api.getBranches.mockResolvedValue({ branches: [] });
   api.automate.mockImplementation((_dir, _bodies, onEvent) => {
     onEvent({ t: "out", d: "measuring the floor…" });
     return defer().promise;   // hold the run open so the pane stays live

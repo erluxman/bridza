@@ -57,6 +57,35 @@ export function baseBranchName(root) {
   return currentBranch(root) || "HEAD";
 }
 
+// The branch this task's WORK LANDS ON: its stored `target` (set at creation,
+// changeable via retargetTask), falling back to the repo default. Read from the
+// freshest copy of the metadata — the task branch tip when the branch exists
+// (runStage/retargetTask commit there), else the working-tree stub written by
+// createTask. Every fork/diff/review/finalize resolves through this one helper.
+export function taskTarget(root, pipeline, task) {
+  const branch = taskBranchName(pipeline, task);
+  if (branchExists(root, branch)) {
+    try {
+      const t = JSON.parse(git(root, ["show", branch + ":" + rel.taskMeta(pipeline, task)]));
+      if (t && typeof t.target === "string" && t.target.trim()) return t.target.trim();
+    } catch (e) { /* no metadata on the task branch yet */ }
+  }
+  try {
+    const m = JSON.parse(fs.readFileSync(path.join(root, rel.taskMeta(pipeline, task)), "utf8"));
+    if (m && typeof m.target === "string" && m.target.trim()) return m.target.trim();
+  } catch (e) { /* no working-tree metadata */ }
+  return baseBranchName(root);
+}
+
+// Local branch names (heads only), sorted — the menu the UI offers as targets.
+export function listBranches(root) {
+  if (!isGitRepo(root)) return [];
+  try {
+    return git(root, ["for-each-ref", "--format=%(refname:short)", "refs/heads/"]).trim()
+      .split("\n").map((s) => s.trim()).filter(Boolean).sort();
+  } catch (e) { return []; }
+}
+
 export function validRef(ref, label = "ref") {
   if (!ref || typeof ref !== "string" || !ref.trim()) return "missing " + label;
   if (safeRef(ref) === "x" && ref.trim().toLowerCase() !== "x") return label + " needs at least one letter or digit (got " + JSON.stringify(ref) + ")";
@@ -107,7 +136,7 @@ export function ensureTaskBranch(root, pipeline, task) {
   if (!hasCommits(root)) return { ok: false, error: "repo has no commits yet — make an initial commit first" };
   const branch = taskBranchName(pipeline, task);
   try {
-    if (!branchExists(root, branch)) git(root, ["branch", branch, baseBranchName(root)]);
+    if (!branchExists(root, branch)) git(root, ["branch", branch, taskTarget(root, pipeline, task)]);
   } catch (e) {
     return { ok: false, error: "git rejected branch " + branch + ": " + firstLine(e) };
   }
@@ -164,7 +193,7 @@ export function healTaskFlow(cur, src) {
   return {
     ...cur,
     flow: src.flow || "", template: src.template || "", type: cur.type || src.type || "",
-    title: cur.title || src.title, ref: cur.ref || src.ref,
+    title: cur.title || src.title, ref: cur.ref || src.ref, target: cur.target || src.target || "",
     stages: [...new Set([...(src.stages || []), ...(cur.stages || [])])],
   };
 }
@@ -294,7 +323,7 @@ function renderTaskReadme(meta) {
   const allDone = stageIds.length > 0 && done === stageIds.length;
   const filled = stageIds.length ? Math.round((done / stageIds.length) * 16) : 0;
   const bar = "█".repeat(filled) + "░".repeat(16 - filled);
-  const overall = meta.finalized ? "✨ finalized → main" : (allDone ? "🎉 all stages done" : (meta.status || "in-progress"));
+  const overall = meta.finalized ? "✨ finalized → " + (meta.target || "main") : (allDone ? "🎉 all stages done" : (meta.status || "in-progress"));
   const titleGlyph = meta.finalized ? "✨" : (allDone ? "✅" : (stageIds.some((s) => st(s).status === "running") ? "🔄" : "⏳"));
 
   const L = [
@@ -974,21 +1003,27 @@ export function reopenStage(root, pipeline, task, stage) {
   return { ok: true, branch: wt.branch, reset, removed, head: target };
 }
 
-// Change a task's stage FLOW (and/or its type) after creation. Switching flow
-// is destructive — a different flow has different stages — so per the product
-// decision the task's progress is DISCARDED: the branch is hard-reset to before
-// the first stage (dropping every stage commit) and the metadata is rewritten
-// with the new flow's stages + empty tracking. A type-only change touches no
-// commits. The caller resolves the flow's stage ids + name from the pipeline
-// def; here we just apply it on the branch (the tip readTaskMeta trusts).
-export function retargetTask(root, pipeline, task, { flow, flowName, stages, type } = {}) {
+// Change a task's stage FLOW (and/or its type and target branch) after creation.
+// Switching flow is destructive — a different flow has different stages — so per
+// the product decision the task's progress is DISCARDED: the branch is hard-reset
+// to before the first stage (dropping every stage commit) and the metadata is
+// rewritten with the new flow's stages + empty tracking. A type/target-only change
+// touches no commits. The caller resolves the flow's stage ids + name from the
+// pipeline def; here we just apply it on the branch (the tip readTaskMeta trusts).
+export function retargetTask(root, pipeline, task, { flow, flowName, stages, type, target } = {}) {
   const bad = validRef(pipeline, "pipeline") || validRef(task, "task");
   if (bad) return { ok: false, error: bad };
   const wt = ensureTaskWorktree(root, pipeline, task);
   if (!wt.ok) return wt;
   const W = wt.worktree;
   const meta = readTaskMeta(W, pipeline, task);
-  if (meta.finalized) return { ok: false, error: "task is finalized — can't change its flow" };
+  if (meta.finalized) return { ok: false, error: "task is finalized — can't change its flow or target" };
+  if (target != null) {
+    const targetName = String(target).trim();
+    const badTarget = validRef(targetName, "target");
+    if (badTarget) return { ok: false, error: badTarget };
+    if (!branchExists(root, targetName)) return { ok: false, error: "target branch " + targetName + " does not exist" };
+  }
   const flowChanged = !!flow && flow !== meta.flow;
   if (flowChanged && (!Array.isArray(stages) || !stages.length)) return { ok: false, error: "the new flow has no stages" };
   let removed = 0;
@@ -1004,12 +1039,16 @@ export function retargetTask(root, pipeline, task, { flow, flowName, stages, typ
   const m = readTaskMeta(W, pipeline, task);
   if (flowChanged) { m.flow = safeRef(flow); m.template = ""; m.stages = stages.map(safeRef); m.tracking = {}; m.status = "in-progress"; m.finalized = false; clearTaskSessions(root, pipeline, task); }
   if (type != null) m.type = String(type);
+  if (target != null) m.target = String(target).trim();
   writeTaskMeta(W, pipeline, task, m);
+  const tag = safeRef(pipeline) + "/" + safeRef(task);
   const msg = flowChanged
-    ? `bridza: retarget ${safeRef(pipeline)}/${safeRef(task)} → flow "${flowName || flow}" (progress discarded${removed ? `, ${removed} stage commit${removed === 1 ? "" : "s"} dropped` : ""})`
-    : `bridza: set type "${type}" on ${safeRef(pipeline)}/${safeRef(task)}`;
+    ? `bridza: retarget ${tag} → flow "${flowName || flow}" (progress discarded${removed ? `, ${removed} stage commit${removed === 1 ? "" : "s"} dropped` : ""})`
+    : (target != null && type != null)
+      ? `bridza: set target "${m.target}" + type "${type}" on ${tag}`
+      : target != null ? `bridza: retarget ${tag} → ${m.target}` : `bridza: set type "${type}" on ${tag}`;
   const c = commitWorktree(W, msg);
-  return { ok: true, branch: wt.branch, flow: m.flow, type: m.type, stages: m.stages, removed, committed: c.committed };
+  return { ok: true, branch: wt.branch, flow: m.flow, type: m.type, target: m.target, stages: m.stages, removed, committed: c.committed };
 }
 
 // Toggle opt-in LLM session reuse for a task. Turning it OFF also drops any
@@ -1028,7 +1067,7 @@ export function setTaskReuse(root, pipeline, task, on) {
   return { ok: true, reuseSession: !!on, committed: c.committed };
 }
 
-// ── finalize: merge the task branch into main ───────────────────────────────
+// ── finalize: merge the task branch into its target branch ──────────────────
 
 // style: "squash" (default) | "rebase" | "merge". When `into` is the branch the
 // user has checked out in the main repo, the merge happens there (finalize is
@@ -1058,7 +1097,7 @@ export function finalizeTask(root, pipeline, task, { style = "squash", into, res
   const branch = taskBranchName(pipeline, task);
   if (!isGitRepo(root)) return { ok: false, error: "not a git repository" };
   if (!branchExists(root, branch)) return { ok: false, error: "task branch does not exist — run a stage first" };
-  const target = into || baseBranchName(root);
+  const target = into || taskTarget(root, pipeline, task);
   if (!branchExists(root, target)) return { ok: false, error: "target branch " + target + " does not exist" };
   const ident = ["-c", "user.name=bridza", "-c", "user.email=bridza@local"];
 
@@ -1259,13 +1298,13 @@ export function commitDiff(root, sha) {
 }
 
 // The WHOLE task branch's changes in one place — the cumulative diff of the
-// branch vs the base (everything the task produced since it forked from main),
-// not commit-by-commit.
+// branch vs its TARGET (everything the task produced since it forked from the
+// branch its work lands on), not commit-by-commit.
 export function branchDiff(root, pipeline, task) {
   const branch = taskBranchName(pipeline, task);
   if (!isGitRepo(root)) return { ok: false, error: "not a git repository", files: [] };
   if (!branchExists(root, branch)) return { ok: false, error: "no task branch yet — run a stage first", files: [] };
-  const base = baseBranchName(root);
+  const base = taskTarget(root, pipeline, task);
   const range = branchExists(root, base) ? base + "..." + branch : branch;   // three-dot: changes since the merge-base
   let patch;
   try { patch = git(root, ["diff", range, "--no-color", "--unified=3"]); }
@@ -1375,7 +1414,7 @@ export function blastRadius(root, pipeline, task) {
   const branch = taskBranchName(pipeline, task);
   if (!isGitRepo(root)) return { ok: false, error: "not a git repository" };
   if (!branchExists(root, branch)) return { ok: false, error: "no task branch yet", seeds: [], impacted: [] };
-  const base = baseBranchName(root);
+  const base = taskTarget(root, pipeline, task);
   const range = branchExists(root, base) ? base + "..." + branch : branch;
   // changed files with churn (seeds), bookkeeping excluded
   const numstat = git(root, ["diff", "--numstat", range]).trim();
@@ -1416,7 +1455,7 @@ export function blastRadius(root, pipeline, task) {
 export function taskTimeline(root, pipeline, task) {
   const branch = taskBranchName(pipeline, task);
   if (!isGitRepo(root) || !branchExists(root, branch)) return { ok: false, error: "no task branch yet", commits: [] };
-  const base = baseBranchName(root);
+  const base = taskTarget(root, pipeline, task);
   const range = branchExists(root, base) ? base + ".." + branch : branch;
   // \x01 separates commits, \x1f separates header fields; numstat lines follow each header
   const log = git(root, ["log", "--numstat", "--format=%x01%H%x1f%an%x1f%s%x1f%cI", range]);

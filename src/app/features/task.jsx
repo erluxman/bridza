@@ -66,6 +66,7 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   const [railHidden, setRailHidden] = useState(() => localStorage.getItem("bridza.railHidden") === "1");
   const toggleRail = () => setRailHidden((h) => { const n = !h; try { localStorage.setItem("bridza.railHidden", n ? "1" : "0"); } catch (e) { /* ignore */ } return n; });
   const [plan, setPlan] = useState(null);   // project plan: deps (blocks/needs) + focused-context links
+  const [branches, setBranches] = useState([]);   // local branches — the menu for the task's target
   const autoRef = useRef(null);
   const timeRef = useRef({}); const dirtyRef = useRef(false);
   // changing task: restore THIS task's background-run log from the module store
@@ -77,6 +78,12 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
     api.getPlan(dir).then((r) => { if (on) setPlan((r && r.plan) || { deps: {}, milestones: [], pos: {}, links: {} }); });
     return () => { on = false; };
   }, [dir, key]);
+  useEffect(() => {
+    let on = true;
+    api.getBranches(dir).then((r) => { if (on) setBranches((r && r.branches) || []); });
+    return () => { on = false; };
+  }, [dir, key]);
+  const targetName = task.target || "main";
 
   const loadTimeline = useCallback(() => api.getTimeline(dir, pipeline.id, task.id).then((r) => setTimeline(r.commits || [])), [dir, pipeline.id, task.id]);
   useEffect(() => { loadTimeline(); }, [loadTimeline]);
@@ -336,7 +343,7 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
               → {handoff.tf.name}
             </button>
           )}
-          <button className="btn" onClick={() => finalize()} disabled={task.finalized}>{task.finalized ? "Finalized" : "Finalize → main"}</button>
+          <button className="btn" onClick={() => finalize()} disabled={task.finalized} title={`Merge this task's branch into ${targetName}`}>{task.finalized ? "Finalized" : `Finalize → ${targetName}`}</button>
         </div>
       </div>
       <div className="content detail" style={{ gridTemplateColumns: railHidden ? "1fr" : `1fr ${railW}px`, position: "relative" }}>
@@ -394,6 +401,19 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
             {task.ref && <Kv k="Ref" v={<span className="mono">#{task.ref}</span>} />}
             <Kv k="Status" v={task.finalized ? "finalized" : task.status} />
             <Kv k="Branch" v={<span className="mono" style={{ fontSize: 11 }}>{task.branch}</span>} />
+            <div className="kv" title="The branch this task's work lands on — forks from it, reviews diff against it, finalize merges into it">
+              <span>Target</span>
+              <select className="input" style={{ height: 26, fontSize: 12, width: 130 }} value={targetName} disabled={task.finalized}
+                onChange={async (e) => {
+                  const t = e.target.value; if (!t || t === targetName) return;
+                  const r = await api.retargetTask(dir, { pipeline: pipeline.id, task: task.id, target: t });
+                  if (r.ok) flash(`target → ${t} — the review now diffs against it and finalize merges into it`, 4200);
+                  else flash(r.error);
+                  onChange();
+                }}>
+                {[...new Set([targetName, ...branches])].map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
             <div className="kv"><span>Type</span>
               <input className="input" style={{ height: 26, fontSize: 12, width: 130, textAlign: "right" }} defaultValue={task.type || ""} placeholder="—" disabled={task.finalized}
                 onBlur={async (e) => { const v = e.target.value.trim(); if (v === (task.type || "")) return; const r = await api.retargetTask(dir, { pipeline: pipeline.id, task: task.id, type: v }); if (r.ok) onChange(); else flash(r.error); }} />

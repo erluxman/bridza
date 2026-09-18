@@ -19,6 +19,7 @@ import {
   taskTimeline, branchExists, currentBranch, git, taskBranchName, parseDiff, commitDiff, branchDiff, workingDiff,
   resolveRunnableTool, DEFAULT_STAGE_PROMPT, readTaskFile, saveTaskFile,
   finishConflict, abortConflict, pendingConflict, conflictedFiles,
+  taskTarget, listBranches,
 } from "../../../server/bridza-run.js";
 import { rel, CLI_TOOLS } from "../../../core/domain.js";
 
@@ -592,5 +593,83 @@ describe("retargetTask — change a task's flow/type after creation", () => {
     const meta = JSON.parse(git(W, ["show", "HEAD:" + rel.taskMeta("marketing", "task-506")]));
     expect(meta.tracking.research).toBeTruthy();             // progress preserved
     expect(meta.type).toBe("bug");
+  });
+});
+
+describe("target branch — where each task's work lands", () => {
+  const gc = (msg) => {
+    fs.writeFileSync(path.join(root, "commit.txt"), msg + "\n");
+    execFileSync("git", ["add", "-A"], { cwd: root });
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", msg], { cwd: root });
+  };
+  const putMeta = (task, meta) => { const p = path.join(root, rel.taskMeta("marketing", task)); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, JSON.stringify({ v: 1, id: task, pipeline: "marketing", tracking: {}, ...meta })); };
+
+  it("ensureTaskBranch forks the task branch from the stored target, not main", () => {
+    gc("release work");
+    git(root, ["branch", "release/1.x", "HEAD~1"]);           // release/1.x drifted one commit behind main
+    putMeta("task-506", { target: "release/1.x" });
+    expect(taskTarget(root, "marketing", "task-506")).toBe("release/1.x");
+    const b = ensureTaskBranch(root, "marketing", "task-506");
+    expect(b.ok).toBe(true);
+    expect(git(root, ["rev-parse", b.branch]).trim()).toBe(git(root, ["rev-parse", "release/1.x"]).trim());
+    expect(git(root, ["rev-parse", b.branch]).trim()).not.toBe(git(root, ["rev-parse", "main"]).trim());
+    // a task with no stored target falls back to the repo default branch
+    const def = ensureTaskBranch(root, "marketing", "task-1");
+    expect(taskTarget(root, "marketing", "task-1")).toBe("main");
+    expect(git(root, ["rev-parse", def.branch]).trim()).toBe(git(root, ["rev-parse", "main"]).trim());
+    expect(listBranches(root)).toContain("release/1.x");
+  });
+
+  it("branchDiff reviews against the task's target branch, not main", async () => {
+    gc("release work");
+    git(root, ["branch", "release/1.x"]);
+    fs.writeFileSync(path.join(root, "main2.txt"), "main only\n");    // main now has a commit the target lacks
+    execFileSync("git", ["add", "-A"], { cwd: root });
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", "main-only change"], { cwd: root });
+    putMeta("task-506", { target: "release/1.x" });
+    const w = ensureTaskWorktree(root, "marketing", "task-506"); // worktree forks from release/1.x
+    expect(w.ok).toBe(true);
+    fs.writeFileSync(path.join(w.worktree, "feature.txt"), "the feature\n");
+    git(w.worktree, ["add", "-A"]);
+    git(w.worktree, ["-c", "user.name=bridza", "-c", "user.email=bridza@local", "commit", "-m", "feature"]);
+    const d = branchDiff(root, "marketing", "task-506");
+    expect(d.base).toBe("release/1.x");
+    const paths = d.files.map((f) => f.path);
+    expect(paths).toContain("feature.txt");
+    expect(paths).not.toContain("main2.txt");                  // the target's own newer commits stay OUT of the review
+  });
+
+  it("retargetTask sets a target branch and rejects one that doesn't exist", () => {
+    git(root, ["branch", "release/1.x"]);
+    expect(retargetTask(root, "marketing", "task-506", { target: "nope" }).error).toMatch(/does not exist/);
+    expect(retargetTask(root, "marketing", "task-506", { target: "??" }).ok).toBe(false);   // not a valid ref name at all
+    const r = retargetTask(root, "marketing", "task-506", { target: "release/1.x" });
+    expect(r.ok).toBe(true);
+    expect(r.target).toBe("release/1.x");
+    expect(r.removed).toBe(0);                                 // no flow change → no stage commits dropped
+    const W = taskWorktree(root, "marketing", "task-506");
+    const meta = JSON.parse(fs.readFileSync(path.join(W, rel.taskMeta("marketing", "task-506")), "utf8"));
+    expect(meta.target).toBe("release/1.x");
+    expect(retargetTask(root, "marketing", "task-506", { target: "main", flow: "feature", flowName: "Feature", stages: ["spec", "build"] }).target).toBe("main");
+  });
+
+  it("finalize merges into the task's target branch when no into is passed", () => {
+    gc("release work");
+    git(root, ["branch", "release/1.x"]);
+    putMeta("task-506", { target: "release/1.x", title: "ship to release" });
+    const w = ensureTaskWorktree(root, "marketing", "task-506");
+    expect(w.ok).toBe(true);
+    fs.writeFileSync(path.join(w.worktree, "feature.txt"), "the feature\n");
+    git(w.worktree, ["add", "-A"]);
+    git(w.worktree, ["-c", "user.name=bridza", "-c", "user.email=bridza@local", "commit", "-m", "the feature"]);
+    const r = finalizeTask(root, "marketing", "task-506", { style: "squash" });
+    expect(r.ok).toBe(true);
+    expect(r.target).toBe("release/1.x");
+    const subject = git(root, ["log", "-1", "--format=%s", "release/1.x"]).trim();
+    expect(subject).toMatch(/^bridza: finalize marketing\/task-506 .*→ release\/1\.x$/);
+    const has = (ref, f) => { try { git(root, ["show", ref + ":" + f]); return true; } catch (e) { return false; } };
+    expect(has("release/1.x", "feature.txt")).toBe(true);
+    expect(has("main", "feature.txt")).toBe(false);           // the feature did NOT land on main
+    expect(git(root, ["rev-parse", "main"]).trim()).toBe(git(root, ["rev-parse", "release/1.x~1"]).trim()); // main untouched
   });
 });

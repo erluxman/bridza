@@ -25,7 +25,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { DATA_DIR, CLI_TOOLS, pipelineFlows } from "../core/domain.js";
 import { readProject, createPipeline, savePipeline, archivePipeline, deletePipeline, createTask, deleteTask, readContext, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan, assignRefs, readPipelineDef } from "./bridza-store.js";
-import { runStage, automateTask, finalizeTask, finishConflict, abortConflict, openDir, conflictedFiles, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, retargetTask, setTaskReuse, listModels, termRun, ensureTaskWorktree, recommendPipelines, readTaskFile, saveTaskFile } from "./bridza-run.js";
+import { runStage, automateTask, finalizeTask, finishConflict, abortConflict, openDir, conflictedFiles, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, retargetTask, setTaskReuse, listModels, termRun, ensureTaskWorktree, recommendPipelines, readTaskFile, saveTaskFile, listBranches } from "./bridza-run.js";
 
 function resolveDir(raw) {
   if (!raw) return null;
@@ -186,6 +186,10 @@ export async function handleApi(req, res) {
       const override = !!process.env.BRIDZA_TOOL_OVERRIDE;
       res.end(JSON.stringify({ tools: CLI_TOOLS.map((t) => ({ id: t.id, label: t.label, available: override || toolAvailable(t.bin), stub: override })) })); return true;
     }
+    if (M === "GET" && P === "/api/bridza/branches") {
+      if (!root) return void need(), true;
+      res.end(JSON.stringify({ ok: true, branches: listBranches(root) })); return true;
+    }
     if (M === "POST" && P === "/api/bridza/pipeline") {
       if (!root) return void need(), true;
       res.end(JSON.stringify(createPipeline(root, (await json(req)) || {}))); return true;
@@ -219,7 +223,7 @@ export async function handleApi(req, res) {
         if (!fl) { res.end(JSON.stringify({ ok: false, error: "unknown flow " + b.flow })); return true; }
         flow = fl.id; flowName = fl.name; stages = fl.stages.map((s) => s.id);
       }
-      res.end(JSON.stringify(retargetTask(root, b.pipeline, b.task, { flow, flowName, stages, type: b.type }))); return true;
+      res.end(JSON.stringify(retargetTask(root, b.pipeline, b.task, { flow, flowName, stages, type: b.type, target: b.target }))); return true;
     }
     if (M === "POST" && P === "/api/bridza/task/reuse") {
       if (!root) return void need(), true;
