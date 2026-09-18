@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "id": "auto-advance-seems-to-only-works-at-the",
+  "pipeline": "engineering",
+  "title": "Auto advance seems to only works at the beginning of task creation",
+  "ref": 22,
+  "type": "idea",
+  "flow": "dissection",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/auto-advance-seems-to-only-works-at-the",
+  "target": "main",
+  "stages": [
+    "dissect"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
