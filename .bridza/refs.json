@@ -2,7 +2,6 @@
   "v": 1,
   "next": 10,
   "refs": {
-    "engineering/when-i-am-recording-an-idea-in-the-inbox": 1,
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/the-title-is-taking-a-lot-of-vertical-sp": 3,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -12,6 +11,7 @@
     "engineering/truncation-check-idea",
     "product/test-idea-for-screenshot-verification",
     "product/so-this-is-just-an-idea-that-i-am-trying",
-    "engineering/fadfasdfa"
+    "engineering/fadfasdfa",
+    "engineering/when-i-am-recording-an-idea-in-the-inbox"
   ]
 }
