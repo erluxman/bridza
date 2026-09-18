@@ -257,6 +257,9 @@
     ],
     "engineering/implement-merge-strategy": [
       "engineering/better-merging-strategy-to-reference"
+    ],
+    "engineering/migration-existing-tasks": [
+      "engineering/better-merging-strategy-to-reference"
     ]
   },
   "pipeDeps": [
