@@ -6,10 +6,10 @@
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/the-title-is-taking-a-lot-of-vertical-sp": 3,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
-    "product/test-idea-for-screenshot-verification": 5,
     "product/so-this-is-just-an-idea-that-i-am-trying": 6
   },
   "deleted": [
-    "engineering/truncation-check-idea"
+    "engineering/truncation-check-idea",
+    "product/test-idea-for-screenshot-verification"
   ]
 }
