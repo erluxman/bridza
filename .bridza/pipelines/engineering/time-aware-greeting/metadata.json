@@ -12,5 +12,20 @@
     "build",
     "review"
   ],
-  "tracking": {}
+  "tracking": {
+    "review": {
+      "status": "running",
+      "seconds": 0,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Good-luck greeting adapts to time of day\n\n## WHAT & WHY\n\nMake the welcome feel written for \"the work I am doing for the day\": the greeting line changes with the time of day (morning / afternoon / evening buckets) while the good-luck wish is always included. Keeps the message personal and fresh without any copy framework — a single small deterministic lookup.\n\n## ACCEPTANCE CRITERIA\n\n- The dialog's greeting line differs by time-of-day bucket: morning, afternoon, evening.\n- The good-luck wish appears in every bucket.\n- The current hour is injectable/deterministic for tests (no wall-clock monkeypatching races).\n- No new dependencies; reuses the dialog's existing copy style and tokens.\n- Parameterized unit tests inject each bucket's hour and assert the expected greeting; `pnpm test` passes.\n- Check if  current branch can be merged to traget branch, if it can't be merged, make necessary changes and make it mergable ",
+          "startedAt": "2026-09-18T18:54:26.662Z",
+          "status": "running"
+        }
+      ]
+    }
+  },
+  "branch": "bridza/engineering/time-aware-greeting"
 }
