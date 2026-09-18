@@ -808,5 +808,25 @@
       "judge": false
     }
   ],
-  "templates": []
+  "templates": [],
+  "kanbanOrder": [
+    "requirements",
+    "vision",
+    "architecture",
+    "planning",
+    "implementation",
+    "testing",
+    "release",
+    "spec",
+    "build",
+    "review",
+    "repro",
+    "fix",
+    "fix-review",
+    "design-spec",
+    "design",
+    "dissect",
+    "__done__",
+    "__archived__"
+  ]
 }
