@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "id": "time-aware-greeting",
+  "pipeline": "engineering",
+  "title": "Good-luck greeting adapts to time of day",
+  "type": "subtask",
+  "status": "in-progress",
+  "finalized": false,
+  "flow": "feature",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "tracking": {}
+}
