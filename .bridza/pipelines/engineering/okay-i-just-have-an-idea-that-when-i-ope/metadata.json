@@ -1,0 +1,19 @@
+{
+  "v": 1,
+  "id": "okay-i-just-have-an-idea-that-when-i-ope",
+  "pipeline": "engineering",
+  "title": "okay I just have an idea that when I open this freezer it shows a welcome screen",
+  "ref": 4,
+  "type": "idea",
+  "flow": "dissection",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/okay-i-just-have-an-idea-that-when-i-ope",
+  "stages": [
+    "dissect"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
