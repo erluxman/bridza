@@ -12,5 +12,76 @@
     "build",
     "review"
   ],
-  "tracking": {}
+  "tracking": {
+    "spec": {
+      "status": "done",
+      "seconds": 91,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Welcome dialog appears when the app opens",
+          "startedAt": "2026-09-18T18:20:45.092Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T18:22:15.662Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/welcome-dialog-on-open/spec/outputs/acceptance.md",
+            ".bridza/pipelines/engineering/welcome-dialog-on-open/spec/outputs/spec.md"
+          ],
+          "sessionId": "ses_f4a402117ffeDCM5izJvWz20cH",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n· step · 18584 tokens\n· step · 19660 tokens\n· step · 20698 tokens\n· step · 21501 tokens\n· step · 21852 tokens\n· step · 21944 tokens\n· step · 22429 tokens\n· step · 23258 tokens\n· step · 24256 tokens\n· step · 24768 tokens\n· step · 26146 tokens\nWrote both files in `.bridza/pipelines/engineering/welcome-dialog-on-open/spec/outputs/`:\n\n- **spec.md** — What/Why/Scope: dialog over the dashboard on app open, greeted with good-luck message; reuse existing `.modal-bg`/`.modal` pattern; landing page untouched; no persistence or daily-dismissal logic (separate scope).\n- **acceptance.md** — Four dismissal/dialog checks plus the `pnpm test` gate: renders on mount, closes via close button/backdrop/`Esc`, dashboard usable after dismissal, no new library, landing verified unchanged, unit test proves render + close.\n· step · 26312 tokens"
+        }
+      ]
+    },
+    "build": {
+      "status": "done",
+      "seconds": 834,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Welcome dialog appears when the app opens\n\n## WHAT & WHY\n\nWhen the user opens the Bridza app (`src/app/App.jsx`, reached via the `app.` host or `/app` path), a modal welcome dialog should appear over the dashboard greeting the user and wishing them good luck for the day's work. The dialog must be easy to dismiss without blocking the rest of the dashboard. The landing page (`src/pages/App.tsx`) is untouched.\n\n## ACCEPTANCE CRITERIA\n\n- On app open, a modal dialog renders over the dashboard with a welcome greeting and a good-luck-for-today message.\n- Dismissable via: a close button, clicking the backdrop, and pressing `Esc`.\n- Dismissal removes the dialog; the dashboard remains fully usable behind it.\n- Uses the existing modal pattern and CSS tokens in `bridza.css`; no new dialog library.\n- A unit/component test proves the dialog renders on mount and closes on each dismissal action; `pnpm test` passes.\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-18T18:32:05.912Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Welcome dialog appears when the app opens\n\n## WHAT & WHY\n\nWhen the user opens the Bridza app (`src/app/App.jsx`, reached via the `app.` host or `/app` path), a modal welcome dialog should appear over the dashboard greeting the user and wishing them good luck for the day's work. The dialog must be easy to dismiss without blocking the rest of the dashboard. The landing page (`src/pages/App.tsx`) is untouched.\n\n## ACCEPTANCE CRITERIA\n\n- On app open, a modal dialog renders over the dashboard with a welcome greeting and a good-luck-for-today message.\n- Dismissable via: a close button, clicking the backdrop, and pressing `Esc`.\n- Dismissal removes the dialog; the dashboard remains fully usable behind it.\n- Uses the existing modal pattern and CSS tokens in `bridza.css`; no new dialog library.\n- A unit/component test proves the dialog renders on mount and closes on each dismissal action; `pnpm test` passes.\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-18T18:33:57.600Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T18:39:09.998Z",
+          "exit": 0,
+          "files": [],
+          "sessionId": "ses_f4a340961ffeNr02jEWlApZGB6",
+          "error": null,
+          "log": "ystem instructions:\\nYou are an implementer. Implement strictly to the spec; the shortest working diff wins. Reuse what the codebase already has, prefer the …\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n\n\n\n· step · 19114 tokens\n· step · 20787 tokens\n· step · 23057 tokens\n· step · 24484 tokens\n· step · 41998 tokens\nFit check passes — the original idea was already dissected into 3 vertical-slice subtasks; this is `welcome-dialog-on-open`, a single independently-deliverable feature with no deps. Proceeding with implementation.\n\nNow let me read the existing modal components, CSS, and tests.\n· step · 44276 tokens\n\n\n\n· step · 62114 tokens\n· step · 62348 tokens\n· step · 65044 tokens\n· step · 66496 tokens\n\n\n\n· step · 68693 tokens\n· step · 70467 tokens\nNow I have the full picture. The `WelcomeDialog` component already exists (App.jsx:2025) but is never mounted. I'll wire it in and add a jsdom component test (jsdom is already present as a vitest peer; no new deps).\n· step · 71491 tokens\n· step · 71805 tokens\nNow the component test:\n· step · 73360 tokens\n· step · 73473 tokens\nAll 4 tests pass. Now the full suite and lint:\n· step · 73797 tokens\n· step · 73983 tokens\n\n\n\n· step · 74211 tokens\n\n\n\n· step · 74527 tokens\n· step · 74784 tokens\n· step · 76268 tokens\n\n\n\n· step · 79292 tokens\nThe diff shows changes I didn't make (`welcomeOpen`, `export function WelcomeDialog`, an indentation glitch) — something else is editing this file concurrently. Let me investigate.\n· step · 81050 tokens\nTwo concurrent `opencode run` processes are editing this same worktree (PIDs 203318 and 204007 — I'm the latter). The other one left duplicate state and an indentation merge artifact. Let me inspect and normalize the file to one clean implementation.\n· step · 84824 tokens\n· step · 85378 tokens\n\n\n\n· step · 86027 tokens\nThe other process has now written an equivalent, correct `App.jsx` (its diff superseded mine). Both implementations converge to the same design. My test file and jsdom devDep remain. Let me verify the current combined state is green.\n\n\n· step · 88919 tokens\nThe other process is still actively editing (mtime 00:22:01). I'll wait for it to settle before final verification to avoid racing its writes.\n· step · 89536 tokens\nThe other process finished; file is stable. Final verification:\n\n\n· step · 89804 tokens\n· step · 90148 tokens\n\n\n\n· step · 90725 tokens\nEverything is committed (the other concurrent run coalesced with mine — it committed `package.json` jsdom, `App.jsx`, and my `welcome-dialog.test.jsx`), and the tree is clean and green. Final check of the committed diff:\n· step · 91457 tokens\nDone. Fit check passed — the original idea was already dissected into 3 vertical-slice subtasks; `welcome-dialog-on-open` is a single independent \"Feature\" task, so no `flow-fit.md` was needed.\n\n**What shipped** (commit `5300197`, tree clean):\n- `src/app/App.jsx` — new `welcomeOpen` state (default `true`) renders a `WelcomeDialog` over the dashboard on app open, alongside the existing modals. Dismissal via ✕ button, backdrop click, and `Esc` (window keydown listener, cleaned up on unmount). Reuses the existing `.modal-bg`/`.modal` tokens from `bridza.css`; no new dialog library.\n- `src/app/__tests__/welcome-dialog.test.jsx` — 4 jsdom component tests: renders on mount (greeting + good-luck message) and closes via each of the three dismissal actions.\n- `package.json`/`pnpm-lock.yaml` — `jsdom` devDep (vitest peer already vendored; required for the component-test environment).\n- `src/pages/App.tsx` untouched.\n\n**Verification**: `pnpm test` → 69/69 pass (4 new), `pnpm lint` clean, `tsc -b` clean.\n\nOne heads-up: the harness double-launched this build stage — a second `opencode run` (session `ses_f4a35bdb2ffevFvfDzAcTPL6KE`) was racing me on the same worktree. Both converged on the same design; that run made the final commit, incorporating my test file. Worth flagging as a harness double-launch for the next stage.\n· step · 93248 tokens"
+        }
+      ]
+    },
+    "review": {
+      "status": "done",
+      "seconds": 123,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Welcome dialog appears when the app opens\n\n## WHAT & WHY\n\nWhen the user opens the Bridza app (`src/app/App.jsx`, reached via the `app.` host or `/app` path), a modal welcome dialog should appear over the dashboard greeting the user and wishing them good luck for the day's work. The dialog must be easy to dismiss without blocking the rest of the dashboard. The landing page (`src/pages/App.tsx`) is untouched.\n\n## ACCEPTANCE CRITERIA\n\n- On app open, a modal dialog renders over the dashboard with a welcome greeting and a good-luck-for-today message.\n- Dismissable via: a close button, clicking the backdrop, and pressing `Esc`.\n- Dismissal removes the dialog; the dashboard remains fully usable behind it.\n- Uses the existing modal pattern and CSS tokens in `bridza.css`; no new dialog library.\n- A unit/component test proves the dialog renders on mount and closes on each dismissal action; `pnpm test` passes.",
+          "startedAt": "2026-09-18T18:39:10.048Z",
+          "status": "done",
+          "finishedAt": "2026-09-18T18:41:12.794Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/welcome-dialog-on-open/review/outputs/review.md"
+          ],
+          "sessionId": "ses_f4a2f44cbffeyCmhahm0oPfYol",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, a…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n· step · 18879 tokens\n· step · 20139 tokens\n· step · 20789 tokens\n\n\n\n· step · 38062 tokens\n· step · 38981 tokens\n· step · 41241 tokens\n\n\n\n· step · 42755 tokens\n· step · 43413 tokens\n· step · 45139 tokens\n· step · 46106 tokens\n· step · 47934 tokens\n· step · 51599 tokens\n· step · 54716 tokens\n· step · 55025 tokens\nAll checks pass (tests 69/69, lint, build). Writing the review.\n· step · 56594 tokens\n· step · 56795 tokens\nReview written to `.bridza/pipelines/engineering/welcome-dialog-on-open/review/outputs/review.md`.\n\n**Verdict: approved** — all 8 acceptance criteria pass with evidence.\n\n- Dialog renders over the dashboard on mount (`App.jsx:44,148,2025`), uses the existing `.modal-bg`/`.modal` tokens, closes via ✕ / backdrop / `Esc`, and the dashboard is untouched behind it.\n- `src/pages/App.tsx` unchanged; `pnpm test` 69/69, `pnpm lint` and `pnpm build` clean.\n\n**Over-engineering: nothing to delete.** The diff is ~40 lines of app code + 4 tests; `welcomeOpen` is the minimal toggle, the jsdom devDep is required by the test env, and the test's `Harness` correctly avoids rendering the whole `App`.\n\nNon-binding notes: the Escape-key effect is a 3rd copy of a pattern shared with `DiffView` (extraction would touch out-of-scope code), and the build stage was double-launched by the harness (two overlapping commits `5300197`/`7fdb96c`, both converged on the same design).\n· step · 57169 tokens"
+        }
+      ]
+    }
+  },
+  "branch": "bridza/engineering/welcome-dialog-on-open"
 }
