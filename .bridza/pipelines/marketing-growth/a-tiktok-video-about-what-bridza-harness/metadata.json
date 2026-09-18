@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "id": "a-tiktok-video-about-what-bridza-harness",
+  "pipeline": "marketing-growth",
+  "title": "A tiktok Video about What Bridza Harness is",
+  "ref": 2,
+  "type": "",
+  "flow": "single-post",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/marketing-growth/a-tiktok-video-about-what-bridza-harness",
+  "stages": [
+    "post-brief",
+    "post"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
