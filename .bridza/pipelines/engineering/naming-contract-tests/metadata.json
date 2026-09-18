@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "id": "naming-contract-tests",
+  "pipeline": "engineering",
+  "title": "Complete unit tests for numbered-prefix naming contract",
+  "type": "subtask",
+  "status": "pending",
+  "finalized": false,
+  "flow": "feature",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "tracking": {}
+}

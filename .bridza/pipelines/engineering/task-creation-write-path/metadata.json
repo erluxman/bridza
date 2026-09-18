@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "id": "task-creation-write-path",
+  "pipeline": "engineering",
+  "title": "Implement numbered-prefix write path for new tasks",
+  "type": "subtask",
+  "status": "pending",
+  "finalized": false,
+  "flow": "feature",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "tracking": {}
+}
