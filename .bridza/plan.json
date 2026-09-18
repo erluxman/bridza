@@ -50,7 +50,8 @@
       "title": "UX Impromement",
       "due": "",
       "tasks": [
-        "engineering/i-should-be-able-to-rearrange-the"
+        "engineering/i-should-be-able-to-rearrange-the",
+        "engineering/kanban-archive-issue-cards"
       ],
       "needs": []
     }
