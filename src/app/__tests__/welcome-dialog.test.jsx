@@ -4,6 +4,7 @@ import { useState } from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { WelcomeDialog, greetingForHour } from "../features/onboarding.jsx";
+import { LS, today } from "../lib/format.js";
 
 // The test process's bare `localStorage` globals are inert (Node 25 without a
 // valid --localstorage-file), so back them with a tiny in-memory Storage.
@@ -89,8 +90,8 @@ describe("greetingForHour", () => {
     [17, "Good evening"],
     [20, "Good evening"],
     [23, "Good evening"],
-    [0, "Good evening"],
-    [4, "Good evening"],
+    [0, "Good morning"],
+    [4, "Good morning"],
   ])("hour %i → %s", (hour, expected) => {
     expect(greetingForHour(hour)).toBe(expected);
   });
