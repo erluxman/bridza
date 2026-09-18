@@ -811,8 +811,8 @@
   "templates": [],
   "kanbanOrder": [
     "dissect",
-    "__done__",
     "spec",
+    "__done__",
     "requirements",
     "vision",
     "architecture",
