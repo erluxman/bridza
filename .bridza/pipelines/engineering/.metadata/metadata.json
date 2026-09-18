@@ -811,10 +811,10 @@
   "templates": [],
   "kanbanOrder": [
     "dissect",
+    "__done__",
     "requirements",
     "vision",
     "architecture",
-    "__done__",
     "planning",
     "implementation",
     "testing",
