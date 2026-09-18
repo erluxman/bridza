@@ -1,0 +1,21 @@
+{
+  "v": 1,
+  "id": "you-just-should-be-able-to-change-the",
+  "pipeline": "engineering",
+  "title": "You just should be able to change the target branch of the task or the issue",
+  "ref": 14,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/you-just-should-be-able-to-change-the",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
