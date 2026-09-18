@@ -95,6 +95,18 @@
     "engineering/every-task-when-they-are-converted-into": {
       "x": 646,
       "y": 233
+    },
+    "engineering/i-should-be-able-to-rearrange-the": {
+      "x": -432,
+      "y": 359
+    },
+    "engineering/kanban-archive-issue-cards": {
+      "x": -432,
+      "y": 445
+    },
+    "engineering/kanban-columns-drag-reorder": {
+      "x": -432,
+      "y": 531
     }
   },
   "sizes": {
