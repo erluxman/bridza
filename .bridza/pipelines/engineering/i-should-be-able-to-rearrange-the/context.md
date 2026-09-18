@@ -1,3 +1,3 @@
 # I should be able to rearrange the various columns in the Kanban…
 
-Describe the intent of this task.
+I should be able to rearrange the various columns in the Kanban view of every pipeline I should be able to just drag the title and drop it in the right place and also there should be an archive button for every issue and once I archive that it will not be in completed but it will be in archived but that should be manual process
