@@ -1,3 +1,3 @@
 # Auto advance seems to only works at the beginning of task creation
 
-Describe the intent of this task.
+Auto advance only works at the beginning of task creation after it is started and I go back to that same task or work item auto advance is turned off or at least it does not show that it is in auto advance mode sometimes it feels like the work has stock just stock not being advanced and I think what is actually happening whether it is running, which stage it is running and is it in auto advance mode those kind of things should be really transparent to user so think about it plan the features or box fixes or whatever they are regarding it and implement them
