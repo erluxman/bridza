@@ -810,10 +810,10 @@
   ],
   "templates": [],
   "kanbanOrder": [
+    "dissect",
     "requirements",
     "vision",
     "architecture",
-    "dissect",
     "planning",
     "implementation",
     "testing",
