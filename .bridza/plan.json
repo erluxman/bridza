@@ -242,6 +242,9 @@
     ],
     "engineering/task-enumeration-read-path": [
       "engineering/every-task-when-they-are-converted-into"
+    ],
+    "engineering/task-creation-write-path": [
+      "engineering/every-task-when-they-are-converted-into"
     ]
   },
   "pipeDeps": [
