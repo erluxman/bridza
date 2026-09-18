@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 27,
+  "next": 33,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -20,7 +20,13 @@
     "engineering/better-merging-strategy-to-reference": 23,
     "engineering/define-merge-strategy": 24,
     "engineering/implement-merge-strategy": 25,
-    "engineering/verify-merge-strategy": 26
+    "engineering/verify-merge-strategy": 26,
+    "engineering/migration-existing-tasks": 27,
+    "engineering/naming-contract-tests": 28,
+    "engineering/number-prefix-contract": 29,
+    "engineering/task-creation-write-path": 30,
+    "engineering/task-enumeration-read-path": 31,
+    "engineering/ui-ref-display": 32
   },
   "deleted": [
     "engineering/truncation-check-idea",
