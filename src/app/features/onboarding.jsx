@@ -6,7 +6,7 @@ import { STARTER_PIPELINES, pipelineFlows, parsePipelineFile, recommendFlow } fr
 import { base, slug, lsGet, lsSet, recKey } from "../lib/format.js";
 import { Modal, Field } from "../ui.jsx";
 
-export const greetingForHour = (h) => (h >= 5 && h <= 11 ? "Good morning" : h >= 12 && h <= 16 ? "Good afternoon" : "Good evening");
+export const greetingForHour = (h) => (h >= 0 && h <= 11 ? "Good morning" : h >= 12 && h <= 16 ? "Good afternoon" : "Good evening");
 
 // A greeting shown once when the app opens; Esc, ✕ or the backdrop dismiss it.
 export function WelcomeDialog({ onClose }) {
