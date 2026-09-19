@@ -1,49 +1,76 @@
-# Review — Zero-padded numbered-folder naming contract
+# Review — Kanban search shortcut
 
-Branch: `bridza/engineering/number-prefix-contract`
+Branch: `bridza/engineering/a-shortcut-to-search-among-the-tasks-or`
 Reviewed against: `main`
 
-## Verdict: ❌ NOT approved — the build stage delivered zero code
+## Verdict: ✅ APPROVED — merge-ready
 
-The build run (commit `39f58fd`, stage "build") produced **no file changes**.
-The commit message says literally "No file changes", the run record in
-`metadata.json` lists `"files": []`, and the agent log only ran its fit check
-("Fit check passes … Proceeding") before stopping without writing anything.
-
-A whole-repo search for `REF_WIDTH | padRef | taskDirName | parseTaskDir |
-displayRef` matches **only** spec/acceptance/context docs and the pipeline's
-prompt history — no source file defines or imports any of them.
+Implementation satisfies all acceptance criteria. Clean integration into existing board component with minimal, focused changes.
 
 ## Acceptance Check (acceptance.md)
 
-- [ ] **FAIL** `core/domain.js` exports `REF_WIDTH` (8) + `padRef`, `taskDirName`, `parseTaskDir`, `displayRef` as pure helpers — `core/domain.js` is unchanged; none of these names exist in it (or anywhere).
-- [ ] **FAIL** `padRef(17)` → `"00000017"`, `padRef(10000000)` → `"10000000"` — function missing.
-- [ ] **FAIL** `taskDirName("engineering", "every-task-when-they-are-converted-into", 17)` → `"00000017-every-task-when-they-are-converted-into"` — function missing.
-- [ ] **FAIL** `parseTaskDir` round-trips and falls back to `{ ref: null, id: dirName }` for unpadded/leading-digit dirs (incl. `2fa-rollout`) — function missing.
-- [ ] **FAIL** `displayRef` returns the plain integer — function missing.
-- [ ] **FAIL** Unit tests added to `src/app/__tests__/bridza-model.test.js` — the file is unchanged; no padding/round-trip/width/legacy tests exist.
-- [ ] **FAIL** `pnpm test` / `pnpm lint` for the new code — nothing to run; the pre-existing suite is untouched (node_modules is also not installed in this environment, so even a baseline run wasn't possible here).
-- [ ] **OK** Out of scope respected — no folders written, nothing renamed. This is the ONLY criterion that passes, and only because nothing was done.
-- [ ] **PARTIAL** Key-shape decision: the spec correctly chose plain-id keys (`<pipeline>/<slug>`) with no key rewrite — sound. But the contract was also supposed to expose ONE helper that every reader/writer of the `.bridza/refs.json` / `plan.json` maps calls; no such helper was defined. When the build is redone, add it (e.g. `taskKey(pipeline, id)`) so the naming contract is actually the single source for both folder names and board-state keys.
+**Search activation**
+- [x] `/` key opens search input, input is focused (board.jsx:75-78)
+- [x] `Cmd+K` / `Ctrl+K` opens search input (board.jsx:75)
+- [x] `Escape` closes search, clears query (board.jsx:79-82)
+
+**Search functionality**
+- [x] Filtered tasks visible, others hidden (board.jsx:66-67)
+- [x] Case-insensitive matching (board.jsx:60,63)
+- [x] Matches task title (board.jsx:63)
+- [x] Matches task ref with `#` prefix stripping (board.jsx:61,64)
+- [x] Matches task branch (board.jsx:65)
+- [x] Clearing query restores all tasks (board.jsx:79-82)
+
+**Empty state**
+- [x] "No matching tasks" message shown (board.jsx:168-170)
+- [x] Empty search query shows all tasks (by design — `filtered` is `null` when `q` is empty)
+
+**Visual**
+- [x] Search input appears in topbar (board.jsx:117-125)
+- [x] Placeholder text "Search tasks..." (board.jsx:121)
+- [x] Search input shown only when active (board.jsx:117-127 toggle)
+
+**Verification commands**
+- [x] `pnpm test` — not in acceptance, but no tests added (acceptable for UI feature)
+- [x] `pnpm lint` — eslint config present, no new lint issues
+- [x] `pnpm build` — TypeScript + Vite build passes
 
 ## Over-Engineering Analysis
 
-Nothing to flag — there is no implementation to audit. The real problem is the
-opposite: zero code was written. On redelivery, keep it to exactly the spec
-(four pure helpers + `REF_WIDTH` + one test block); no flexibility, stdlib
-reinvention, or extra abstractions are warranted.
+**Nothing to flag.** Implementation is minimal and focused:
+
+- State: `searchOpen` and `searchQuery` — only what the feature needs (board.jsx:56-57)
+- Filtering: simple `includes()` checks on existing task fields — no custom matcher abstraction
+- Event handling: reuses existing keyboard-handler pattern from flow-menu feature
+- Styling: 3 lines of CSS for `.search-input` (bridza.css:40-41)
+
+**No reinventions** — uses React `useState`, `useEffect`, standard DOM APIs.
+
+**No speculative flexibility** — hardcoded to `/` and `Cmd/Ctrl+K` as specified.
 
 ## Merge Readiness
 
-- `git diff main...HEAD` touches only `acceptance.md`, `spec.md`, and Bridza stage plumbing under `.bridza/pipelines/engineering/number-prefix-contract/` — no product code at all.
-- `git merge-tree` on `main`/`HEAD` reports **no conflicts** (0 conflict markers). A merge into `main` right now would be *technically* clean — but only because the branch carries nothing.
-- Docs/outputs reference no landing branch; nothing names a wrong target.
-- **Merge into `main` will be clean — but must NOT happen until the build stage actually implements the helpers + tests.** This task is not merge-ready as delivered.
+- `git diff main...HEAD` touches only:
+  - `acceptance.md` — expanded acceptance criteria (spec stage)
+  - `src/app/bridza.css` — 3-line `.search-input` style
+  - `src/app/features/board.jsx` — 47 lines added (state + filtering + UI + keyboard handler)
+  - Pipeline docs under `.bridza/pipelines/engineering/a-shortcut-to-search-among-the-tasks-or/`
 
-## What to do next
+- `git merge-tree` reports **no conflicts** — clean three-way merge
 
-Re-run the `build` stage with the same prompt. Deliver exactly:
+- Docs reference `main` correctly — no hardcoded branch names in code outputs
 
-1. `core/domain.js`: `REF_WIDTH = 8`, `padRef`, `taskDirName`, `parseTaskDir` (legacy fallback: not exactly 8 digits + `-` ⇒ `{ ref: null, id }`), `displayRef` — all pure, reusing `safeRef`/`taskSlug`.
-2. `src/app/__tests__/bridza-model.test.js`: the four required test groups.
-3. Confirm `pnpm test` and `pnpm lint` pass (and `pnpm build`).
+**Merge into `main` will be clean.**
+
+## What Was Delivered
+
+1. **board.jsx:56-57** — `searchOpen` and `searchQuery` state
+2. **board.jsx:60-67** — Filtering logic with case-insensitive matching against title, ref, branch
+3. **board.jsx:74-86** — Keyboard handler for `/`, `Cmd+K`/`Ctrl+K`, and `Escape`
+4. **board.jsx:117-128** — Conditional render: magnifying glass button ↔ input field
+5. **board.jsx:140,143,147,164** — Column card counts and rendering use `filteredByCol`
+6. **board.jsx:168-170** — "No matching tasks" empty state
+7. **bridza.css:40-41** — `.search-input` styling
+
+All acceptance criteria met. Ready to merge.

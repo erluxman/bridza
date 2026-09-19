@@ -18,5 +18,80 @@
   "routing": {},
   "status": "in-progress",
   "finalized": false,
-  "tracking": {}
+  "tracking": {
+    "spec": {
+      "status": "done",
+      "seconds": 85,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: A shortcut to search among the tasks or cards on the Kanban.",
+          "startedAt": "2026-09-19T17:32:39.133Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T17:34:03.719Z",
+          "exit": 0,
+          "files": [
+            "acceptance.md",
+            "spec.md"
+          ],
+          "sessionId": "ses_f4545ce43ffeLojiXX0WkRg5Yp",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n\n\n\n· step · 17666 tokens\n\n\n\n· step · 19653 tokens\n\n\n\n· step · 22654 tokens\n\n\n\n· step · 23468 tokens\n\n\n\n· step · 24955 tokens\n\n\n\n· step · 25214 tokens\n\n\nDone. Created `spec.md` with the search shortcut design and `acceptance.md` with verification criteria.\n· step · 25271 tokens"
+        }
+      ]
+    },
+    "build": {
+      "status": "done",
+      "seconds": 554,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: A shortcut to search among the tasks or cards on the Kanban.\n\nThere should be a search button somewhere or command F should work as find where I can search and find the task with certain text in them from the list of all the tasks on the Kanban.\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-19T17:34:06.367Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: A shortcut to search among the tasks or cards on the Kanban.\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-19T17:38:50.993Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T17:41:12.451Z",
+          "exit": 0,
+          "files": [],
+          "sessionId": "ses_f454021d5ffePgYI7XBQO5TzdJ",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are an implementer. Implement strictly to the spec; the shortest working diff wins. Reuse what the codebase already has, prefer the …\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n\n\n\n· step · 17912 tokens\n\n\n\n· step · 18856 tokens\n\n\n\n· step · 20037 tokens\n\n\nLooking at the spec, acceptance criteria, and the code in `board.jsx` - the implementation already exists but there's a critical bug: the variable `byCol` is used but never defined.\n\nThis is a single Feature task (search shortcut) with an obvious missing piece. Let me verify and fix it.\n\n· step · 23907 tokens\n\n\nThe lint fails due to a missing dependency, not the code. But there's a clear bug: `byCol` is used but never defined at line 64-65. Let me fix it:\n\n· step · 24344 tokens\nLet me read the exact formatting around those lines:\n· step · 27458 tokens\n\n\nThe code is already there. Let me run the build to verify:\n\n· step · 24950 tokens\n\n\nThe build fails due to missing dependencies (`pnpm install` not run). The implementation in `board.jsx` is complete - includes:\n- `searchOpen`/`searchQuery` state (lines 56-57)\n- `byCol` and `filteredByCol` (lines 58-67) \n- Keyboard listener for `/`, `Cmd+K`, `Escape` (lines 74-84)\n- Search input in topbar (lines 115-126)\n- Empty state \"No matching tasks\" (line 166-168)\n\nThe feature is fully implemented. Run `pnpm install` then `pnpm build` to verify.\n\n· step · 31450 tokens\n\n\n\n· step · 31743 tokens\n\n\nBuild passes. Let me verify lint:\n\n· step · 32041 tokens\n\n\nLint passes. The search shortcut feature is fully implemented and verified:\n\n- `pnpm build` passes\n- `pnpm lint` passes\n- All acceptance criteria covered in `src/app/features/board.jsx`\n· step · 32303 tokens"
+        }
+      ]
+    },
+    "review": {
+      "status": "done",
+      "seconds": 534,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: A shortcut to search among the tasks or cards on the Kanban.\n\nThere should be a search button somewhere or command F should work as find where I can search and find the task with certain text in them from the list of all the tasks on the Kanban.\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-19T17:40:59.093Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: A shortcut to search among the tasks or cards on the Kanban.\n\nThere should be a search button somewhere or command F should work as find where I can search and find the task with certain text in them from the list of all the tasks on the Kanban.\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-19T17:41:14.988Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T17:45:38.029Z",
+          "exit": 0,
+          "files": [],
+          "sessionId": "ses_f453def5fffezkLsgeh0WrwJuc",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, a…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n\n\n\n· step · 17871 tokens\n\n\n\n· step · 18509 tokens\n\n\n\n· step · 20195 tokens\n\n\n\n· step · 20456 tokens\n\n\n\n· step · 24378 tokens\n\n\n\n· step · 45858 tokens\n· step · 52021 tokens\n· step · 52266 tokens\n\n\n\n· step · 47015 tokens\n\n\n\n· step · 47859 tokens\nReview complete. ✅ **Approved — merge-ready into `main`.**\n\nAll 8 acceptance criteria met. Implementation is focused: keyboard shortcuts (`/`, `Cmd/Ctrl+K`, `Escape`), case-insensitive filtering on title/ref/branch, \"No matching tasks\" empty state, and clean CSS. No conflicts on merge.\n· step · 54284 tokens"
+        }
+      ]
+    }
+  }
 }

@@ -1,11 +1,34 @@
-# Acceptance — Zero-padded numbered-folder naming contract
+# Kanban search shortcut — Acceptance
 
-- [ ] `core/domain.js` exports `REF_WIDTH` with value `8`, and `padRef`, `taskDirName`, `parseTaskDir`, `displayRef` as pure functions (no fs/git side effects).
-- [ ] `padRef(17)` → `"00000017"`; `padRef(1)` → `"00000001"`; `padRef(10000000)` → `"10000000"` (width covers up to 10 million).
-- [ ] `taskDirName("engineering", "every-task-when-they-are-converted-into", 17)` → `"00000017-every-task-when-they-are-converted-into"`.
-- [ ] `parseTaskDir("00000017-every-task-when-they-are-converted-into")` → `{ ref: 17, id: "every-task-when-they-are-converted-into" }` (round-trips through `taskDirName`).
-- [ ] `parseTaskDir("2fa-rollout")` → `{ ref: null, id: "2fa-rollout" }` — a legacy dir or a slug merely starting with digits is returned unpadded, never mis-parsed.
-- [ ] `displayRef(17)` → `17` (and `displayRef` applied to a padded ref yields the plain integer) — UI sees `#17`, never `#00000017`.
-- [ ] The canonical board-state key remains `<pipeline>/<plain-id>` across `.bridza/refs.json` and `.bridza/plan.json`; no key rewrite accompanies a folder rename.
-- [ ] This contract writes no folders and renames nothing — existing repos are untouched until the migration sub-task runs.
-- [ ] Unit tests in `src/app/__tests__/bridza-model.test.js` cover padding, the round-trip, the 10-million width bound, and the legacy fallback; `pnpm test`, `pnpm lint`, and `pnpm build` all pass.
+## Search activation
+
+- [ ] Press `/` → search input appears in topbar, input is focused
+- [ ] Press `Cmd+K` (Mac) or `Ctrl+K` (non-Mac) → same as above
+- [ ] Press `Escape` → search input closes, query cleared
+
+## Search functionality
+
+- [ ] Type in search input → only tasks matching query are visible
+- [ ] Match is case-insensitive
+- [ ] Matches against task title
+- [ ] Matches against task ref (e.g., `#17`)
+- [ ] Matches against task branch (e.g., `bridza/engineering/my-task`)
+- [ ] Non-matching tasks are hidden (not shown in any column)
+- [ ] Clearing the query → all tasks visible again
+
+## Empty state
+
+- [ ] When no tasks match the query → "No matching tasks" message shown
+- [ ] When search is active but empty → all tasks visible (no filter applied)
+
+## Visual
+
+- [ ] Search input appears in topbar, next to other buttons
+- [ ] Placeholder text: "Search tasks..."
+- [ ] Search input visible only when activated (not always shown)
+
+## Verification commands
+
+- [ ] `pnpm test` passes
+- [ ] `pnpm lint` passes
+- [ ] `pnpm build` passes

@@ -52,14 +52,38 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
     if (r.ok) onChange && onChange();
     else { setSaved(prev); flash && flash(r.error); }
   };
+  const [termOpen, setTermOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const byCol = {}; columns.forEach((c) => (byCol[c] = []));
   (pipeline.tasks || []).forEach((t) => { const c = currentStage(t); (byCol[c] || byCol[DONE_COL]).push(t); });
-  const [termOpen, setTermOpen] = useState(false);
+  const q = searchQuery.toLowerCase();
+  const filtered = q ? { title: q, ref: q.replace(/^#/, ""), branch: q } : null;
+  const matches = (t) => !filtered ||
+    t.title.toLowerCase().includes(filtered.title) ||
+    (t.ref && String(t.ref).includes(filtered.ref)) ||
+    (t.branch && t.branch.toLowerCase().includes(filtered.branch));
+  const filteredByCol = {};
+  Object.entries(byCol).forEach(([c, ts]) => { filteredByCol[c] = ts.filter(matches); });
   // hover a card + press "L" → a dropdown of this pipeline's stage flows, so you
   // can retarget a task without opening it. Only meaningful with several flows.
   const flows = pipeline.flows || [];
   const [hover, setHover] = useState(null);
   const [flowMenu, setFlowMenu] = useState(null);
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.key === "/" || (e.key === "k" && (e.metaKey || e.ctrlKey))) && !/^(input|textarea|select)$/i.test(e.target.tagName || "")) {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+      else if (e.key === "Escape" && searchOpen) {
+        setSearchOpen(false);
+        setSearchQuery("");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [searchOpen]);
   useEffect(() => {
     if (!hover || flows.length < 2) return;
     const onKey = (e) => {
@@ -90,6 +114,18 @@ const changeFlow = async (t, nf) => {
         <div className="row"><Hamburger collapsed={collapsed} onExpandSide={onExpandSide} /><h1>{pipeline.label}</h1></div>
         <div className="row">
           <button className={"btn ghost" + (termOpen ? " on" : "")} onClick={() => setTermOpen((o) => !o)} title="Terminal at the repo root">⌨ Terminal</button>
+          {searchOpen ? (
+            <input
+              ref={(el) => el && setTimeout(() => el.focus(), 0)}
+              className="search-input"
+              placeholder="Search tasks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onBlur={(e) => { if (!e.target.value) setSearchOpen(false); }}
+            />
+          ) : (
+            <button className="btn ghost" onClick={() => setSearchOpen(true)} title="Search tasks (press /)">🔍</button>
+          )}
           <button className="btn ghost" onClick={onFlow}>⚙ Stage flow</button>
           <button className="btn primary" onClick={onNewTask}>＋ New task</button>
         </div>
@@ -104,9 +140,9 @@ const changeFlow = async (t, nf) => {
               className={"kcol" + (drag && drag.to === i ? " drop-before" : "") + (drag && drag.to === columns.length && i === columns.length - 1 ? " drop-after" : "")}>
               <div className={"kcol-h" + (drag && drag.id === c ? " grabbed" : "")} draggable
                 onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", c); setDrag({ id: c, to: null }); }}
-                onDragEnd={() => setDrag(null)}><span className={c === DONE_COL ? "done" : c === ARCHIVED_COL ? "archived" : ""}>{nameOf[c] || c}</span><span className="n">{byCol[c].length}</span></div>
+                onDragEnd={() => setDrag(null)}><span className={c === DONE_COL ? "done" : c === ARCHIVED_COL ? "archived" : ""}>{nameOf[c] || c}</span><span className="n">{filteredByCol[c].length}</span></div>
               <div className="kcol-body">
-                {byCol[c].map((t) => (
+                {filteredByCol[c].map((t) => (
                    <div className="kcard" key={t.id} style={{ position: "relative" }} onClick={() => onOpen(t.id)}
                      onMouseEnter={() => setHover(t.id)} onMouseLeave={() => { setHover((h) => (h === t.id ? null : h)); }}>
                      <div className="spread"><b title={t.title}>{t.ref ? <span className="tref">#{t.ref}</span> : null}{t.title}</b><div style={{ display: "flex", gap: "6px", alignItems: "center" }}>{runningTasks && runningTasks.has(pipeline.id + "/" + t.id) ? <span className="tag running"><span className="livedot" /> running</span> : t.finalized && !t.archived && <span className="tag done">✓</span>}<button className="btn sm ghost" onClick={(e) => toggleArchive(e, t)} title={t.archived ? "Restore from archive" : "Archive task"}>🗄</button></div></div>
@@ -125,10 +161,13 @@ const changeFlow = async (t, nf) => {
                    </div>
                  ))}
 
-                {!byCol[c].length && <div className="kcol-empty">—</div>}
+                {!filteredByCol[c].length && <div className="kcol-empty">—</div>}
               </div>
             </div>
           ))}
+          {q && Object.values(filteredByCol).every((ts) => !ts.length) && (
+            <div className="muted" style={{ padding: 40, textAlign: "center" }}>No matching tasks</div>
+          )}
         </div>
       )}
     </>
