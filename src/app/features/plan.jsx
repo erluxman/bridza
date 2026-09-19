@@ -66,6 +66,8 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
   const [dragPos, setDragPos] = useState({});   // live positions while dragging a node/milestone
   const [sizeLive, setSizeLive] = useState({});   // #13 — live sizes while dragging a resize handle
   const [linkFrom, setLinkFrom] = useState(null);   // pipeline-timeline: edge source being connected
+  const [selBox, setSelBox] = useState(null);   // selection box: {x, y, w, h} or null
+  const [selectedKeys, setSelectedKeys] = useState(new Set());   // keys of tasks in the selection box
   const svgRef = useRef(null);
   const dragRef = useRef(null);
   const viewRef = useRef(view);
@@ -251,16 +253,41 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
   };
 
   // ---- one drag system: pan the board, drag a node, or drag a whole milestone ----
-  const startDrag = (e, d) => { e.stopPropagation(); dragRef.current = { ...d, sx: e.clientX, sy: e.clientY, moved: false }; };
+   const startDrag = (e, d) => { 
+     e.stopPropagation();
+     const keysToUse = selectedKeys.has(d.keys[0]) ? Array.from(selectedKeys) : d.keys;
+     dragRef.current = { ...d, keys: keysToUse, orig: Object.fromEntries(keysToUse.map((k) => [k, pos[k]])), sx: e.clientX, sy: e.clientY, moved: false }; 
+   };
   // #13 — resize a card from its bottom-right handle. ⌘/Ctrl-drag resizes EVERY card.
   const startResize = (e, key) => {
     e.stopPropagation();
     dragRef.current = { type: "resize", key, all: e.metaKey || e.ctrlKey, ow: wOf(key), oh: hOf(key), sx: e.clientX, sy: e.clientY, moved: false };
   };
-  const bgDown = (e) => { dragRef.current = { type: "pan", sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, moved: false }; };
+  const boxDown = (e) => {
+    if (e.button !== 2) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = svgRef.current.getBoundingClientRect();
+    const sx = (e.clientX - rect.left - view.x) / view.k;
+    const sy = (e.clientY - rect.top - view.y) / view.k;
+    dragRef.current = { type: "selBox", sx, sy, moved: false };
+  };
+  const bgDown = (e) => { if (e.button !== 2) dragRef.current = { type: "pan", sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y, moved: false }; };
   const bgMove = (e) => {
     const d = dragRef.current;
     if (!d) return;
+    if (d.type === "selBox") {
+      const rect = svgRef.current.getBoundingClientRect();
+      const cx = (e.clientX - rect.left - view.x) / view.k;
+      const cy = (e.clientY - rect.top - view.y) / view.k;
+      const x = Math.min(d.sx, cx);
+      const y = Math.min(d.sy, cy);
+      const w = Math.abs(cx - d.sx);
+      const h = Math.abs(cy - d.sy);
+      if (w > 3 || h > 3) d.moved = true;
+      if (d.moved) setSelBox({ x, y, w, h });
+      return;
+    }
     const dx = e.clientX - d.sx, dy = e.clientY - d.sy;
     if (Math.abs(dx) + Math.abs(dy) > 3) d.moved = true;
     if (!d.moved) return;
@@ -281,11 +308,23 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
     const d = dragRef.current;
     dragRef.current = null;
     if (!d) return;
+    if (d.type === "selBox") {
+      if (d.moved && selBox) {
+        const intersect = tasks.filter((t) => {
+          const { x: tx, y: ty } = pos[t.key];
+          const tw = wOf(t.key), th = hOf(t.key);
+          return selBox.x < tx + tw && tx < selBox.x + selBox.w && selBox.y < ty + th && ty < selBox.y + selBox.h;
+        });
+        setSelectedKeys(new Set(intersect.map((t) => t.key)));
+      }
+      setSelBox(null);
+      return;
+    }
     if (!d.moved) {
       if (d.type === "node") { setSel(d.keys[0]); setSelMs(null); }
       else if (d.type === "ms") { setSelMs(d.id); setSel(null); }
       else if (d.type === "resize") { /* a click on the handle, no drag — do nothing */ }
-      else { setSel(null); setSelMs(null); }
+      else { setSel(null); setSelMs(null); setSelectedKeys(new Set()); }
       return;
     }
     if (d.type === "pan") return;
@@ -451,7 +490,7 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
         {tasks.length === 0 ? (
           <div className="content"><p className="muted">No tasks yet — create tasks in a pipeline first, then wire them up here.</p></div>
         ) : (
-          <svg ref={svgRef} className="plan-svg" onMouseDown={bgDown} onMouseMove={bgMove} onMouseUp={bgUp} onMouseLeave={bgUp}>
+          <svg ref={svgRef} className="plan-svg" onContextMenu={(e) => e.preventDefault()} onMouseDown={(e) => { if (e.button === 2) boxDown(e); else bgDown(e); }} onMouseMove={bgMove} onMouseUp={bgUp} onMouseLeave={bgUp}>
             <defs>
               <pattern id="plan-dots" width="22" height="22" patternUnits="userSpaceOnUse">
                 <circle cx="1.5" cy="1.5" r="1" fill="var(--line)" />
@@ -489,14 +528,17 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
                   <text x={PN.GW / 2} y={(g.h || PN.GH) / 2 + 3.5} textAnchor="middle">{g.kind === "all" ? "AND" : "OR"}</text>
                 </g>
               ))}
+              {selBox && (
+                <rect className="sel-box" x={selBox.x} y={selBox.y} width={selBox.w} height={selBox.h} />
+              )}
               {tasks.map((t) => {
                 const st = stateOf(t);
                 const { x, y } = pos[t.key];
                 const nw = wOf(t.key), nh = hOf(t.key);   // #13 — per-card size
                 return (
-                  <g key={t.key} transform={`translate(${x},${y})`} className={"plan-node " + st + (sel === t.key ? " sel" : "") + (critSet.has(t.key) ? " crit" : "")}
-                    onMouseDown={(e) => startDrag(e, { type: "node", keys: [t.key], orig: { [t.key]: pos[t.key] } })}
-                    onDoubleClick={() => onOpenTask(t.pid, t.tid)}>
+                   <g key={t.key} transform={`translate(${x},${y})`} className={"plan-node " + st + (sel === t.key ? " sel" : "") + (selectedKeys.has(t.key) ? " sel-multi" : "") + (critSet.has(t.key) ? " crit" : "")}
+                     onMouseDown={(e) => startDrag(e, { type: "node", keys: [t.key], orig: { [t.key]: pos[t.key] } })}
+                     onDoubleClick={() => onOpenTask(t.pid, t.tid)}>
                     <rect className="pn-box" width={nw} height={nh} rx="9" />
                     <rect className="pn-accent" x="0" y="7" width="3.5" height={nh - 14} rx="1.75" fill={pipeColor(t.pid)} />
                     <rect className="pn-prog" x="1" y={nh - 4} width={Math.max(0, (nw - 2) * t.progress / 100)} height="3" rx="1.5" />

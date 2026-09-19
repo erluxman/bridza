@@ -1,37 +1,36 @@
-# Settings page in left navigation
+# Long press and drag to create boundary in Plan mode
 
 ## What
 
-Add a Settings button at the bottom of the left sidebar navigation that opens the existing Settings modal when clicked. The button is always visible at the sidebar footer, separated from the scrollable pipeline list above.
+Add a lasso/selection-box gesture to the Plan view: long press (or right-click drag) on empty canvas space to draw a rectangle, then drag all tasks within that boundary together as a group.
 
 ## Why
 
-Users need quick access to app settings without navigating away from their current context. Placing it at the bottom of the sidebar follows standard navigation patterns where account/settings controls live in the footer area.
+Users need to reposition multiple tasks simultaneously without individually dragging each one. This is a common pattern in diagramming tools (Figma, Miro) that improves workflow效率 for reorganizing the plan board.
 
 ## How
 
-Extend `src/app/features/nav.jsx` Sidebar component:
+1. **Trigger**: On `plan.jsx`, add selection-box state: `selBox` (null or `{x, y, w, h}`).
+2. **Draw gesture**: Right-click (or Shift+click) on empty canvas starts drawing a selection box. Drag to expand. Release to finalize.
+3. **Multi-drag**: When dragging starts, if the mouse is over any selected tasks (from a prior selection box), drag them all together. Otherwise, begin single-task drag.
+4. **Visual feedback**: Selection box renders as a dashed rectangle overlay. Selected tasks get a highlight/border.
+5. **Persist**: Selected state is transient (clears on mouse up elsewhere). Positions of dragged tasks save together to `plan.pos`.
 
-- **Footer section**: Add a fixed footer area at the bottom of `.side` container that remains visible when the pipeline list scrolls
-- **Settings button**: A button styled like other sidebar items (`pipe` class), labeled "⚙ Settings", opens the Settings modal on click
-- **Modal integration**: Import `SettingsModal` from `./settings.jsx` and manage modal state (`settingsOpen` boolean) in the Sidebar component
-- **Layout**: The scrollable area (`.side-scroll`) stops above the footer so the settings button never scrolls out of view
+Implementation in `src/app/features/plan.jsx`:
 
-The Sidebar currently ends with the context menu markup (line 113-121). After that, add:
-
-```jsx
-<div className="side-footer">
-  <button className="pipe" onClick={() => setSettingsOpen(true)}>⚙ Settings</button>
-</div>
-{settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
-```
-
-Add minimal CSS to `.bridza.css` for `.side-footer` styling (padding, border-top) to visually separate it from the scrollable area.
+- Add `selBox` state and `selectedKeys` (Set of task keys)
+- Add `boxDown` handler: right-click + drag creates selection box
+- Add `boxMove` handler: updates box dimensions
+- Add `boxUp` handler: finalizes box, computes which tasks intersect, updates `selectedKeys`
+- In `startDrag`: if task is in `selectedKeys`, drag all of them; otherwise single task
+- Render selection box as `<rect className="sel-box" .../>`
+- Add `.sel-box` styles to `bridza.css`
 
 ## Verification
 
-- Settings button visible at bottom of left sidebar
-- Clicking opens Settings modal (terminal font/size/ligatures)
-- Button stays visible when scrolling the pipeline list
-- Closing modal returns to previous state
+- Right-click and drag on empty canvas → dashed rectangle appears
+- Release → tasks inside are highlighted/selected
+- Click and drag a selected task → all selected tasks move together
+- Click outside selection → clears selection
+- Single-click on unselected task → selects only that task
 - `pnpm test`, `pnpm lint`, `pnpm build` pass

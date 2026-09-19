@@ -398,7 +398,9 @@ h1.task-title { flex: 1 1 auto; min-width: 8ch; white-space: nowrap; overflow: h
 .plan-node.blocked .pn-box { stroke: #e0625f66; stroke-dasharray: 4 3; opacity: .85; }
 .plan-node.blocked .pn-sub { fill: var(--danger); }
 .plan-node.sel .pn-box { stroke: var(--accent); stroke-width: 2; }
+.plan-node.sel-multi .pn-box { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 4 3; }
 @keyframes plan-pulse { 0%,100% { stroke-opacity: 1; } 50% { stroke-opacity: .35; } }
+.sel-box { fill: var(--accent); fill-opacity: .06; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 6 4; }
 
 .plan-edge path { fill: none; stroke: var(--line-2); stroke-width: 1.6; }
 .plan-edge .via { fill: var(--line-2); }
