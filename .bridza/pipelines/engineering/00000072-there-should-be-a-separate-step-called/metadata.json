@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "there-should-be-a-separate-step-called",
+  "pipeline": "engineering",
+  "title": "There should be a separate step called squashing commits that will merge all commits into single one commit which will…",
+  "ref": 72,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/there-should-be-a-separate-step-called",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}

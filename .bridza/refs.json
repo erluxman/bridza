@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 72,
+  "next": 73,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -62,7 +62,8 @@
     "engineering/logo-welcome-screen-integration": 68,
     "engineering/vs-code-like-setting-page": 69,
     "engineering/creating-pr-failed-it-should-take-the": 70,
-    "engineering/display-terminal-despite-not-being-in": 71
+    "engineering/display-terminal-despite-not-being-in": 71,
+    "engineering/there-should-be-a-separate-step-called": 72
   },
   "deleted": [
     "engineering/truncation-check-idea",

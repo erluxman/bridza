@@ -1,0 +1,3 @@
+# There should be a separate step called squashing commits that will merge all commits into single one commit which will…
+
+this was all the comments of our branch into one comment before merging to main so basically the last step of any changes should be squashing comments and that should be changed in every single flow if they change any part of the file system
