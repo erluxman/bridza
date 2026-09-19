@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "i-should-be-able-to-change-any-details",
+  "pipeline": "engineering",
+  "title": "I should be able to change any details from titles to description",
+  "ref": 51,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/i-should-be-able-to-change-any-details",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}

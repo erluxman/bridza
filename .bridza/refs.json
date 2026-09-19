@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 51,
+  "next": 52,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -43,7 +43,8 @@
     "engineering/create-pr-browser-compose-link": 47,
     "engineering/create-pr-via-gh-cli": 48,
     "engineering/when-merging-to-main-does-not-happen": 49,
-    "engineering/do-not-allow-merge-domain-until-the": 50
+    "engineering/do-not-allow-merge-domain-until-the": 50,
+    "engineering/i-should-be-able-to-change-any-details": 51
   },
   "deleted": [
     "engineering/truncation-check-idea",
