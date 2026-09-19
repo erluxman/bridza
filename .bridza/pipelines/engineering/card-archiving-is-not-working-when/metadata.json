@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "card-archiving-is-not-working-when",
+  "pipeline": "engineering",
+  "title": "Card archiving is not working when syncing between devices with git.",
+  "ref": 36,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/card-archiving-is-not-working-when",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
