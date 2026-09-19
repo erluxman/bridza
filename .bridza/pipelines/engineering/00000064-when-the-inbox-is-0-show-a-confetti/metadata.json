@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "when-the-inbox-is-0-show-a-confetti",
+  "pipeline": "engineering",
+  "title": "When the inbox is 0, show a confetti animation when I open the inbox",
+  "ref": 64,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/when-the-inbox-is-0-show-a-confetti",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
