@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "this-is-a-test-idea-i-am-just-threading",
+  "pipeline": "product",
+  "title": "This is a test idea. I am just threading it to test.",
+  "ref": 52,
+  "type": "idea",
+  "flow": "feedback-roadmap",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/product/this-is-a-test-idea-i-am-just-threading",
+  "target": "main",
+  "stages": [
+    "fb-synthesize",
+    "fb-prioritize",
+    "fb-roadmap"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
