@@ -16,8 +16,8 @@
     "review"
   ],
   "routing": {},
-  "status": "in-progress",
-  "finalized": false,
+  "status": "done",
+  "finalized": true,
   "tracking": {
     "spec": {
       "status": "done",
