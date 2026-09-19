@@ -224,6 +224,10 @@
     "engineering/1when-i-delete-a-pipeline-from-the-left": {
       "x": 370,
       "y": 610
+    },
+    "engineering/card-archiving-is-not-working-when": {
+      "x": 278,
+      "y": 764
     }
   },
   "sizes": {
