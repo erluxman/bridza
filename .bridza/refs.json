@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 37,
+  "next": 42,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -29,8 +29,12 @@
     "engineering/ui-ref-display": 32,
     "engineering/highlight-running-task-in-sidebar": 33,
     "engineering/url-path-sync-for-selected-task": 34,
-    "engineering/1when-i-delete-a-pipeline-from-the-left": 35,
-    "engineering/card-archiving-is-not-working-when": 36
+    "engineering/card-archiving-is-not-working-when": 36,
+    "engineering/reduce-the-amount-of-commits-for-the": 37,
+    "engineering/purchase-the-selected-model-and-display": 38,
+    "engineering/when-opening-a-task-or-card-it-should": 39,
+    "engineering/setting-to-hide-columns-in-kanban-that": 40,
+    "engineering/animate-the-logo-when-app-starts-for": 41
   },
   "deleted": [
     "engineering/truncation-check-idea",
@@ -39,6 +43,8 @@
     "engineering/fadfasdfa",
     "engineering/when-i-am-recording-an-idea-in-the-inbox",
     "engineering/the-title-is-taking-a-lot-of-vertical-sp",
-    "engineering/here-of-now-it-seems-little-bit-confusin"
+    "engineering/here-of-now-it-seems-little-bit-confusin",
+    "engineering/review-ui-and-ux",
+    "engineering/1when-i-delete-a-pipeline-from-the-left"
   ]
 }

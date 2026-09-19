@@ -146,8 +146,8 @@
   ],
   "pos": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": {
-      "x": -437,
-      "y": 1068
+      "x": 709,
+      "y": 1045
     },
     "engineering/welcome-dialog-on-open": {
       "x": -469,
@@ -166,20 +166,20 @@
       "y": 58
     },
     "engineering/every-stage-floor-should-be-in-auto": {
-      "x": 503,
-      "y": -13
+      "x": 526,
+      "y": -9
     },
     "engineering/you-just-should-be-able-to-change-the": {
-      "x": 502,
-      "y": 98
+      "x": 525,
+      "y": 78
     },
     "engineering/more-conflicts-user-experience-should": {
-      "x": 520,
-      "y": 163
+      "x": 525,
+      "y": 143
     },
     "engineering/every-task-when-they-are-converted-into": {
-      "x": 646,
-      "y": 233
+      "x": 531,
+      "y": 236
     },
     "engineering/i-should-be-able-to-rearrange-the": {
       "x": -432,
@@ -194,16 +194,16 @@
       "y": 531
     },
     "engineering/ok-when-i-press-command-and-mouse-will": {
-      "x": -69,
-      "y": 623
+      "x": -60,
+      "y": 603
     },
     "engineering/highlight-selected-task-or-work-item-if": {
-      "x": -74,
-      "y": 696
+      "x": -61,
+      "y": 448
     },
     "engineering/auto-advance-seems-to-only-works-at-the": {
-      "x": -101,
-      "y": 759
+      "x": -65,
+      "y": 527
     },
     "engineering/better-merging-strategy-to-reference": {
       "x": -531,
@@ -220,6 +220,54 @@
     "engineering/verify-merge-strategy": {
       "x": -436,
       "y": 761
+    },
+    "engineering/card-archiving-is-not-working-when": {
+      "x": 278,
+      "y": 764
+    },
+    "engineering/reduce-the-amount-of-commits-for-the": {
+      "x": 305,
+      "y": 959
+    },
+    "engineering/purchase-the-selected-model-and-display": {
+      "x": 118,
+      "y": 863
+    },
+    "engineering/when-opening-a-task-or-card-it-should": {
+      "x": 476,
+      "y": 865
+    },
+    "engineering/setting-to-hide-columns-in-kanban-that": {
+      "x": 340,
+      "y": 1045
+    },
+    "engineering/animate-the-logo-when-app-starts-for": {
+      "x": 22,
+      "y": 1041
+    },
+    "engineering/number-prefix-contract": {
+      "x": 37,
+      "y": 1184
+    },
+    "engineering/task-enumeration-read-path": {
+      "x": 303,
+      "y": 1356
+    },
+    "engineering/task-creation-write-path": {
+      "x": 303,
+      "y": 1270
+    },
+    "engineering/naming-contract-tests": {
+      "x": 303,
+      "y": 1184
+    },
+    "engineering/ui-ref-display": {
+      "x": 303,
+      "y": 1442
+    },
+    "engineering/migration-existing-tasks": {
+      "x": 569,
+      "y": 1184
     }
   },
   "sizes": {
@@ -250,6 +298,26 @@
     "engineering/every-stage-floor-should-be-in-auto": {
       "w": 305,
       "h": 66
+    },
+    "engineering/ok-when-i-press-command-and-mouse-will": {
+      "w": 379,
+      "h": 57
+    },
+    "engineering/auto-advance-seems-to-only-works-at-the": {
+      "w": 389,
+      "h": 50
+    },
+    "engineering/task-creation-write-path": {
+      "w": 417,
+      "h": 38
+    },
+    "engineering/task-enumeration-read-path": {
+      "w": 436,
+      "h": 50
+    },
+    "engineering/ui-ref-display": {
+      "w": 432,
+      "h": 38
     }
   },
   "links": {

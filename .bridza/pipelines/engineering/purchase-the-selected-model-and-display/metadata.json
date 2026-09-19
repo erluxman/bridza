@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "id": "purchase-the-selected-model-and-display",
+  "pipeline": "engineering",
+  "title": "Purchase the selected model and display it to the user for a step.",
+  "ref": 38,
+  "type": "idea",
+  "flow": "dissection",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/purchase-the-selected-model-and-display",
+  "target": "main",
+  "stages": [
+    "dissect"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
