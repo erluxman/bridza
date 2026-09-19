@@ -1,11 +1,4 @@
 {
   "v": 1,
-  "items": [
-    {
-      "id": "in-m16qri",
-      "kind": "idea",
-      "text": "Alright, for some reason, the archive cards are not displayed in the archive column. Maybe the archive status of that card is not updated on the metadata of it, but many of the DAWN cards right now were archived from a different computer, but they do not appear here.\n You have to investigate why it was ignored that they were moved to the archive.",
-      "time": "2026-09-19T04:47:40.491Z"
-    }
-  ]
+  "items": []
 }
