@@ -48,6 +48,7 @@
     "engineering/1when-i-delete-a-pipeline-from-the-left"
   ],
   "archived": {
-    "engineering/card-archiving-is-not-working-when": true
+    "engineering/card-archiving-is-not-working-when": true,
+    "engineering/better-merging-strategy-to-reference": true
   }
 }
