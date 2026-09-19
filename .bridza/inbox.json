@@ -2,12 +2,6 @@
   "v": 1,
   "items": [
     {
-      "id": "in-ckrcfw",
-      "kind": "idea",
-      "text": "In plan mode when I am long pressing and dragging I should be able to create a rectangle and when I create that rectangle I should drag all the card inside or intersecting with that rectangle.",
-      "time": "2026-09-19T18:08:12.480Z"
-    },
-    {
       "id": "in-n88jle",
       "kind": "idea",
       "text": "When the inbox is 0, so confetti animation when I open the inbox.",

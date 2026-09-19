@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "long-press-and-drag-to-create-a",
+  "pipeline": "engineering",
+  "title": "long press and drag to create a boundary and drag all items in it in plan mode",
+  "ref": 63,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/long-press-and-drag-to-create-a",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
