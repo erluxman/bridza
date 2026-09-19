@@ -49,6 +49,7 @@
   ],
   "archived": {
     "engineering/card-archiving-is-not-working-when": true,
-    "engineering/better-merging-strategy-to-reference": true
+    "engineering/better-merging-strategy-to-reference": true,
+    "engineering/every-stage-floor-should-be-in-auto": true
   }
 }
