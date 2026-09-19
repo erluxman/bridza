@@ -322,6 +322,10 @@
     "engineering/task-enumeration-read-path": {
       "w": 436,
       "h": 50
+    },
+    "engineering/ui-ref-display": {
+      "w": 432,
+      "h": 38
     }
   },
   "links": {
