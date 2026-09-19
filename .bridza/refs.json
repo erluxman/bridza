@@ -59,6 +59,7 @@
     "engineering/per-day-dismissal": true,
     "engineering/time-aware-greeting": true,
     "engineering/welcome-dialog-on-open": true,
-    "engineering/you-just-should-be-able-to-change-the": true
+    "engineering/you-just-should-be-able-to-change-the": true,
+    "engineering/kanban-columns-drag-reorder": true
   }
 }
