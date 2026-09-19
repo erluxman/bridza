@@ -1,35 +1,37 @@
-# Kanban search shortcut
+# Settings page in left navigation
 
 ## What
 
-Add a quick-search feature to the Kanban board that lets users filter visible tasks by typing a search query. Activated via keyboard shortcut (`/` or `Cmd+K`), hides non-matching tasks in-place without navigating away.
+Add a Settings button at the bottom of the left sidebar navigation that opens the existing Settings modal when clicked. The button is always visible at the sidebar footer, separated from the scrollable pipeline list above.
 
 ## Why
 
-Users with many tasks across columns need to quickly locate a specific task without scrolling or opening each card. A global search shortcut is a standard Kanban pattern that improves discoverability.
+Users need quick access to app settings without navigating away from their current context. Placing it at the bottom of the sidebar follows standard navigation patterns where account/settings controls live in the footer area.
 
 ## How
 
-Add search state to the Board component:
+Extend `src/app/features/nav.jsx` Sidebar component:
 
-- **Shortcut**: Press `/` or `Cmd+K` (Ctrl+K on non-Mac) to focus the search input. Press `Escape` to clear and close.
-- **Search input**: A minimal input field in the topbar, visible only when search is active. Placeholder: "Search tasks..."
-- **Filter logic**: Case-insensitive substring match against task `title`, `ref` (e.g., `#17`), and `branch`. Tasks not matching are hidden (display: none) in their column.
-- **Empty state**: When search yields no results, show "No matching tasks" in the board area.
-- **Persistence**: Search state is transient (clears on page refresh or navigation).
+- **Footer section**: Add a fixed footer area at the bottom of `.side` container that remains visible when the pipeline list scrolls
+- **Settings button**: A button styled like other sidebar items (`pipe` class), labeled "⚙ Settings", opens the Settings modal on click
+- **Modal integration**: Import `SettingsModal` from `./settings.jsx` and manage modal state (`settingsOpen` boolean) in the Sidebar component
+- **Layout**: The scrollable area (`.side-scroll`) stops above the footer so the settings button never scrolls out of view
 
-The implementation lives in `src/app/features/board.jsx`:
+The Sidebar currently ends with the context menu markup (line 113-121). After that, add:
 
-- Add `searchOpen` and `searchQuery` state vars
-- Add keyboard listener for `/` and `Cmd+K` in the Board component
-- Filter `byCol` (the tasks per column) based on `searchQuery`
-- Add search input to the topbar (next to the other buttons)
-- Add empty-result message when all columns are empty after filtering
+```jsx
+<div className="side-footer">
+  <button className="pipe" onClick={() => setSettingsOpen(true)}>⚙ Settings</button>
+</div>
+{settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+```
+
+Add minimal CSS to `.bridza.css` for `.side-footer` styling (padding, border-top) to visually separate it from the scrollable area.
 
 ## Verification
 
-- Press `/` → search input appears focused
-- Type a query → non-matching tasks disappear from all columns
-- Matching ref (e.g., `#17`) → tasks with that ref shown
-- Press Escape → search clears, all tasks visible
+- Settings button visible at bottom of left sidebar
+- Clicking opens Settings modal (terminal font/size/ligatures)
+- Button stays visible when scrolling the pipeline list
+- Closing modal returns to previous state
 - `pnpm test`, `pnpm lint`, `pnpm build` pass

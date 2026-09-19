@@ -6,10 +6,12 @@ import * as api from "../api/client.js";
 import { pipelineFlows, shortTitle } from "../../../core/domain.js";
 import { base } from "../lib/format.js";
 import { Hamburger, Modal, Field, Expandable } from "../ui.jsx";
+import { SettingsModal } from "./settings.jsx";
 
 export function Sidebar({ proj, running, runningTasks, active, activeTask, onPipe, onNewPipe, onClose, onPick, recents, onOpen, onOpenTask, onCollapse, inboxCount, inboxActive, onInbox, planActive, onPlan, dir, onChange, flash }) {
   const [menu, setMenu] = useState(false);
   const [showArch, setShowArch] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // right-click a pipeline → our own menu (native browser menu suppressed)
   const [ctx, setCtx] = useState(null);   // { id, label, archived, x, y }
   const openCtx = (e, p) => { e.preventDefault(); setCtx({ id: p.id, label: p.label, archived: !!p.archived, x: e.clientX, y: e.clientY }); };
@@ -119,6 +121,10 @@ export function Sidebar({ proj, running, runningTasks, active, activeTask, onPip
           </div>
         </>
       )}
+      <div className="side-footer">
+        <button className="pipe" onClick={() => setSettingsOpen(true)}>⚙ Settings</button>
+      </div>
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }

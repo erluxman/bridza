@@ -1,76 +1,48 @@
-# Review — Kanban search shortcut
+# Review: Settings page in left navigation
 
-Branch: `bridza/engineering/a-shortcut-to-search-among-the-tasks-or`
-Reviewed against: `main`
+## Summary
 
-## Verdict: ✅ APPROVED — merge-ready
+Partially implemented. Core UI placement works correctly, but **key bindings feature is completely missing** — this was explicitly requested by the user.
 
-Implementation satisfies all acceptance criteria. Clean integration into existing board component with minimal, focused changes.
+## Acceptance Checklist
 
-## Acceptance Check (acceptance.md)
+| # | Criterion | Status |
+|--:|-----------|--------|
+| 1 | Settings button at bottom of left sidebar | ✅ |
+| 2 | Button visible when pipeline list scrolled | ✅ |
+| 3 | Button has visual separator | ✅ |
+| 4 | Click opens Settings modal | ✅ |
+| 5 | Modal shows terminal settings | ✅ |
+| 6 | Existing functionality preserved | ✅ |
+| 7 | Save closes and persists | ✅ |
+| 8 | Cancel/X closes without saving | ✅ |
+| 9 | Button uses `pipe` class styling | ✅ |
+| 10 | Button shows "⚙ Settings" label | ✅ |
+| 11 | Footer doesn't scroll with list | ✅ |
 
-**Search activation**
-- [x] `/` key opens search input, input is focused (board.jsx:75-78)
-- [x] `Cmd+K` / `Ctrl+K` opens search input (board.jsx:75)
-- [x] `Escape` closes search, clears query (board.jsx:79-82)
+**Verification commands:** NOT RUN (pnpm test, lint, build)
 
-**Search functionality**
-- [x] Filtered tasks visible, others hidden (board.jsx:66-67)
-- [x] Case-insensitive matching (board.jsx:60,63)
-- [x] Matches task title (board.jsx:63)
-- [x] Matches task ref with `#` prefix stripping (board.jsx:61,64)
-- [x] Matches task branch (board.jsx:65)
-- [x] Clearing query restores all tasks (board.jsx:79-82)
+## Critical Gap
 
-**Empty state**
-- [x] "No matching tasks" message shown (board.jsx:168-170)
-- [x] Empty search query shows all tasks (by design — `filtered` is `null` when `q` is empty)
+The user's original request explicitly included:
 
-**Visual**
-- [x] Search input appears in topbar (board.jsx:117-125)
-- [x] Placeholder text "Search tasks..." (board.jsx:121)
-- [x] Search input shown only when active (board.jsx:117-127 toggle)
+> "create a setting page where I can do many things **one of which is key bindings and I should be able to override the key binding for searching which is command + K**"
 
-**Verification commands**
-- [x] `pnpm test` — not in acceptance, but no tests added (acceptable for UI feature)
-- [x] `pnpm lint` — eslint config present, no new lint issues
-- [x] `pnpm build` — TypeScript + Vite build passes
+This feature is **not implemented**. The modal only shows terminal font/size/ligatures.
 
-## Over-Engineering Analysis
+## Over-Engineering Review
 
-**Nothing to flag.** Implementation is minimal and focused:
+None detected. The implementation is minimal and reuses existing `SettingsModal` and `pipe` class.
 
-- State: `searchOpen` and `searchQuery` — only what the feature needs (board.jsx:56-57)
-- Filtering: simple `includes()` checks on existing task fields — no custom matcher abstraction
-- Event handling: reuses existing keyboard-handler pattern from flow-menu feature
-- Styling: 3 lines of CSS for `.search-input` (bridza.css:40-41)
+## Files Changed
 
-**No reinventions** — uses React `useState`, `useEffect`, standard DOM APIs.
-
-**No speculative flexibility** — hardcoded to `/` and `Cmd/Ctrl+K` as specified.
+- `src/app/bridza.css` — added `.side-footer` style
+- `src/app/features/nav.jsx` — added footer with Settings button + state
 
 ## Merge Readiness
 
-- `git diff main...HEAD` touches only:
-  - `acceptance.md` — expanded acceptance criteria (spec stage)
-  - `src/app/bridza.css` — 3-line `.search-input` style
-  - `src/app/features/board.jsx` — 47 lines added (state + filtering + UI + keyboard handler)
-  - Pipeline docs under `.bridza/pipelines/engineering/a-shortcut-to-search-among-the-tasks-or/`
+**CLEAN** — `git merge-tree` shows no conflicts with `main`. The changes are additive (new footer div, new CSS class).
 
-- `git merge-tree` reports **no conflicts** — clean three-way merge
+## Recommendation
 
-- Docs reference `main` correctly — no hardcoded branch names in code outputs
-
-**Merge into `main` will be clean.**
-
-## What Was Delivered
-
-1. **board.jsx:56-57** — `searchOpen` and `searchQuery` state
-2. **board.jsx:60-67** — Filtering logic with case-insensitive matching against title, ref, branch
-3. **board.jsx:74-86** — Keyboard handler for `/`, `Cmd+K`/`Ctrl+K`, and `Escape`
-4. **board.jsx:117-128** — Conditional render: magnifying glass button ↔ input field
-5. **board.jsx:140,143,147,164** — Column card counts and rendering use `filteredByCol`
-6. **board.jsx:168-170** — "No matching tasks" empty state
-7. **bridza.css:40-41** — `.search-input` styling
-
-All acceptance criteria met. Ready to merge.
+The key bindings feature must be added before merge. The current implementation is incomplete relative to the user's explicit requirement.
