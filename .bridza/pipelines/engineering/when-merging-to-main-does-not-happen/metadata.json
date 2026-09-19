@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "when-merging-to-main-does-not-happen",
+  "pipeline": "engineering",
+  "title": "When merging to main does not happen without conflict, merge it with an AIS and like Claude or OpenCode and don't just…",
+  "ref": 49,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/when-merging-to-main-does-not-happen",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
