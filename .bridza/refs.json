@@ -51,6 +51,7 @@
     "engineering/card-archiving-is-not-working-when": true,
     "engineering/better-merging-strategy-to-reference": true,
     "engineering/every-stage-floor-should-be-in-auto": true,
-    "engineering/every-task-when-they-are-converted-into": true
+    "engineering/every-task-when-they-are-converted-into": true,
+    "engineering/highlight-selected-task-or-work-item-if": true
   }
 }
