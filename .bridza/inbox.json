@@ -2,12 +2,6 @@
   "v": 1,
   "items": [
     {
-      "id": "in-05sftj",
-      "kind": "idea",
-      "text": "When I press to merge to make it should try to merge with a clod agent rather than hard commands. That way it will be easy to merge and more\n practical to merge based on the requirements and guidelines of merging. That way we will even be able to merge multiple commands into one using an AI hazard without having to go hardcoded objects.",
-      "time": "2026-09-19T16:45:31.545Z"
-    },
-    {
       "id": "in-fvpqpv",
       "kind": "idea",
       "text": "There should be a search button somewhere or command F should work as find where I can search and find the task with certain text in them from the list of all the tasks on the Kanban.",
