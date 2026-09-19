@@ -220,6 +220,10 @@
     "engineering/verify-merge-strategy": {
       "x": -436,
       "y": 761
+    },
+    "engineering/1when-i-delete-a-pipeline-from-the-left": {
+      "x": 370,
+      "y": 610
     }
   },
   "sizes": {
