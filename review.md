@@ -1,23 +1,24 @@
-# Review — Kanban archive issue cards
+# Review — Reduce the amount of commits for the work group related commit into one commit
+
+## Root cause verified
+Every write helper in `server/bridza-store.js` was committing for itself, and high-level actions (like `promoteInbox`) were composed of multiple helpers, resulting in 4-5 commits per UI action.
+
+## Fix addresses root cause
+- **Transaction scope:** `withAction(root, fn)` wraps high-level actions. The first write commits; subsequent writes within the scope amend that commit.
+- **Folding mechanism:** `commitPaths(..., { fold })` allows consecutive identical edits (e.g., kanban drags, plan links) to amend the last commit if it's fresh (5 min window).
+- **Reduced writes:** `promoteInbox` now hands the task brief directly to `createTask`, removing the need for a secondary "edit context" commit and avoiding a redundant placeholder blob.
+- **Safe amends:** `foldTarget` guards against amending commits that are not ours (`bridza@local`), are not the branch tip, or are reached by other refs (tags, other task branches, remotes).
 
 ## Acceptance Check
-- [x] Every card (including "Delivered") shows archive button (🗄).
-- [x] Clicking Archive moves card to distinct "Archived" column at the end of board.
-- [x] `archived` flag persisted in metadata.json via new bridge endpoint, committed like task reuse.
-- [x] Archived cards excluded from normal columns and "Delivered"; render only in "Archived".
-- [x] "Archived" column header displays count of archived cards.
-- [x] Clicking Archive on archived card restores it to previous column.
-- [x] Archiving persists across reload.
-- [x] Strictly manual archiving (only user clicks).
-- [x] Unit tests cover archive → restore round-trip and persistence.
-- [x] `pnpm test`, `pnpm lint`, and `pnpm build` all pass successfully.
-
-## Over-Engineering Analysis
-- **Unused flexibility:** None.
-- **Reinvented stdlib:** None.
-- **Single-caller abstractions:** None. The bridge handler and `setTaskArchived` directly mirror existing patterns (`setTaskReuse`).
-- **Verdict:** Clean, minimal implementation with nothing to delete.
+- [x] `promoteInbox` leaves **1** commit (was 4).
+- [x] `createTask` leaves **1** commit (was 2-3).
+- [x] Consecutive plan edits fold into **1** commit.
+- [x] Consecutive kanban drags fold into **1** commit.
+- [x] Branch forks off the **final** folded commit, not an intermediate one.
+- [x] Regression tests fail without the fix and pass with it.
 
 ## Merge Readiness
-- Branch `bridza/engineering/kanban-archive-issue-cards` was tested against `main`.
-- Merge into `main` will be clean with no conflict issues.
+- **Conflict:** A content conflict exists in `src/app/__tests__/bridza-store.test.js` because `main` recently added card-archiving tests (`#36`) at the same EOF location where this fix added its regression tests.
+- **Resolution:** The resolution is purely additive (include both test blocks). I have verified the merge in a temporary clone and all 215 tests passed.
+- **Clean Merge:** Once the test conflict is resolved additively, the merge into `main` will be clean.
+- **Note:** `server/bridza-store.js` auto-merges successfully.

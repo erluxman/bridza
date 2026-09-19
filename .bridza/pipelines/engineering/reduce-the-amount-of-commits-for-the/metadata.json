@@ -18,5 +18,131 @@
   "routing": {},
   "status": "in-progress",
   "finalized": false,
-  "tracking": {}
+  "tracking": {
+    "repro": {
+      "status": "done",
+      "seconds": 371,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Reduce the amount of commits for the work group related commit into one commit or amend it with log of changes in a…\n\neven for a very small task there are multiple commits being created I just created one issue from inbox but it has three or four different commits we need to minimize the amount of commit as much as possible maybe if like\n there could the commit could be amended yeah right it could be amended amended with some metadata addition that this is the path it took but we are trying to reduce the commits or something like that but the amount of commits are too freaking high we should\n and find a way to reduce it.",
+          "startedAt": "2026-09-19T04:51:22.361Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Reduce the amount of commits for the work group related commit into one commit or amend it with log of changes in a…\n\neven for a very small task there are multiple commits being created I just created one issue from inbox but it has three or four different commits we need to minimize the amount of commit as much as possible maybe if like\n there could the commit could be amended yeah right it could be amended amended with some metadata addition that this is the path it took but we are trying to reduce the commits or something like that but the amount of commits are too freaking high we should\n and find a way to reduce it.",
+          "startedAt": "2026-09-19T05:03:48.320Z",
+          "status": "running"
+        },
+        {
+          "tool": "claude",
+          "model": "opus",
+          "prompt": "Task: Reduce the amount of commits for the work group related commit into one commit or amend it with log of changes in a…",
+          "startedAt": "2026-09-19T05:03:59.806Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Reduce the amount of commits for the work group related commit into one commit or amend it with log of changes in a…\n\neven for a very small task there are multiple commits being created I just created one issue from inbox but it has three or four different commits we need to minimize the amount of commit as much as possible maybe if like\n there could the commit could be amended yeah right it could be amended amended with some metadata addition that this is the path it took but we are trying to reduce the commits or something like that but the amount of commits are too freaking high we should\n and find a way to reduce it.",
+          "startedAt": "2026-09-19T05:04:17.189Z",
+          "status": "running"
+        },
+        {
+          "tool": "claude",
+          "model": "opus",
+          "prompt": "Task: Reduce the amount of commits for the work group related commit into one commit or amend it with log of changes in a…\n\neven for a very small task there are multiple commits being created I just created one issue from inbox but it has three or four different commits we need to minimize the amount of commit as much as possible maybe if like\n there could the commit could be amended yeah right it could be amended amended with some metadata addition that this is the path it took but we are trying to reduce the commits or something like that but the amount of commits are too freaking high we should\n and find a way to reduce it.",
+          "startedAt": "2026-09-19T05:04:25.861Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T05:07:57.878Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/reduce-the-amount-of-commits-for-the/repro/repro.mjs",
+            "repro.md"
+          ],
+          "sessionId": null,
+          "error": null,
+          "log": "$ claude -p \"Task: Reduce the amount of commits for the work group related commit into one commit or amend it with log of changes in a…\\n\\neven for a very small task there …\" --permission-mode acceptEdits --model opus --append-system-prompt \"You are a debugger. Reproduce the reported bug: find the failing path, capture exact steps/inputs and the observed vs expected behavior, and identify the roo…\"\nRepro done. `repro.md` written at repo root. No fixes applied.\n\n**Bug confirmed from real history** — commits `d1281a6`, `8d0e747`, `0fa461a`, `4d9fa58`, `eecac95`. Four of them share timestamp `10:32:57` → one promote click.\n\n**Root cause: commit-per-helper + helpers compose.**\n\n`commitPaths` (`server/bridza-store.js:39`) only ever makes a *new* commit — no amend, no batch scope. `promoteInbox` (`:890`) chains 4 committers:\n\n1. `createTask` → `assignRefs` (`:621`→`:265`) → `refs.json`\n2. `createTask` → `commitPaths` (`:663`) → `metadata.json` + `context.md`\n3. `saveContext` (`:903`→`:931`) → `context.md` **again**\n4. inbox removal (`:905`) → `inbox.json`\n\n(+1 more when plan wiring fires → `savePlan` `:852`.)\n\nExtra waste: step 2 commits a placeholder `context.md` (\"Describe the intent…\", `:652`); step 3 overwrites same file 0s later. Commit `0fa461a`'s blob is dead on arrival.\n\n**Second cause: no debounce.** `savePlan`/`saveKanbanOrder` commit per UI interaction. 8 context links → 8 commits (`b31642c`…`e482628`), messages differ only in counter. Kanban reorder → 4 commits in 19s, identical messages.\n\n**Scale:** 267/283 commits since 2026-09-01 are bridza bookkeeping (94%); 117 are `edit plan`.\n\n**Fix hints in doc:** single choke point is `commitPaths` (16 call sites); amend precedent exists at `bridza-run.js:417`; `BIDENT` author (`:12`) makes \"tip is mine\" cheap; reordering `promoteInbox` to write context before the task commit kills one commit with no amend logic.\n\nTwo caveats:\n- `node` execution wasn't permitted here, so the headless driver at `.bridza/pipelines/engineering/reduce-the-amount-of-commits-for-the/repro/repro.mjs` is checked in but unrun — numbers come from real history + static trace. Noted in repro.md.\n- Amend safety needs an unpushed check — flagged for fix stage."
+        },
+        {
+          "tool": "claude",
+          "model": "opus",
+          "prompt": "Task: Reduce the amount of commits for the work group related commit into one commit or amend it with log of changes in a…\n\neven for a very small task there are multiple commits being created I just created one issue from inbox but it has three or four different commits we need to minimize the amount of commit as much as possible maybe if like\n there could the commit could be amended yeah right it could be amended amended with some metadata addition that this is the path it took but we are trying to reduce the commits or something like that but the amount of commits are too freaking high we should\n and find a way to reduce it.",
+          "startedAt": "2026-09-19T06:23:34.198Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T06:26:13.209Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/reduce-the-amount-of-commits-for-the/repro/repro.mjs",
+            "repro.md"
+          ],
+          "sessionId": null,
+          "error": null,
+          "log": "$ claude -p \"Task: Reduce the amount of commits for the work group related commit into one commit or amend it with log of changes in a…\\n\\neven for a very small task there …\" --permission-mode acceptEdits --model opus --append-system-prompt \"You are a debugger. Reproduce the reported bug: find the failing path, capture exact steps/inputs and the observed vs expected behavior, and identify the roo…\"\nRepro done. `repro.md` rewritten (verified against code + real history).\n\n**Bug**: 1 UI action → 4–5 commits. Capture idea + promote → task = 5 commits, 4 of them same second.\n\n**Failing path** — `promoteInbox` (`server/bridza-store.js:890`) = 4 committing calls:\n1. `createTask` → `assignRefs` (`:621`→`:265`) → `assign task #ref`\n2. `createTask` → `commitPaths` (`:663`) → `add task #N`\n2b. `createTask` → `savePlan` (`:700`→`:852`) → `edit plan` (only w/ deps/milestone/est)\n3. `saveContext` (`:903`→`:931`) → `edit task context`\n4. `commitPaths` (`:905`) → `inbox promote`\n\n**Root cause**: `commitPaths` (`:39`) = only commit primitive, always new commit, no amend, no action scope. Every write helper commits defensively because each is separately reachable via `server/bridge.js` endpoints. Helpers compose → commits multiply.\n\n**Second cause**: no debounce. `savePlan`/`saveKanbanOrder` commit per UI interaction → 8 context links = 8 commits (`b31642c…e482628`); 4 kanban drags in 19s = 4 identical-message commits.\n\n**Extra churn**: `createTask:652` commits placeholder `context.md` (\"Describe the intent…\"), `saveContext` overwrites same file 0s later. Verified dead blob in `0fa461a`.\n\n**Scale**: 267/283 commits since 2026-09-01 (94%) are `bridza:` bookkeeping.\n\nCaveats:\n- `node` exec denied (non-interactive session) → checked-in driver `repro/repro.mjs` still unrun; numbers from real git history + call-graph read, which agree. `npx vitest` also fails — `node_modules` absent in this worktree.\n- No fix applied."
+        }
+      ]
+    },
+    "fix": {
+      "status": "done",
+      "seconds": 866,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Reduce the amount of commits for the work group related commit into one commit or amend it with log of changes in a…\n\neven for a very small task there are multiple commits being created I just created one issue from inbox but it has three or four different commits we need to minimize the amount of commit as much as possible maybe if like\n there could the commit could be amended yeah right it could be amended amended with some metadata addition that this is the path it took but we are trying to reduce the commits or something like that but the amount of commits are too freaking high we should\n and find a way to reduce it.\n\nFit check — this task was filed under the \"Bugfix\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Bugfix\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Feature\" (Spec → Build → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-19T05:08:37.068Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Reduce the amount of commits for the work group related commit into one commit or amend it with log of changes in a…\n\neven for a very small task there are multiple commits being created I just created one issue from inbox but it has three or four different commits we need to minimize the amount of commit as much as possible maybe if like\n there could the commit could be amended yeah right it could be amended amended with some metadata addition that this is the path it took but we are trying to reduce the commits or something like that but the amount of commits are too freaking high we should\n and find a way to reduce it.\n\nFit check — this task was filed under the \"Bugfix\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Bugfix\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Feature\" (Spec → Build → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-19T06:12:51.265Z",
+          "status": "running"
+        },
+        {
+          "tool": "claude",
+          "model": "opus",
+          "prompt": "Task: Reduce the amount of commits for the work group related commit into one commit or amend it with log of changes in a…\n\neven for a very small task there are multiple commits being created I just created one issue from inbox but it has three or four different commits we need to minimize the amount of commit as much as possible maybe if like\n there could the commit could be amended yeah right it could be amended amended with some metadata addition that this is the path it took but we are trying to reduce the commits or something like that but the amount of commits are too freaking high we should\n and find a way to reduce it.\n\nFit check — this task was filed under the \"Bugfix\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Bugfix\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Feature\" (Spec → Build → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.\n\nFit check — this task was filed under the \"Bugfix\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Bugfix\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Feature\" (Spec → Build → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-19T15:56:38.119Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T16:11:04.162Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/reduce-the-amount-of-commits-for-the/fix/outputs/verify.mjs",
+            ".bridza/pipelines/engineering/reduce-the-amount-of-commits-for-the/fix/outputs/vitest.node.config.mjs",
+            "server/bridza-store.js",
+            "src/app/__tests__/bridza-store.test.js"
+          ],
+          "sessionId": null,
+          "error": null,
+          "log": "$ claude -p \"Task: Reduce the amount of commits for the work group related commit into one commit or amend it with log of changes in a…\\n\\neven for a very small task there …\" --permission-mode acceptEdits --model opus --append-system-prompt \"You are an implementer. Read repro.md and fix the root cause with the smallest correct change — check every caller of the code you touch and fix at the share…\"\nFit check: fits Bugfix — one root cause, one file. Proceeded.\n\n## Root cause fixed\n\nEvery write helper in `server/bridza-store.js` committed for itself, and the actions *compose* those helpers → one click = 4–5 commits. Fixed at the choke point (`commitPaths`), not per call site.\n\n**`server/bridza-store.js:38-159`** — two folding mechanisms:\n\n- `withAction(root, fn)` — writes of one action: first commits, rest **amend** it. Each helper's own message stays as a line in the commit body (\"the steps this action took\" — the metadata log you asked for).\n- `commitPaths(…, { fold })` — repeats of the *same* edit outside an action (kanban drags, plan links, context saves) amend bridza's last commit while fresh (`Bridza-fold:` trailer + 5 min window off author date).\n\nAmend guards, all four required: commit is bridza-authored (`bridza@local`), still branch tip, **no other ref reaches it** (`for-each-ref --contains` → forked task branch / `origin/*` / tag blocks it), and user has no unrelated staged changes (amend commits whole index).\n\nTwo call-site fixes that removed commits outright:\n- `promoteInbox` hands the brief to `createTask` via new `context` param → no placeholder commit, no dead blob (`:783`, `:1049`).\n- Task branch forks **after** the action closes (`afterAction`, `:843`) → it points at the final folded commit, not a superseded one.\n\n## Measured\n\n| Action | Before | After |\n|---|---|---|\n| `promoteInbox` | 4 | **1** |\n| `createTask` (+deps/est/milestone) | 3 | **1** |\n| 3 plan edits in a row | 3 | **1** |\n| 2 kanban drags | 2 | **1** |\n| 2 context saves | 2 | **1** |\n\n## Tests\n\n- 7 new regression tests, `src/app/__tests__/bridza-store.test.js:576` — commit counts, fold refusals (user's commit, pinned ref, user's staged work), branch-forks-off-final-commit.\n- **171 passed / 6 node suites** (`bridza-store`, `bridza-run`, `plan`, `bridza-flow-branch`, `bridza-model`, `kanban-order`). Ran via `npx vitest@4` + a minimal config — `node_modules` absent here and `pnpm install` needs approval.\n- 3 jsx suites (`task-auto`, `ux-views`, `welcome-dialog`) **not run** — need react/jsdom, not installed. Server-side change, no UI files touched.\n\nLeft in `fix/outputs/`: `verify.mjs` (dep-free commit-count harness, all green) and `vitest.node.config.mjs`. Nothing committed — working tree left for the pipeline."
+        }
+      ]
+    },
+    "fix-review": {
+      "status": "done",
+      "seconds": 951,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Reduce the amount of commits for the work group related commit into one commit or amend it with log of changes in a…\n\neven for a very small task there are multiple commits being created I just created one issue from inbox but it has three or four different commits we need to minimize the amount of commit as much as possible maybe if like\n there could the commit could be amended yeah right it could be amended amended with some metadata addition that this is the path it took but we are trying to reduce the commits or something like that but the amount of commits are too freaking high we should\n and find a way to reduce it.\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-19T16:11:05.461Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T16:26:56.883Z",
+          "exit": 0,
+          "files": [
+            "review.md"
+          ],
+          "sessionId": "ses_f45907a87ffeTCY9BSB8Q2qxSX",
+          "error": null,
+          "log": "er: promote with plan wiring, deleteTask, deletePipeline, and the fold-safety interleavings.\n· step · 90272 tokens\nEdge scenarios all pass. Now merge-readiness check against `main`.\n\n\n· step · 90584 tokens\n· step · 90898 tokens\nThere's a merge conflict in the test file. Let me investigate what `main` added there.\n\n\n· step · 91650 tokens\nBoth the fix branch and `main` appended test blocks to the same file (a concurrent \"card archiving\" task, #36, landed on `main`). `server/bridza-store.js` auto-merged cleanly. Let me do a real merge in a scratch clone, resolve the conflict, and run the full merged test suite to prove merge-readiness.\n· step · 94412 tokens\n\n\n\n· step · 94844 tokens\n· step · 95567 tokens\n\n\n\n· step · 96031 tokens\n· step · 96172 tokens\n· step · 97497 tokens\nThe conflict is purely additive: both branches appended independent `describe` blocks at EOF. The correct resolution is to include both. Let me resolve it.\n\n\n· step · 102303 tokens\n· step · 102811 tokens\n· step · 102953 tokens\nLet me rebuild the test file cleanly instead of patching fragments.\n· step · 103668 tokens\nConflict-free. Now the critical check: main's archive-state logic also touched `deletePipeline`/`deleteTask` — the fix rewrote those too. Let me inspect the merged store and run the full merged test suite.\n· step · 104074 tokens\n· step · 104786 tokens\n\n\n\n· step · 106306 tokens\nMerged store retains both the fix's wrappers and main's archive logic. Now run the full merged test suite.\n\n\n· step · 106949 tokens\nFull merged suite: 215/215 passed. Let me check outputs name the landing branch correctly, then check for any remaining concern in the fold logic — a couple of targeted reviews of naming/docs.\n· step · 107493 tokens\n· step · 116062 tokens\n· step · 117138 tokens\n· step · 117342 tokens\n· step · 121679 tokens\n· step · 120604 tokens\n· step · 125956 tokens\n· step · 126063 tokens\n· step · 133112 tokens\n· step · 135074 tokens\n· step · 132714 tokens\n· step · 136259 tokens\nThe test file is cleanly resolved with both test blocks. Let me stage it and verify tests pass.\n· step · 137678 tokens\nAll 215 tests pass. Let me abort the in-progress merge in the workspace root, as I only did the merge to prove merge-readiness (and we shouldn't actually push a merge commit or edit tracking branches unless asked). Actually, wait! \"Make the change READY TO BE MERGED into 'main'\". Since the merge conflict is in the test file, and I've verified it resolves perfectly and runs cleanly, I should abort the merge in the current workspace, stage our original files, and report this cleanly in review.md.\n\nWait! If the task wants the change to be \"READY TO BE MERGED\", having the merge completed on the branch is the best state, OR I can abort it and explain the resolution.\nLet's see: \"Make the change READY TO BE MERGED into \\\"main\\\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it... and state plainly in your review output whether the merge into \\\"main\\\" will be clean.\"\n\"resolve or flag conflicts with it\" -> flagging means documenting it in `review.md`. Resolving means merging. But since merging `main` into our task branch would create a merge commit on our branch (which might not be desired if they prefer a clean rebase or if it's the merge tool that merges our branch into main), let's abort the merge to keep our task branch clean, and flag the conflict in `review.md` with the precise additive resolution.\n\nActually, aborting the merge is safer so we don't pollute the task branch's commit history with a merge commit, especially when the final merge is done by Bridza anyway (\"on finalize Bridza merges this task's branch into it\"). Yes! Bridza merges the task branch into main, not the other way around. A clean rebase or merge from main -> task branch is not always desired. I will abort the merge.\n· step · 143400 tokens\n· step · 139681 tokens\n· step · 140352 tokens\nThe review.md is written.\n· step · 139186 tokens"
+        }
+      ]
+    }
+  }
 }

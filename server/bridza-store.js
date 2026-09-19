@@ -9,7 +9,8 @@ import path from "node:path";
 import { DATA_DIR, rel, safeRef, shortTitle, taskSlug, pipelineFlows, flattenFlows } from "../core/domain.js";
 import { git, isGitRepo, branchExists, baseBranchName, ensureTaskBranch, taskBranchName, removeTaskWorktree, stopRuns, healTaskFlow, validRef } from "./bridza-run.js";
 
-const BIDENT = ["-c", "user.name=bridza", "-c", "user.email=bridza@local"];
+const BEMAIL = "bridza@local";
+const BIDENT = ["-c", "user.name=bridza", "-c", "user.email=" + BEMAIL];
 
 // ── small fs helpers ────────────────────────────────────────────────────────
 
@@ -34,15 +35,132 @@ function listDirs(dir) {
     .map((e) => e.name);
 }
 
+// ── one commit per user action ──────────────────────────────────────────────
+// Every write helper below commits for itself, and the high-level actions are
+// built by COMPOSING those helpers — so one click used to produce 4–5 commits
+// (promoting an inbox item = assign #ref + add task + edit plan + edit context
+// + drop from inbox). Two things fold those back into one:
+//
+//   withAction(root, fn)      — the writes of ONE user action: the first one
+//     commits, every later one amends that commit, and each helper's own
+//     message stays as a line in the commit body. The path the action took is
+//     kept; the commit count is not.
+//   commitPaths(…, { fold })  — repeats of the SAME edit outside an action
+//     (drag a kanban column four times, add context links one by one) amend
+//     bridza's last commit while it is still fresh and carries the same key.
+//
+// A commit is only ever rewritten when it is safe: bridza's own (never the
+// user's), still the branch tip, nothing else pointing at or past it (a task
+// branch forked off it, a remote-tracking ref, a tag), and with no unrelated
+// staged changes of the user's that an amend would swallow.
+const FOLD_TRAILER = "Bridza-fold:";
+const FOLD_WINDOW_MS = 5 * 60 * 1000;
+
+let ACTION = null;
+
+// `fn` must be synchronous — every store write is, and the scope is process-wide.
+function withAction(root, fn) {
+  if (ACTION) return fn();                 // nested — the outermost scope owns the commit
+  const scope = ACTION = { root, title: "", steps: [], sha: null, after: [] };
+  try {
+    return fn();
+  } finally {
+    ACTION = null;
+    // queued work must see the action's FINAL commit (see afterAction)
+    for (const f of scope.after) { try { f(); } catch (e) { /* best-effort */ } }
+  }
+}
+
+// Name the in-flight action once its details are known (the #ref is assigned
+// mid-action, for instance) — the step that best describes the whole action
+// hands its message in and its first line becomes the commit subject. Unnamed,
+// the action is titled by its first step. No-op outside an action scope.
+function nameAction(message) { if (ACTION && message) ACTION.title = String(message).split("\n")[0]; }
+
+// Defer work that must run against the action's final commit — forking a task
+// branch off it, say: done inline it would pin the pre-amend commit and be left
+// behind by the fold. Runs immediately when there is no action in flight.
+function afterAction(root, fn) {
+  if (ACTION && ACTION.root === root) { ACTION.after.push(fn); return; }
+  fn();
+}
+
+// title + one block per folded step — "this is the path the action took"
+function scopeMessage(scope) {
+  const [first, ...rest] = scope.steps;
+  const subject = scope.title || first.split("\n")[0];
+  if (!rest.length) return [subject, ...first.split("\n").slice(1)].join("\n").trimEnd();
+  return [
+    subject,
+    "",
+    "Folded into one commit — the steps this action took:",
+    "",
+    ...scope.steps.map((m) => m.split("\n").map((l, i) => (i === 0 ? "- " + l : l ? "  " + l : "")).join("\n")),
+  ].join("\n").trimEnd();
+}
+
+const foldMessage = (message, fold) => (fold ? message.trimEnd() + "\n\n" + FOLD_TRAILER + " " + fold : message);
+
+// %at (author date) survives an amend, so the fold window is measured from the
+// FIRST write of a run of edits — folding can't keep extending itself forever.
+function headCommit(root) {
+  try {
+    const [sha, email, at, ...body] = git(root, ["log", "-1", "--format=%H%n%ae%n%at%n%B"]).split("\n");
+    return { sha, email, at: Number(at) * 1000, body: body.join("\n") };
+  } catch (e) { return null; }   // no commits yet
+}
+
+// Rewriting a commit is only safe while the current branch is the sole ref
+// reaching it — anything else (a forked task branch, origin/…, a tag) would be
+// left behind pointing at the version we are about to replace.
+function onlyHeadReaches(root, sha) {
+  try {
+    const head = git(root, ["symbolic-ref", "-q", "HEAD"]).trim();
+    const refs = git(root, ["for-each-ref", "--contains", sha, "--format=%(refname)"]).trim();
+    return refs.split("\n").filter(Boolean).every((r) => r === head);
+  } catch (e) { return false; }
+}
+
+// The commit this write may fold into, or null for a fresh commit.
+function foldTarget(root, scope, fold) {
+  const head = headCommit(root);
+  if (!head || head.email !== BEMAIL) return null;
+  if (scope) {
+    if (scope.sha !== head.sha) return null;                     // someone committed in between
+  } else {
+    if (!fold || !head.body.includes(FOLD_TRAILER + " " + fold)) return null;
+    if (Date.now() - head.at > FOLD_WINDOW_MS) return null;      // a fresh repeat, not a new session
+  }
+  return onlyHeadReaches(root, head.sha) ? head : null;
+}
+
+// Staged changes of the user's that are NOT ours: amending commits the whole
+// index, so their presence rules the fold out (a plain commit -- <paths> can't
+// touch them).
+function foreignStaged(root, paths) {
+  const mine = paths.map((p) => String(p).replace(/\/+$/, ""));
+  return git(root, ["diff", "--cached", "--name-only"]).trim().split("\n").filter(Boolean)
+    .filter((f) => !mine.some((p) => f === p || f.startsWith(p + "/")));
+}
+
 // Commit only the given repo-relative paths to the current branch (leaves the
-// user's other working-tree changes untouched).
-export function commitPaths(root, paths, message) {
+// user's other working-tree changes untouched), folding into the commit already
+// in flight when that is safe — see the note above.
+export function commitPaths(root, paths, message, { fold = "" } = {}) {
   if (!isGitRepo(root)) return { committed: false };
   git(root, ["add", "--", ...paths]);
   const staged = git(root, ["diff", "--cached", "--name-only", "--", ...paths]).trim();
   if (!staged) return { committed: false };
-  git(root, [...BIDENT, "commit", "-m", message, "--", ...paths]);
-  return { committed: true, files: staged.split("\n") };
+  const files = staged.split("\n");
+  const scope = ACTION && ACTION.root === root ? ACTION : null;
+  const into = foldTarget(root, scope, fold);
+  const amend = !!into && !foreignStaged(root, paths).length;
+  if (scope) scope.steps = amend ? [...scope.steps, message] : [message];
+  const msg = scope ? scopeMessage(scope) : foldMessage(message, fold);
+  if (amend) git(root, [...BIDENT, "commit", "--amend", "-m", msg]);
+  else git(root, [...BIDENT, "commit", "-m", msg, "--", ...paths]);
+  if (scope) scope.sha = git(root, ["rev-parse", "HEAD"]).trim();
+  return { committed: true, amended: amend, files };
 }
 
 // ── scaffold ────────────────────────────────────────────────────────────────
@@ -425,7 +543,11 @@ const normTemplates = (templates) => (Array.isArray(templates) ? templates : [])
   .filter((t) => t && t.id)
   .map((t) => ({ id: safeRef(t.id), label: t.label || t.id, description: String(t.description || ""), stages: (Array.isArray(t.stages) ? t.stages : []).map(safeRef) }));
 
-export function createPipeline(root, { id, label, workingDir = ".", stages = [], flows = [], templates = [] }) {
+export function createPipeline(root, opts = {}) {
+  return withAction(root, () => createPipelineIn(root, opts));
+}
+
+function createPipelineIn(root, { id, label, workingDir = ".", stages = [], flows = [], templates = [] }) {
   if (!id) return { ok: false, error: "pipeline id required" };
   const pid = safeRef(id);
   const metaPath = rel.pipelineMeta(pid);
@@ -549,7 +671,8 @@ export function saveKanbanOrder(root, { id, order }) {
   const def = readPipelineDef(root, pid);
   def.kanbanOrder = order;
   writeJSON(path.join(root, metaPath), def);
-  const commit = commitPaths(root, [metaPath], `bridza: reorder kanban columns of pipeline "${def.label || pid}" (${pid})`);
+  // one call per drag — consecutive drags of the same board are one edit
+  const commit = commitPaths(root, [metaPath], `bridza: reorder kanban columns of pipeline "${def.label || pid}" (${pid})`, { fold: "kanban:" + pid });
   return { ok: true, id: pid, kanbanOrder: order, committed: commit.committed };
 }
 
@@ -557,13 +680,18 @@ export function saveKanbanOrder(root, { id, order }) {
 // database, MAINTAINING git history the same way deleteTask does: the removal
 // is a commit, and each task's branch is kept. Refs are retired, and the
 // project plan is unwired from every one of its tasks.
-export function deletePipeline(root, { id }) {
+export function deletePipeline(root, opts = {}) {
+  return withAction(root, () => deletePipelineIn(root, opts));
+}
+
+function deletePipelineIn(root, { id }) {
   if (!id) return { ok: false, error: "pipeline id required" };
   const pid = safeRef(id);
   const metaPath = rel.pipelineMeta(pid);
   if (!fs.existsSync(path.join(root, metaPath))) return { ok: false, error: "pipeline not found" };
   const def = readPipelineDef(root, pid);
   const who = `"${def.label || pid}" (${pid})`;
+  nameAction(`bridza: delete pipeline ${who}`);
   const pipeDir = path.join(root, rel.pipeline(pid));
   const taskIds = fs.existsSync(pipeDir) ? listDirs(pipeDir) : [];
   for (const tid of taskIds) {
@@ -613,7 +741,13 @@ export function deletePipeline(root, { id }) {
   return { ok: true, id: pid, committed, tasks: taskIds.length };
 }
 
-export function createTask(root, { pipeline, id, title = "", type = "", outputMode = "docs", target, stages, flow = "", template = "", dependsOn = "", dependsOnAny = [], est = 0, milestone = null }) {
+// One action: the #ref, the task files, its plan wiring and its branch are all
+// one commit (createTaskIn is the body — see withAction).
+export function createTask(root, opts = {}) {
+  return withAction(root, () => createTaskIn(root, opts));
+}
+
+function createTaskIn(root, { pipeline, id, title = "", type = "", outputMode = "docs", target, stages, flow = "", template = "", dependsOn = "", dependsOnAny = [], est = 0, milestone = null, context = "" }) {
   const bad = !pipeline ? "pipeline required" : !id ? "task id required" : null;
   if (bad) return { ok: false, error: bad };
   const pid = safeRef(pipeline), tid = safeRef(id);
@@ -675,7 +809,14 @@ export function createTask(root, { pipeline, id, title = "", type = "", outputMo
       "",
     ].join("\n");
   }
-  writeText(path.join(root, ctxPath), (title ? "# " + title + "\n\n" : "") + manifest + "Describe the intent of this task.\n");
+  // The brief. A caller that already HAS it (promoteInbox carries the inbox
+  // item's text) hands it in here, so the task is born with it — writing the
+  // placeholder first and overwriting it a moment later cost a second commit
+  // and left a dead blob in history.
+  const brief = String(context || "").trim();
+  writeText(path.join(root, ctxPath), brief
+    ? manifest + brief + "\n"
+    : (title ? "# " + title + "\n\n" : "") + manifest + "Describe the intent of this task.\n");
   const msg = [
     `bridza: add task #${ref} "${(title || tid).slice(0, 50)}" (${pid}/${tid})`,
     "",
@@ -686,6 +827,7 @@ export function createTask(root, { pipeline, id, title = "", type = "", outputMo
     ...(tpl ? [`Template: ${tpl.label || tpl.id}`] : []),
     ...(type && (!tpl || type !== tpl.id) ? [`Type: ${type}`] : []),
   ].join("\n");
+  nameAction(msg);   // "add task #N …" names the action, not the #ref assignment that opened it
   const commit = commitPaths(root, [DATA_DIR + "/README.md", DATA_DIR + "/.gitignore", DATA_DIR + "/.metadata/creation-guide.md", metaPath, ctxPath], msg);
   // dependency wiring — its stages refuse to run until the gate opens:
   //   1. explicit handoff (dependsOn) → an AND-dep + a focused-context link,
@@ -727,9 +869,11 @@ export function createTask(root, { pipeline, id, title = "", type = "", outputMo
     if (g.all.length || g.any.length) plan.deps[key] = g;
     savePlan(root, plan);
   }
-  // create the task branch off the just-committed stub so its history starts clean
-  const b = ensureTaskBranch(root, pid, tid);
-  return { ok: true, id: tid, pipeline: pid, ref, branch: b.branch, target: taskTargetResolved, committed: commit.committed };
+  // create the task branch off the just-committed stub so its history starts
+  // clean — once the action has closed, so it forks off the FINAL commit and
+  // not off a version later folded away
+  afterAction(root, () => ensureTaskBranch(root, pid, tid));
+  return { ok: true, id: tid, pipeline: pid, ref, branch: taskBranchName(pid, tid), target: taskTargetResolved, committed: commit.committed };
 }
 
 // ── delete a task ────────────────────────────────────────────────────────────
@@ -737,7 +881,11 @@ export function createTask(root, { pipeline, id, title = "", type = "", outputMo
 // entry, plan wiring, worktree) while MAINTAINING git history: the removal is
 // itself a commit, and the task's branch (its full prompt→result history) is
 // kept unless deleteBranch is set. Any live run is stopped first.
-export function deleteTask(root, { pipeline, task, deleteBranch = false }) {
+export function deleteTask(root, opts = {}) {
+  return withAction(root, () => deleteTaskIn(root, opts));
+}
+
+function deleteTaskIn(root, { pipeline, task, deleteBranch = false }) {
   if (!pipeline || !task) return { ok: false, error: "pipeline + task required" };
   const pid = safeRef(pipeline), tid = safeRef(task);
   const key = pid + "/" + tid;
@@ -745,6 +893,7 @@ export function deleteTask(root, { pipeline, task, deleteBranch = false }) {
   const meta = readTaskMeta(root, pid, tid);
   const refNum = readRefs(root).refs[key] || meta.ref || null;
   const who = `${refNum ? "#" + refNum + " " : ""}"${(meta.title || tid).slice(0, 50)}"`;
+  nameAction(`bridza: delete task ${who} (${key})`);
   try { stopRuns(pid, tid); } catch (e) { /* nothing running */ }
   try { removeTaskWorktree(root, pid, tid); } catch (e) { /* no worktree */ }
 
@@ -876,7 +1025,9 @@ export function savePlan(root, { deps, milestones, pos, sizes, links, pipeDeps, 
     "",
     ...(nM ? [`Milestones: ${nextMs.map((m) => m.title).join(", ").slice(0, 200)}`] : []),
   ].join("\n");
-  const c = commitPaths(root, [DATA_DIR + "/README.md", DATA_DIR + "/.gitignore", DATA_DIR + "/.metadata/creation-guide.md", rel.plan()], msg);
+  // the UI saves on every interaction (no debounce) — wiring 8 context links one
+  // by one is 8 calls, which fold into one commit
+  const c = commitPaths(root, [DATA_DIR + "/README.md", DATA_DIR + "/.gitignore", DATA_DIR + "/.metadata/creation-guide.md", rel.plan()], msg, { fold: "plan" });
   return { ok: true, plan: next, committed: c.committed };
 }
 
@@ -925,12 +1076,17 @@ export function promoteInbox(root, { id, pipeline, flow = "", title: titleIn = "
   const body = String(description == null ? item.text || "" : description).trim();
   const title = shortTitle(titleIn, { words: 24, chars: 120 }) || shortTitle(body) || item.kind;
   const taskId = taskSlug(title) || id;
-  const r = createTask(root, { pipeline, id: taskId, title, type: item.kind, flow });
-  if (!r.ok) return r;
-  try { saveContext(root, { pipeline, task: r.id, text: "# " + title + "\n\n" + body + "\n" }); } catch (e) { /* best-effort */ }
-  writeInbox(root, items.filter((i) => i.id !== id));
-  commitPaths(root, [rel.inbox()], `bridza: inbox promote (${item.kind}) "${title.slice(0, 40)}" → task ${r.ref ? "#" + r.ref + " " : ""}${safeRef(pipeline)}/${r.id}`);
-  return { ok: true, task: { ...r, title } };
+  const label = (r) => `bridza: inbox promote (${item.kind}) "${title.slice(0, 40)}" → task ${r.ref ? "#" + r.ref + " " : ""}${safeRef(pipeline)}/${r.id}`;
+  return withAction(root, () => {
+    // the item's text IS the task's brief — handed to createTask so the task is
+    // created with it in place (one commit, no superseded placeholder)
+    const r = createTask(root, { pipeline, id: taskId, title, type: item.kind, flow, context: "# " + title + "\n\n" + body + "\n" });
+    if (!r.ok) return r;
+    nameAction(label(r));
+    writeInbox(root, items.filter((i) => i.id !== id));
+    commitPaths(root, [rel.inbox()], label(r));
+    return { ok: true, task: { ...r, title } };
+  });
 }
 
 // The natural-language context (the brief) for a task or a stage. Read like
@@ -955,5 +1111,6 @@ export function saveContext(root, { pipeline, task, stage, text }) {
   const p = stage ? rel.stageContext(pipeline, task, stage) : rel.taskContext(pipeline, task);
   writeText(path.join(root, p), String(text ?? ""));
   const snip = String(text ?? "").trim().split("\n")[0].replace(/^#\s*/, "").slice(0, 48);
-  return { ok: true, ...commitPaths(root, [p], `bridza: edit ${stage ? "stage " + safeRef(stage) : "task"} context of ${safeRef(pipeline)}/${safeRef(task)}${snip ? ` · "${snip}"` : ""}`) };
+  // successive saves of the same brief are one edit, not one commit each
+  return { ok: true, ...commitPaths(root, [p], `bridza: edit ${stage ? "stage " + safeRef(stage) : "task"} context of ${safeRef(pipeline)}/${safeRef(task)}${snip ? ` · "${snip}"` : ""}`, { fold: "context:" + p }) };
 }

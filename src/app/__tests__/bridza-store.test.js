@@ -637,3 +637,104 @@ describe("task archive state", () => {
     expect(archivedOf(root, "t1")).toBe(false);
   });
 });
+
+// #37 — one user action used to leave 4–5 commits behind (every write helper
+// committed for itself, and the actions compose those helpers). The writes of
+// one action now fold into one commit, and a run of the same edit folds too.
+describe("one commit per action", () => {
+  const commits = () => Number(git(root, ["rev-list", "--count", "HEAD"]).trim());
+
+  it("promotes an inbox item in ONE commit, the brief in place from the start", () => {
+    createPipeline(root, MARKETING);
+    const a = addInbox(root, { kind: "bug", text: "Sync drops archived cards" });
+    const before = commits();
+    const p = promoteInbox(root, { id: a.item.id, pipeline: "marketing" });
+    expect(p.ok).toBe(true);
+    expect(commits() - before).toBe(1);                      // was 4: #ref, task, context, inbox
+
+    // named for the action, with the steps it folded in kept in the body
+    const body = git(root, ["log", "-1", "--format=%B"]);
+    expect(body.split("\n")[0]).toMatch(/^bridza: inbox promote \(bug\) ".*" → task #\d+ marketing\//);
+    expect(body).toContain("- bridza: assign task #ref");
+    expect(body).toContain('- bridza: add task #');
+
+    // the brief is the captured text — the placeholder never reached history
+    const ctxPath = rel.taskContext("marketing", p.task.id);
+    expect(fs.readFileSync(path.join(root, ctxPath), "utf8")).toContain("Sync drops archived cards");
+    expect(git(root, ["log", "-p", "--", ctxPath])).not.toContain("Describe the intent of this task.");
+  });
+
+  it("creates a task in ONE commit and forks its branch off that commit", () => {
+    createPipeline(root, MARKETING);
+    const before = commits();
+    const r = createTask(root, { pipeline: "marketing", id: "t1", title: "T", est: 4, milestone: { id: "ms", title: "M" } });
+    expect(r.ok).toBe(true);
+    expect(commits() - before).toBe(1);                      // was 3: #ref, task, plan wiring
+    expect(git(root, ["log", "-1", "--format=%s"]).trim()).toMatch(/^bridza: add task #\d+ "T" \(marketing\/t1\)$/);
+    // the branch forks off the FINAL commit, not off a version folded away
+    expect(git(root, ["rev-parse", r.branch]).trim()).toBe(git(root, ["rev-parse", "HEAD"]).trim());
+    const files = git(root, ["show", "--name-only", "--format=", "HEAD"]).trim().split("\n");
+    expect(files).toEqual(expect.arrayContaining([rel.taskMeta("marketing", "t1"), rel.plan()]));
+  });
+
+  it("folds a run of plan edits into one commit instead of one each", () => {
+    const before = commits();
+    savePlan(root, { links: { "dev/a": ["dev/spec"] } });
+    savePlan(root, { links: { "dev/a": ["dev/spec"], "dev/b": ["dev/spec"] } });
+    savePlan(root, { links: { "dev/a": ["dev/spec"], "dev/b": ["dev/spec"], "dev/c": ["dev/spec"] } });
+    expect(commits() - before).toBe(1);                      // was one commit per link
+    expect(git(root, ["log", "-1", "--format=%s"]).trim()).toMatch(/3 context links/);
+    expect(Object.keys(readPlan(root).links)).toEqual(["dev/a", "dev/b", "dev/c"]);
+  });
+
+  it("never amends a commit another ref reaches", () => {
+    savePlan(root, { pos: { "dev/a": { x: 1, y: 2 } } });
+    const pinned = git(root, ["rev-parse", "HEAD"]).trim();
+    git(root, ["branch", "keep-me"]);                        // stands in for a forked task branch
+    const before = commits();
+    savePlan(root, { pos: { "dev/a": { x: 3, y: 4 } } });
+    expect(commits() - before).toBe(1);                      // a fresh commit, not a rewrite
+    expect(git(root, ["rev-parse", "keep-me"]).trim()).toBe(pinned);
+  });
+
+  it("never amends the user's own commit", () => {
+    fs.writeFileSync(path.join(root, "user.txt"), "hi\n");
+    execFileSync("git", ["add", "-A"], { cwd: root });
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", "user work"], { cwd: root });
+    const before = commits();
+    savePlan(root, { pos: { "dev/a": { x: 7, y: 8 } } });
+    expect(commits() - before).toBe(1);
+    expect(git(root, ["log", "-1", "--format=%s", "HEAD~1"]).trim()).toBe("user work");
+  });
+
+  it("leaves the user's staged work alone rather than folding it in", () => {
+    savePlan(root, { pos: { "dev/a": { x: 1, y: 2 } } });
+    fs.writeFileSync(path.join(root, "mine.txt"), "wip\n");
+    execFileSync("git", ["add", "mine.txt"], { cwd: root });
+    const before = commits();
+    savePlan(root, { pos: { "dev/a": { x: 5, y: 6 } } });
+    expect(commits() - before).toBe(1);                      // no amend while their index is dirty
+    expect(git(root, ["diff", "--cached", "--name-only"]).trim()).toBe("mine.txt");
+    expect(git(root, ["show", "--name-only", "--format=", "HEAD"])).not.toContain("mine.txt");
+  });
+
+  it("folds consecutive kanban drags and context saves, not unrelated ones", () => {
+    createPipeline(root, MARKETING);
+    createTask(root, { pipeline: "marketing", id: "t2" });
+    let before = commits();
+    saveKanbanOrder(root, { id: "marketing", order: ["spec", "research", "planning"] });
+    saveKanbanOrder(root, { id: "marketing", order: ["planning", "spec", "research"] });
+    expect(commits() - before).toBe(1);
+
+    before = commits();
+    saveContext(root, { pipeline: "marketing", task: "t2", text: "First draft.\n" });
+    saveContext(root, { pipeline: "marketing", task: "t2", text: "Second draft.\n" });
+    expect(commits() - before).toBe(1);                      // same brief, one edit
+    expect(readContext(root, { pipeline: "marketing", task: "t2" }).text).toBe("Second draft.\n");
+
+    before = commits();                                      // a different edit does NOT fold in
+    saveKanbanOrder(root, { id: "marketing", order: ["research", "spec", "planning"] });
+    expect(commits() - before).toBe(1);
+    expect(git(root, ["log", "-1", "--format=%s", "HEAD~1"]).trim()).toMatch(/edit task context/);
+  });
+});
