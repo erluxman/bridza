@@ -16,8 +16,10 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "../../../../../..");
 
-const { readProject, createPipeline, createTask } = await import(path.join(REPO, "server/bridza-store.js"));
-const { setTaskArchived, ensureTaskBranch, finalizeTask, git } = await import(path.join(REPO, "server/bridza-run.js"));
+// setTaskArchived moved to bridza-store.js with the fix (board state, committed
+// at the repo root) — it lived in bridza-run.js when this repro was written.
+const { readProject, createPipeline, createTask, setTaskArchived } = await import(path.join(REPO, "server/bridza-store.js"));
+const { ensureTaskBranch, finalizeTask, git } = await import(path.join(REPO, "server/bridza-run.js"));
 
 const IDENT = ["-c", "user.name=t", "-c", "user.email=t@t"];
 const tmps = [];

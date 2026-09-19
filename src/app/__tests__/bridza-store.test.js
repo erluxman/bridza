@@ -6,8 +6,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { ensureDataDir, readProject, readPlan, savePlan, createPipeline, savePipeline, archivePipeline, saveKanbanOrder, createTask, deleteTask, readContext, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox } from "../../../server/bridza-store.js";
-import { runStage, git } from "../../../server/bridza-run.js";
+import { ensureDataDir, readProject, readPlan, savePlan, createPipeline, savePipeline, archivePipeline, saveKanbanOrder, createTask, deleteTask, readContext, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox, setTaskArchived } from "../../../server/bridza-store.js";
+import { runStage, git, ensureTaskWorktree } from "../../../server/bridza-run.js";
 import { STARTER_PIPELINES, rel, judgeStageId, pipelineFlows, exportFlow, parseFlowFile, exportPipeline, parsePipelineFile, shortTitle } from "../../../core/domain.js";
 
 vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
@@ -570,5 +570,59 @@ describe("task target branch", () => {
     const d2 = readProject(root).pipelines[0].tasks.find((x) => x.id === "task-plain");
     expect(d2.target).toBe("main");
     expect(git(root, ["rev-parse", d.branch]).trim()).toBe(git(root, ["rev-parse", "main"]).trim());
+  });
+});
+
+// Archiving a card used to write the flag onto the task's bridza/* branch,
+// which never leaves the machine it was made on — so the card came back out of
+// the Archived column on every other computer. It is board state now: root
+// .bridza/refs.json, on the base branch, like the kanban order.
+describe("task archive state", () => {
+  const archivedOf = (r, id) => readProject(r).pipelines[0].tasks.find((t) => t.id === id).archived;
+
+  it("commits the archive on the base branch, so it survives a clone of it", () => {
+    createPipeline(root, MARKETING);
+    createTask(root, { pipeline: "marketing", id: "t1", title: "ship it" });
+    expect(archivedOf(root, "t1")).toBe(false);
+
+    expect(setTaskArchived(root, "marketing", "t1", true)).toMatchObject({ ok: true, archived: true, committed: true });
+    expect(archivedOf(root, "t1")).toBe(true);
+    expect(git(root, ["status", "--porcelain"]).trim()).toBe("");
+    expect(git(root, ["log", "-1", "--format=%s", "main"]).trim()).toBe("bridza: archive task marketing/t1");
+
+    // device B: only the base branch is ever pushed/pulled — no bridza/* branch
+    const other = tmp("bridza-clone-");
+    execFileSync("git", ["clone", "--single-branch", "--branch", "main", root, other]);
+    expect(git(other, ["for-each-ref", "--format=%(refname)", "refs/heads/bridza/"]).trim()).toBe("");
+    expect(archivedOf(other, "t1")).toBe(true);
+
+    expect(setTaskArchived(root, "marketing", "t1", false)).toMatchObject({ ok: true, archived: false, committed: true });
+    expect(archivedOf(root, "t1")).toBe(false);
+    expect(git(root, ["log", "-1", "--format=%s", "main"]).trim()).toBe("bridza: unarchive task marketing/t1");
+    expect(setTaskArchived(root, "marketing", "", true).error).toMatch(/task/);
+  });
+
+  it("still honours a legacy flag on the task branch, and unarchive clears it", () => {
+    createPipeline(root, MARKETING);
+    createTask(root, { pipeline: "marketing", id: "t1", title: "archived before the fix" });
+    // exactly what the old branch-local setTaskArchived left behind
+    const wt = ensureTaskWorktree(root, "marketing", "t1");
+    const mp = path.join(wt.worktree, rel.taskMeta("marketing", "t1"));
+    fs.writeFileSync(mp, JSON.stringify({ ...JSON.parse(fs.readFileSync(mp, "utf8")), archived: true }, null, 2) + "\n");
+    git(wt.worktree, ["add", "-A"]);
+    git(wt.worktree, ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", "bridza: archive task marketing/t1"]);
+    expect(archivedOf(root, "t1")).toBe(true);
+
+    setTaskArchived(root, "marketing", "t1", false);
+    expect(archivedOf(root, "t1")).toBe(false);   // the explicit false outranks the stale flag
+  });
+
+  it("deleting an archived task retires its archive entry too", () => {
+    createPipeline(root, MARKETING);
+    createTask(root, { pipeline: "marketing", id: "t1", title: "gone" });
+    setTaskArchived(root, "marketing", "t1", true);
+    deleteTask(root, { pipeline: "marketing", task: "t1", deleteBranch: true });
+    createTask(root, { pipeline: "marketing", id: "t1", title: "reused id" });
+    expect(archivedOf(root, "t1")).toBe(false);
   });
 });
