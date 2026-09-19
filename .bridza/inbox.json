@@ -2,12 +2,6 @@
   "v": 1,
   "items": [
     {
-      "id": "in-o925hy",
-      "kind": "idea",
-      "text": "When I am selecting cloud code it is auto advancing but when I am selecting open code it is not auto advancing. At least that's what I have found. It's a pattern. Let's find out why it is.",
-      "time": "2026-09-19T17:21:48.676Z"
-    },
-    {
       "id": "in-fvpqpv",
       "kind": "idea",
       "text": "There should be a search button somewhere or command F should work as find where I can search and find the task with certain text in them from the list of all the tasks on the Kanban.",

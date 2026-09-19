@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "only-claude-can-auto-advance-opencode",
+  "pipeline": "engineering",
+  "title": "Only claude can auto advance, opencode cannot auto advance for some reason.",
+  "ref": 60,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/only-claude-can-auto-advance-opencode",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
