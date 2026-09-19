@@ -55,6 +55,7 @@
     "engineering/highlight-selected-task-or-work-item-if": true,
     "engineering/kanban-archive-issue-cards": true,
     "engineering/more-conflicts-user-experience-should": true,
-    "engineering/okay-i-just-have-an-idea-that-when-i-ope": true
+    "engineering/okay-i-just-have-an-idea-that-when-i-ope": true,
+    "engineering/per-day-dismissal": true
   }
 }
