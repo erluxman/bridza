@@ -1,4 +1,11 @@
 {
   "v": 1,
-  "items": []
+  "items": [
+    {
+      "id": "in-i381f3",
+      "kind": "idea",
+      "text": "creating PR failed it should take the titles and description from the task itself",
+      "time": "2026-09-19T18:44:37.458Z"
+    }
+  ]
 }
