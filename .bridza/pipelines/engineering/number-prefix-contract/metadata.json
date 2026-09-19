@@ -12,5 +12,69 @@
     "build",
     "review"
   ],
-  "tracking": {}
+  "tracking": {
+    "spec": {
+      "status": "done",
+      "seconds": 69,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Zero-padded numbered-folder naming contract",
+          "startedAt": "2026-09-19T16:57:23.787Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T16:58:33.026Z",
+          "exit": 0,
+          "files": [
+            "acceptance.md",
+            "spec.md"
+          ],
+          "sessionId": "ses_f4566155dffezhmiR5mYxWUIp5",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n· step · 14236 tokens\n· step · 15367 tokens\n· step · 16242 tokens\n· step · 16858 tokens\n· step · 18116 tokens\n\n\n\n· step · 25907 tokens\n· step · 30061 tokens\n· step · 31163 tokens\n\n\n\n· step · 32550 tokens\n· step · 33109 tokens\nWrote `spec.md` + `acceptance.md`. The spec pins the contract to `core/domain.js` pure helpers (`REF_WIDTH=8`, `padRef`, `taskDirName`, `parseTaskDir` with legacy fallback, `displayRef`), keeps board-state keys as plain ids, and scopes out folder writing/migration/showing as separate sub-tasks.\n· step · 33212 tokens"
+        }
+      ]
+    },
+    "build": {
+      "status": "done",
+      "seconds": 67,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Zero-padded numbered-folder naming contract\n\n## WHAT & WHY\n\nEvery task's on-disk folder must carry the task's project-wide `#ref` at the\nfront, zero-padded to a FIXED width, so the folders sort in generation order\n(creation order) wherever they are listed on disk. The scale target is up to\n~10 million issues/bugs/requests, so the width must comfortably cover eight\ndigits. The padded form is ONLY for the folder name; everyone interacting with\nthe UI sees the plain integer (`#17`, never `#00000017`).\n\nFor the parent task (`every-task-when-they-are-converted-into`) the on-disk\nformat changes from:\n\n    pipelines/<pipeline>/<slug-task-id>/            (today)\n\nto:\n\n    pipelines/<pipeline>/<padded-ref>-<slug-task-id>/   (target)\n\ne.g. `pipelines/engineering/00000017-every-task-when-they-are-converted-into/`.\n\nThis sub-task is the ONE place where the folder-naming contract lives: pure\nhelpers in `core/domain.js` (no fs/git), imported by every other sub-task. Its\ninputs/outputs are the source of truth for the write path, the read/enumerate\npath, the migration, and the UI truncation.\n\n## ACCEPTANCE CRITERIA\n\n- `core/domain.js` exports a `REF_WIDTH` constant (8) that zero-pads the ref for\n  the folder prefix. Width is a single named constant that satisfies \"up to ~10\n  million tasks\".\n- `padRef(n)` returns `String(n).padStart(REF_WIDTH, \"0\")` (e.g. `17` →\n  `00000017`).\n- `taskDirName(pipeline, task, ref)` returns the full on-disk dir name\n  `<padded-ref>-<slug>` (e.g. `engineering`, `every-task-…`, `17` →\n  `00000017-every-task-…`). Pipeline slug + task slug reuse the existing\n  `safeRef`/`taskSlug` helpers.\n- `parseTaskDir(dirName)` reverses it: returns `{ ref: 17, id: \"every-task-…\" }`\n  for a padded dir, and treats any dir that does NOT start with exactly\n  `REF_WIDTH` digits + `-` as a LEGACY unpadded dir (`{ ref: null, id:\n  dirName }`) — so a slug that merely begins with digits (e.g. `2fa-rollout`)\n  is never mis-parsed.\n- `displayRef(ref)` returns the plain integer for UI rendering (leading zeros\n  truncated) and is the single display helper all UI callers use.\n- Unit tests in `src/app/__tests__/bridza-model.test.js` cover: padding,\n  round-trip parse of `taskDirName`, the 10-million width bound, and the legacy\n  no-prefix / leading-digit-slug fallback. `pnpm test` passes, `pnpm lint`\n  passes.\n\nNote: this contract itself writes no folders and touches no existing tasks —\nexisting repos keep current folders until the migration sub-task runs.\n\n## KEY-SHAPE CONSEQUENCE (added after #36)\n\nThe folder name is also the KEY shape used across the project's board state.\n`.bridza/refs.json` stores three maps keyed `\"<pipeline>/<task>\"` — `refs`\n(#numbers), `deleted` (tombstones) and `archived` (board archive state, added\nby #36) — and `.bridza/plan.json` keys `deps`, `est` and milestone `tasks` the\nsame way.\n\nSo this contract must define which of the two forms is the canonical key — the\nplain task id (`every-task-…`) or the padded folder name (`00000017-every-task-…`)\n— and expose ONE helper that every reader and writer of those maps calls.\nRecommendation: keep the plain id as the key (folder names then carry ordering\nonly, and no key rewrite is needed when a folder is renamed); if the padded form\nwins instead, `migration-existing-tasks` must rewrite all three refs.json\nnamespaces plus plan.json in the same commit.\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-19T16:58:34.888Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T16:59:42.137Z",
+          "exit": 0,
+          "files": [],
+          "sessionId": "ses_f4564ffa1ffeoJjUk2SWOMsDTQ",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are an implementer. Implement strictly to the spec; the shortest working diff wins. Reuse what the codebase already has, prefer the …\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n· step · 15349 tokens\n· step · 17448 tokens\n· step · 18330 tokens\n· step · 22721 tokens\nFit check passes: this is a single cohesive implementation (four pure helpers + a constant + unit tests in one file), and spec/acceptance already carve out folder-writing, migration, and UI truncation as separate sub-tasks. Proceeding.\n\n\n· step · 26083 tokens\n· step · 26772 tokens\n\n\n\n· step · 30074 tokens\n\n\n\n· step · 30419 tokens\n· step · 30643 tokens\n· step · 30916 tokens\n· step · 34089 tokens"
+        }
+      ]
+    },
+    "review": {
+      "status": "done",
+      "seconds": 141,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Zero-padded numbered-folder naming contract\n\n## WHAT & WHY\n\nEvery task's on-disk folder must carry the task's project-wide `#ref` at the\nfront, zero-padded to a FIXED width, so the folders sort in generation order\n(creation order) wherever they are listed on disk. The scale target is up to\n~10 million issues/bugs/requests, so the width must comfortably cover eight\ndigits. The padded form is ONLY for the folder name; everyone interacting with\nthe UI sees the plain integer (`#17`, never `#00000017`).\n\nFor the parent task (`every-task-when-they-are-converted-into`) the on-disk\nformat changes from:\n\n    pipelines/<pipeline>/<slug-task-id>/            (today)\n\nto:\n\n    pipelines/<pipeline>/<padded-ref>-<slug-task-id>/   (target)\n\ne.g. `pipelines/engineering/00000017-every-task-when-they-are-converted-into/`.\n\nThis sub-task is the ONE place where the folder-naming contract lives: pure\nhelpers in `core/domain.js` (no fs/git), imported by every other sub-task. Its\ninputs/outputs are the source of truth for the write path, the read/enumerate\npath, the migration, and the UI truncation.\n\n## ACCEPTANCE CRITERIA\n\n- `core/domain.js` exports a `REF_WIDTH` constant (8) that zero-pads the ref for\n  the folder prefix. Width is a single named constant that satisfies \"up to ~10\n  million tasks\".\n- `padRef(n)` returns `String(n).padStart(REF_WIDTH, \"0\")` (e.g. `17` →\n  `00000017`).\n- `taskDirName(pipeline, task, ref)` returns the full on-disk dir name\n  `<padded-ref>-<slug>` (e.g. `engineering`, `every-task-…`, `17` →\n  `00000017-every-task-…`). Pipeline slug + task slug reuse the existing\n  `safeRef`/`taskSlug` helpers.\n- `parseTaskDir(dirName)` reverses it: returns `{ ref: 17, id: \"every-task-…\" }`\n  for a padded dir, and treats any dir that does NOT start with exactly\n  `REF_WIDTH` digits + `-` as a LEGACY unpadded dir (`{ ref: null, id:\n  dirName }`) — so a slug that merely begins with digits (e.g. `2fa-rollout`)\n  is never mis-parsed.\n- `displayRef(ref)` returns the plain integer for UI rendering (leading zeros\n  truncated) and is the single display helper all UI callers use.\n- Unit tests in `src/app/__tests__/bridza-model.test.js` cover: padding,\n  round-trip parse of `taskDirName`, the 10-million width bound, and the legacy\n  no-prefix / leading-digit-slug fallback. `pnpm test` passes, `pnpm lint`\n  passes.\n\nNote: this contract itself writes no folders and touches no existing tasks —\nexisting repos keep current folders until the migration sub-task runs.\n\n## KEY-SHAPE CONSEQUENCE (added after #36)\n\nThe folder name is also the KEY shape used across the project's board state.\n`.bridza/refs.json` stores three maps keyed `\"<pipeline>/<task>\"` — `refs`\n(#numbers), `deleted` (tombstones) and `archived` (board archive state, added\nby #36) — and `.bridza/plan.json` keys `deps`, `est` and milestone `tasks` the\nsame way.\n\nSo this contract must define which of the two forms is the canonical key — the\nplain task id (`every-task-…`) or the padded folder name (`00000017-every-task-…`)\n— and expose ONE helper that every reader and writer of those maps calls.\nRecommendation: keep the plain id as the key (folder names then carry ordering\nonly, and no key rewrite is needed when a folder is renamed); if the padded form\nwins instead, `migration-existing-tasks` must rewrite all three refs.json\nnamespaces plus plan.json in the same commit.\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-19T16:59:42.273Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T17:02:03.061Z",
+          "exit": 0,
+          "files": [
+            "review.md"
+          ],
+          "sessionId": "ses_f4563f88affewmjHgchvMXYikr",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, a…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n· step · 15248 tokens\n· step · 16393 tokens\n· step · 17486 tokens\n· step · 18855 tokens\n· step · 22142 tokens\n\n\n\n· step · 24024 tokens\n· step · 45774 tokens\n· step · 50718 tokens\n· step · 52179 tokens\n· step · 53054 tokens\n· step · 56974 tokens\n· step · 57687 tokens\n· step · 60219 tokens\n· step · 63685 tokens\nThe build commit contains no code. Let me write the review.\n\n\n· step · 65914 tokens\nReview written to `review.md`.\n\n**Verdict: ❌ NOT approved.** The build stage (`39f58fd`) committed **zero code** — commit message literally says \"No file changes\", `metadata.json` records `\"files\": []`. None of `REF_WIDTH`/`padRef`/`taskDirName`/`parseTaskDir`/`displayRef` exist in `core/domain.js` (or anywhere), and `bridza-model.test.js` has no new tests. Every acceptance criterion fails except \"touches no folders\" — which passed only because nothing was done. No over-engineering to flag; the opposite is the issue.\n\nAlso flagged: the spec correctly picked plain-id board keys, but the required \"one helper every refs.json/plan.json reader-writer calls\" was never defined — add it (e.g. `taskKey(pipeline, id)`) on redelivery.\n\nMerge into `main`: `git merge-tree` shows **no conflicts** (clean today), but only because the branch is empty — do not merge until `build` is redone with the helpers + tests.\n· step · 66319 tokens"
+        }
+      ]
+    }
+  },
+  "branch": "bridza/engineering/number-prefix-contract"
 }
