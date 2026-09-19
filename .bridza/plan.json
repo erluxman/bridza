@@ -314,6 +314,70 @@
     "engineering/migration-existing-tasks": {
       "x": 569,
       "y": 1184
+    },
+    "engineering/create-pr-button-in-task-detail": {
+      "x": 342,
+      "y": 2379
+    },
+    "engineering/when-merging-to-main-does-not-happen": {
+      "x": 17,
+      "y": 2465
+    },
+    "engineering/do-not-allow-merge-domain-until-the": {
+      "x": 102,
+      "y": 2501
+    },
+    "engineering/i-should-be-able-to-change-any-details": {
+      "x": 386,
+      "y": 2552
+    },
+    "engineering/archive-tag-backfill-policy": {
+      "x": -331,
+      "y": 2655
+    },
+    "engineering/finalize-merge-style-surface": {
+      "x": 37,
+      "y": 2643
+    },
+    "engineering/merge-method-decision-adr": {
+      "x": 878,
+      "y": 2352
+    },
+    "engineering/merge-strategy-acceptance-matrix": {
+      "x": 630,
+      "y": 2098
+    },
+    "engineering/merge-strategy-goal-ranking": {
+      "x": 754,
+      "y": 1736
+    },
+    "engineering/run-ledger-reachability-contract": {
+      "x": 82,
+      "y": 2162
+    },
+    "engineering/task-branch-deletion-policy": {
+      "x": -466,
+      "y": 1968
+    },
+    "engineering/only-claude-can-auto-advance-opencode": {
+      "x": 1190,
+      "y": 1718
+    },
+    "engineering/a-shortcut-to-search-among-the-tasks-or": {
+      "x": 966,
+      "y": 1464
+    },
+    "engineering/long-press-and-drag-to-create-a": {
+      "x": 738,
+      "y": 1890
+    },
+    "engineering/when-the-inbox-is-0-show-a-confetti": {
+      "x": 778,
+      "y": 1980
+    },
+    "engineering/create-a-setting-page-on-the-bottom-of": {
+      "x": 726,
+      "y": 1614
     }
   },
   "sizes": {
