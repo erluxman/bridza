@@ -44,8 +44,7 @@
     "engineering/create-pr-via-gh-cli": 48,
     "engineering/when-merging-to-main-does-not-happen": 49,
     "engineering/do-not-allow-merge-domain-until-the": 50,
-    "engineering/i-should-be-able-to-change-any-details": 51,
-    "product/this-is-a-test-idea-i-am-just-threading": 52
+    "engineering/i-should-be-able-to-change-any-details": 51
   },
   "deleted": [
     "engineering/truncation-check-idea",
@@ -56,7 +55,8 @@
     "engineering/the-title-is-taking-a-lot-of-vertical-sp",
     "engineering/here-of-now-it-seems-little-bit-confusin",
     "engineering/review-ui-and-ux",
-    "engineering/1when-i-delete-a-pipeline-from-the-left"
+    "engineering/1when-i-delete-a-pipeline-from-the-left",
+    "product/this-is-a-test-idea-i-am-just-threading"
   ],
   "archived": {
     "engineering/card-archiving-is-not-working-when": true,
