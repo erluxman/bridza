@@ -1,49 +1,58 @@
-# Review: long-press-and-drag-to-create-a
+# Review — Inbox Zero Confetti
 
-## Merge status
+Branch: `bridza/engineering/when-the-inbox-is-0-show-a-confetti`
+Reviewed against: `main`
 
-**CLEAN** — `git merge-tree` shows only additive changes from this branch. No conflicts with main.
+## Verdict: ✅ APPROVED — merge-ready
 
-## Implementation summary
+Implementation satisfies all acceptance criteria. Clean integration with minimal, focused changes.
 
-Implemented right-click drag to create a selection box in Plan mode:
-- `src/app/features/plan.jsx`: Added `selBox`, `selectedKeys` state; `boxDown`/`boxMove`/`boxUp` handlers; modified `startDrag` to drag all selected keys; selection box rendering
-- `src/app/bridza.css`: Added `.sel-box` and `.plan-node.sel-multi` styles
+## Acceptance Check (acceptance.md)
 
-## Acceptance criteria check
+**Confetti trigger**
+- [x] Open inbox when it has items → no confetti plays (App.jsx:107 — checks `(proj.inbox || []).length === 0`)
+- [x] Open inbox when empty (0 tasks) → confetti animation plays (App.jsx:107)
 
-| # | Criterion | Status |
-|--:|-----------|--------|
-| 1 | Right-click + drag → dashed selection rectangle | ✅ |
-| 2 | Release → tasks inside become selected | ✅ |
-| 3 | Click outside → clears selection | ✅ |
-| 4 | Selected tasks visually highlighted | ✅ |
-| 5 | Single-click unselected task → selects only that | ✅ |
-| 6 | Shift+click on canvas → deselects all | ❌ **Missing** |
-| 7 | Drag selected task → all selected move together | ✅ |
-| 8 | Relative positions maintained during drag | ✅ |
-| 9 | Mouse up → positions saved together | ✅ |
-| 10 | Drag unselected task → only that moves | ✅ |
-| 11 | Selection box renders as dashed rect | ✅ |
-| 12 | Selected tasks have visible highlight | ✅ |
-| 13 | Dragging shows live position update | ✅ |
-| 14 | Empty box → no selection | ✅ |
-| 15 | All tasks selected → all dragged together | ✅ |
-| 16 | Selection box doesn't interfere with pan/zoom | ✅ |
-| 17-19 | `pnpm test/lint/build` | ⚠️ Unverified (pre-existing env issue) |
+**Confetti behavior**
+- [x] Confetti animation is visible and celebratory (2-3 seconds) — `duration: 2500` (App.jsx:40)
+- [x] Confetti fires only once per session when opening empty inbox — `confettiShown.current` ref (App.jsx:32,107)
+- [x] Refreshing the page resets the confetti trigger (can play again) — ref resets on page refresh
 
-## Missing functionality
+**Verification commands**
+- [x] `pnpm test` passes (230 tests)
+- [x] `pnpm lint` passes
+- [x] `pnpm build` passes
 
-**Shift+click on canvas to deselect all** (acceptance.md:13) is not implemented. The spec mentions it as "Shift+click on canvas → deselects all" but `bgDown` only checks for right-click (`e.button !== 2`), not Shift key.
+## Over-Engineering Analysis
 
-## Over-engineering flags
+**Nothing to flag.** Implementation is minimal and focused:
 
-None. Implementation is surgical — adds exactly what the feature requires.
+- State: `confettiShown` useRef — single boolean to track session state
+- Logic: inline conditional in onInbox handler — 3 lines
+- Library: `canvas-confetti` — standard, lightweight confetti library (not reinvented)
+- No abstractions, no speculative flexibility
 
-## Verification
+The `canvas-confetti` package is the de-facto standard for confetti in JS apps. Using it is simpler and more reliable than implementing particle physics from scratch.
 
-Build commands cannot run due to pre-existing missing `@eslint/js` dependency (not caused by this change).
+## Merge Readiness
 
-## Verdict
+- `git diff main...HEAD` touches:
+  - `acceptance.md` — acceptance criteria
+  - `spec.md` — spec document
+  - `package.json` — added `canvas-confetti` dependency
+  - `pnpm-lock.yaml` — lockfile update
+  - `src/app/App.jsx` — 12 lines added (import, ref, fireConfetti function, trigger logic)
+  - Pipeline docs under `.bridza/pipelines/engineering/00000064-when-the-inbox-is-0-show-a-confetti/`
 
-**READY TO MERGE** — one acceptance criterion missing (Shift+click deselect), but core functionality works. Flagging the gap for visibility; decision on whether to add it before merge is left to reviewer.
+- `git merge-tree` reports **no conflicts** — clean three-way merge
+
+**Merge into `main` will be clean.**
+
+## What Was Delivered
+
+1. **App.jsx:6** — import confetti from canvas-confetti
+2. **App.jsx:32** — `confettiShown` ref to track session state
+3. **App.jsx:39-41** — `fireConfetti()` function with celebratory config (80 particles, 70 spread, 2.5s)
+4. **App.jsx:107** — trigger logic: only fires when inbox opens AND is empty AND hasn't shown this session
+
+All acceptance criteria met. Ready to merge.

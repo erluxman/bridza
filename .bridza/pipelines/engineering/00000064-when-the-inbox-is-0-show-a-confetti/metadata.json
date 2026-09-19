@@ -18,5 +18,72 @@
   "routing": {},
   "status": "in-progress",
   "finalized": false,
-  "tracking": {}
+  "tracking": {
+    "spec": {
+      "status": "done",
+      "seconds": 69,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: When the inbox is 0, show a confetti animation when I open the inbox",
+          "startedAt": "2026-09-19T18:10:59.856Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T18:12:08.589Z",
+          "exit": 0,
+          "files": [
+            "acceptance.md",
+            "spec.md"
+          ],
+          "sessionId": "ses_f4522b347ffe0yXfFudrNb3GRu",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n\n\n\n· step · 17646 tokens\n\n\n\n· step · 21968 tokens\n\n\n\n· step · 23058 tokens\n\n\n\n· step · 23669 tokens\n\n\n\n· step · 24594 tokens\n\n\n\n· step · 24691 tokens\n\n\nDone. Created `spec.md` and `acceptance.md` for the inbox zero confetti feature.\n· step · 24785 tokens"
+        }
+      ]
+    },
+    "build": {
+      "status": "done",
+      "seconds": 207,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: When the inbox is 0, show a confetti animation when I open the inbox\n\nWhen the inbox is 0, so confetti animation when I open the inbox.\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-19T18:12:12.382Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T18:15:38.968Z",
+          "exit": 0,
+          "files": [
+            "package.json",
+            "pnpm-lock.yaml",
+            "src/app/App.jsx"
+          ],
+          "sessionId": "ses_f452197e7ffeGz2kgZw7y981S8",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are an implementer. Implement strictly to the spec; the shortest working diff wins. Reuse what the codebase already has, prefer the …\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n\n\n\n· step · 17842 tokens\n\n\n\n· step · 22040 tokens\n\n\n\n· step · 22596 tokens\n\n\n\n· step · 29963 tokens\n\n\n\n· step · 31075 tokens\n\n\n\n· step · 32483 tokens\n\n\n\n· step · 32592 tokens\n\n\n\n· step · 32722 tokens\n\n\n\n· step · 32907 tokens\n\n\n\n· step · 33001 tokens\n(empty)\n\n<｜DSML｜function_calls\n· step · 41465 tokens\n· step · 38622 tokens\nDone. Added `canvas-confetti` dependency, imported it in `App.jsx`, tracked confetti state with a ref to fire only once per session, and triggered it when inbox opens with zero items. Build, lint, and tests pass.\n· step · 38940 tokens"
+        }
+      ]
+    },
+    "review": {
+      "status": "done",
+      "seconds": 573,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: When the inbox is 0, show a confetti animation when I open the inbox\n\nWhen the inbox is 0, so confetti animation when I open the inbox.\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-19T18:15:39.119Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T18:25:11.874Z",
+          "exit": 0,
+          "files": [
+            "review.md"
+          ],
+          "sessionId": "ses_f451e7060ffeBuThKOQ4f50B5S",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, a…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n\n\n\n· step · 17839 tokens\n· step · 25065 tokens\nI'll review the implementation against acceptance.md and check merge readiness.\n· step · 27037 tokens\n· step · 27755 tokens\n· step · 32210 tokens\n· step · 32692 tokens\n\n\n\n· step · 29529 tokens\n\n\n\n· step · 29537 tokens\n· step · 34678 tokens\n\n\n\n· step · 31835 tokens\n\n\n\n· step · 31819 tokens\nReview complete. ✅ **Merge-ready.**\n\n**Acceptance:** All criteria met — confetti fires only when inbox opens empty, once per session, with 2.5s animation.\n\n**Tests:** pnpm test (230), pnpm lint, pnpm build all pass.\n\n**Merge:** No conflicts. Clean into `main`.\n\n**Over-engineering:** None. Uses standard `canvas-confetti` library, minimal inline logic, single ref for state.\n\nSee `review.md` for full details.\n· step · 37256 tokens"
+        }
+      ]
+    }
+  }
 }

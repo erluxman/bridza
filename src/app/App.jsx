@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import "./bridza.css";
 import * as api from "./api/client.js";
+import confetti from "canvas-confetti";
 import { LS, readRecents, today } from "./lib/format.js";
 import { useColWidth, ColGrip } from "./ui.jsx";
 import { Welcome, WelcomeDialog, PipelinePicker, NewPipelineModal, NewTaskModal } from "./features/onboarding.jsx";
@@ -28,12 +29,16 @@ export default function App() {
   const [flowOpen, setFlowOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
+  const confettiShown = useRef(false);
   const flash = (m, ms = 2400) => {
     setToast(m);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(""), ms);
   };
   const collapse = (v) => { setSideCollapsed(v); localStorage.setItem(LS.side, v ? "1" : "0"); };
+  const fireConfetti = () => {
+    confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, duration: 2500 });
+  };
 
   // Poll discipline: background polls never stack (a slow server would
   // snowball), but an EXPLICIT refresh — switching projects, after a mutation —
@@ -99,7 +104,7 @@ export default function App() {
         <Sidebar proj={proj} running={running} runningTasks={runningTasks} active={activePipe} activeTask={activeTask} dir={dir} onChange={refresh} flash={flash} onPipe={(id) => { setActivePipe(id); setActiveTask(""); setFlowOpen(false); setInboxOpen(false); setPlanOpen(false); }}
           onNewPipe={() => setModal({ type: "pipeline" })} onClose={closeProject} onPick={pick} recents={recents} onOpen={openDir}
           onOpenTask={(pid, tid) => { setInboxOpen(false); setFlowOpen(false); setPlanOpen(false); setActivePipe(pid); setActiveTask(tid); }}
-          onCollapse={() => collapse(true)} inboxCount={(proj.inbox || []).length} inboxActive={inboxOpen} onInbox={() => { setInboxOpen(true); setActiveTask(""); setFlowOpen(false); setPlanOpen(false); }}
+          onCollapse={() => collapse(true)} inboxCount={(proj.inbox || []).length} inboxActive={inboxOpen} onInbox={() => { setInboxOpen(true); setActiveTask(""); setFlowOpen(false); setPlanOpen(false); if (!confettiShown.current && (proj.inbox || []).length === 0) { confettiShown.current = true; fireConfetti(); } }}
           planActive={planOpen} onPlan={() => { setPlanOpen(true); setInboxOpen(false); setFlowOpen(false); setActiveTask(""); }} />
       )}
       {!sideCollapsed && <ColGrip side="left" {...sideGrip} style={{ left: sideW - 3 }} />}
