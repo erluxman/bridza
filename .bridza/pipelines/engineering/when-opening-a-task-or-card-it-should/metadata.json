@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "when-opening-a-task-or-card-it-should",
+  "pipeline": "engineering",
+  "title": "When opening a task or card, it should not auto-advance for the first step.",
+  "ref": 39,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/when-opening-a-task-or-card-it-should",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
