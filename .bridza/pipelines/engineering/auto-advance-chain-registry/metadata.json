@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "id": "auto-advance-chain-registry",
+  "pipeline": "engineering",
+  "title": "Auto-advance chain registry (server truth)",
+  "type": "subtask",
+  "flow": "feature",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": ["spec", "build", "review"],
+  "tracking": {},
+  "target": "main"
+}

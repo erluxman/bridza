@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "id": "auto-advance-state-truth-toggle",
+  "pipeline": "engineering",
+  "title": "Auto-advance switch and run-log card reflect server truth",
+  "type": "subtask",
+  "flow": "bugfix",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": ["repro", "fix", "fix-review"],
+  "tracking": {},
+  "target": "main"
+}

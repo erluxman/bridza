@@ -68,6 +68,24 @@
         "engineering/highlight-running-task-in-sidebar"
       ],
       "any": []
+    },
+    "engineering/auto-advance-state-truth-toggle": {
+      "all": [
+        "engineering/auto-advance-chain-registry"
+      ],
+      "any": []
+    },
+    "engineering/auto-advance-progress-badges": {
+      "all": [
+        "engineering/auto-advance-chain-registry"
+      ],
+      "any": []
+    },
+    "engineering/auto-advance-stop-and-resume": {
+      "all": [
+        "engineering/auto-advance-chain-registry"
+      ],
+      "any": []
     }
   },
   "milestones": [
@@ -140,6 +158,18 @@
       "tasks": [
         "engineering/highlight-running-task-in-sidebar",
         "engineering/url-path-sync-for-selected-task"
+      ],
+      "needs": []
+    },
+    {
+      "id": "ms-auto-advance-transparency",
+      "title": "Auto-advance transparency",
+      "due": "",
+      "tasks": [
+        "engineering/auto-advance-chain-registry",
+        "engineering/auto-advance-state-truth-toggle",
+        "engineering/auto-advance-progress-badges",
+        "engineering/auto-advance-stop-and-resume"
       ],
       "needs": []
     }
@@ -366,6 +396,10 @@
     "engineering/implement-merge-strategy": 4,
     "engineering/verify-merge-strategy": 2,
     "engineering/highlight-running-task-in-sidebar": 2,
-    "engineering/url-path-sync-for-selected-task": 3
+    "engineering/url-path-sync-for-selected-task": 3,
+    "engineering/auto-advance-chain-registry": 5,
+    "engineering/auto-advance-state-truth-toggle": 5,
+    "engineering/auto-advance-progress-badges": 3,
+    "engineering/auto-advance-stop-and-resume": 4
   }
 }

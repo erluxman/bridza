@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "id": "auto-advance-progress-badges",
+  "pipeline": "engineering",
+  "title": "Auto-advance progress badges on board & plan cards",
+  "type": "subtask",
+  "flow": "feature",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": ["spec", "build", "review"],
+  "tracking": {},
+  "target": "main"
+}

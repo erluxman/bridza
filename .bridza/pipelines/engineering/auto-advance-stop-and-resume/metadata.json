@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "id": "auto-advance-stop-and-resume",
+  "pipeline": "engineering",
+  "title": "Honest stopped state and exact resume for auto-advance",
+  "type": "subtask",
+  "flow": "bugfix",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": ["repro", "fix", "fix-review"],
+  "tracking": {},
+  "target": "main"
+}
