@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 69,
+  "next": 70,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -59,7 +59,8 @@
     "engineering/create-a-setting-page-on-the-bottom-of": 65,
     "engineering/logo-animation-component": 66,
     "engineering/logo-first-launch-detection": 67,
-    "engineering/logo-welcome-screen-integration": 68
+    "engineering/logo-welcome-screen-integration": 68,
+    "engineering/vs-code-like-setting-page": 69
   },
   "deleted": [
     "engineering/truncation-check-idea",

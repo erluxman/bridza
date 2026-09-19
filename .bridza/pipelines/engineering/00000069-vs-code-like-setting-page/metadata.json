@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "vs-code-like-setting-page",
+  "pipeline": "engineering",
+  "title": "VS code like setting page",
+  "ref": 69,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/vs-code-like-setting-page",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
