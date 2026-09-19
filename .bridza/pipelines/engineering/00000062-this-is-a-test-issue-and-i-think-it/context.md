@@ -1,3 +1,0 @@
-# This is a test issue and I think it should have respective…
-
-This is a test issue and I think it should have respective things happening in that one.

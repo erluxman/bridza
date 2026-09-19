@@ -53,8 +53,7 @@
     "engineering/run-ledger-reachability-contract": 58,
     "engineering/task-branch-deletion-policy": 59,
     "engineering/only-claude-can-auto-advance-opencode": 60,
-    "engineering/a-shortcut-to-search-among-the-tasks-or": 61,
-    "engineering/this-is-a-test-issue-and-i-think-it": 62
+    "engineering/a-shortcut-to-search-among-the-tasks-or": 61
   },
   "deleted": [
     "engineering/truncation-check-idea",
@@ -66,7 +65,8 @@
     "engineering/here-of-now-it-seems-little-bit-confusin",
     "engineering/review-ui-and-ux",
     "engineering/1when-i-delete-a-pipeline-from-the-left",
-    "product/this-is-a-test-idea-i-am-just-threading"
+    "product/this-is-a-test-idea-i-am-just-threading",
+    "engineering/this-is-a-test-issue-and-i-think-it"
   ],
   "archived": {
     "engineering/card-archiving-is-not-working-when": true,
