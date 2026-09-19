@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "do-not-allow-merge-domain-until-the",
+  "pipeline": "engineering",
+  "title": "Do not allow merge domain until the merge is clear and obvious without any issue.",
+  "ref": 50,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/do-not-allow-merge-domain-until-the",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
