@@ -98,6 +98,13 @@
       "any": [
         "engineering/better-merging-strategy-to-reference"
       ]
+    },
+    "engineering/logo-welcome-screen-integration": {
+      "all": [
+        "engineering/logo-first-launch-detection",
+        "engineering/logo-animation-component"
+      ],
+      "any": []
     }
   },
   "milestones": [
@@ -198,6 +205,17 @@
       "tasks": [
         "engineering/create-pr-browser-compose-link",
         "engineering/create-pr-via-gh-cli"
+      ],
+      "needs": []
+    },
+    {
+      "id": "ms-logo-first-launch",
+      "title": "Logo animation on first launch",
+      "due": "",
+      "tasks": [
+        "engineering/logo-first-launch-detection",
+        "engineering/logo-animation-component",
+        "engineering/logo-welcome-screen-integration"
       ],
       "needs": []
     }
@@ -490,6 +508,9 @@
     "engineering/auto-advance-progress-badges": 3,
     "engineering/auto-advance-stop-and-resume": 4,
     "engineering/create-pr-browser-compose-link": 3,
-    "engineering/create-pr-via-gh-cli": 4
+    "engineering/create-pr-via-gh-cli": 4,
+    "engineering/logo-first-launch-detection": 1,
+    "engineering/logo-animation-component": 2,
+    "engineering/logo-welcome-screen-integration": 2
   }
 }

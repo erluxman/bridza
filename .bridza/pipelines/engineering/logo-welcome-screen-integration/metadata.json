@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "id": "logo-welcome-screen-integration",
+  "pipeline": "engineering",
+  "title": "Integrate animated logo into Welcome screen on first launch",
+  "type": "subtask",
+  "status": "pending",
+  "finalized": false,
+  "stages": ["spec", "build", "review"],
+  "tracking": {}
+}

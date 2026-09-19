@@ -53,6 +53,16 @@ textarea.input { resize: vertical; min-height: 64px; }
 .side { background: var(--bg-1); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .side-hd { padding: 14px 14px 10px; border-bottom: 1px solid var(--line); }
 .brand { font-family: "Space Grotesk", var(--sans); font-weight: 700; letter-spacing: .3px; font-size: 16px; }
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  15% { transform: scale(1.15); }
+  30% { transform: scale(1); }
+  45% { transform: scale(1.12); }
+  60% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .brand.pulse { animation: heartbeat 1.2s ease-in-out 3; }
+}
 .proj-switch { margin-top: 10px; position: relative; }
 .proj-btn { width: 100%; justify-content: space-between; background: var(--bg-2); }
 .proj-menu { position: absolute; top: calc(100% + 5px); left: 0; right: 0; z-index: 30; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 6px; box-shadow: 0 14px 40px #000a; }

@@ -30,6 +30,11 @@ export default function App() {
   const [inboxOpen, setInboxOpen] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
   const confettiShown = useRef(false);
+  // The logo heartbeats every time we land back on the home board (and on the
+  // first render, which is home) — a small pull of focus after a detour.
+  const [logoPulse, setLogoPulse] = useState(0);
+  const atHome = !planOpen && !inboxOpen && !flowOpen && !activeTask;
+  useEffect(() => { if (atHome) setLogoPulse((n) => n + 1); }, [atHome]);
   const flash = (m, ms = 2400) => {
     setToast(m);
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -101,7 +106,7 @@ export default function App() {
   return (
     <div className={"app" + (sideCollapsed ? " side-collapsed" : "")} style={sideCollapsed ? undefined : { gridTemplateColumns: `${sideW}px 1fr`, position: "relative" }}>
       {!sideCollapsed && (
-        <Sidebar proj={proj} running={running} runningTasks={runningTasks} active={activePipe} activeTask={activeTask} dir={dir} onChange={refresh} flash={flash} onPipe={(id) => { setActivePipe(id); setActiveTask(""); setFlowOpen(false); setInboxOpen(false); setPlanOpen(false); }}
+        <Sidebar proj={proj} running={running} runningTasks={runningTasks} active={activePipe} activeTask={activeTask} pulseKey={logoPulse} dir={dir} onChange={refresh} flash={flash} onPipe={(id) => { setActivePipe(id); setActiveTask(""); setFlowOpen(false); setInboxOpen(false); setPlanOpen(false); }}
           onNewPipe={() => setModal({ type: "pipeline" })} onClose={closeProject} onPick={pick} recents={recents} onOpen={openDir}
           onOpenTask={(pid, tid) => { setInboxOpen(false); setFlowOpen(false); setPlanOpen(false); setActivePipe(pid); setActiveTask(tid); }}
           onCollapse={() => collapse(true)} inboxCount={(proj.inbox || []).length} inboxActive={inboxOpen} onInbox={() => { setInboxOpen(true); setActiveTask(""); setFlowOpen(false); setPlanOpen(false); if (!confettiShown.current && (proj.inbox || []).length === 0) { confettiShown.current = true; fireConfetti(); } }}
