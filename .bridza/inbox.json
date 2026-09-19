@@ -2,6 +2,12 @@
   "v": 1,
   "items": [
     {
+      "id": "in-qv1u5c",
+      "kind": "idea",
+      "text": "This is a test idea. I am just threading it to test.",
+      "time": "2026-09-19T17:05:49.107Z"
+    },
+    {
       "id": "in-fvpqpv",
       "kind": "idea",
       "text": "There should be a search button somewhere or command F should work as find where I can search and find the task with certain text in them from the list of all the tasks on the Kanban.",
