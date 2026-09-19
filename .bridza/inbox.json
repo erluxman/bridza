@@ -2,6 +2,12 @@
   "v": 1,
   "items": [
     {
+      "id": "in-qtaaz2",
+      "kind": "idea",
+      "text": "This is a test issue and I think it should have respective things happening in that one.",
+      "time": "2026-09-19T18:03:42.273Z"
+    },
+    {
       "id": "in-n88jle",
       "kind": "idea",
       "text": "When the inbox is 0, so confetti animation when I open the inbox.",
