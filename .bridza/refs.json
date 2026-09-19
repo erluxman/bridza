@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 46,
+  "next": 47,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -38,7 +38,8 @@
     "engineering/auto-advance-chain-registry": 42,
     "engineering/auto-advance-progress-badges": 43,
     "engineering/auto-advance-state-truth-toggle": 44,
-    "engineering/auto-advance-stop-and-resume": 45
+    "engineering/auto-advance-stop-and-resume": 45,
+    "engineering/create-pr-button-in-task-detail": 46
   },
   "deleted": [
     "engineering/truncation-check-idea",

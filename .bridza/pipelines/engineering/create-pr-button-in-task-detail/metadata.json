@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "id": "create-pr-button-in-task-detail",
+  "pipeline": "engineering",
+  "title": "Create PR button in task detail alongside merge with main.",
+  "ref": 46,
+  "type": "idea",
+  "flow": "dissection",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/create-pr-button-in-task-detail",
+  "target": "main",
+  "stages": [
+    "dissect"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
