@@ -416,10 +416,12 @@ test("revise rolls a stage back to idle", async ({ page }) => {
   await expect(page.locator(".toast")).toContainText(/reopened/i, { timeout: 30_000 });
 });
 
-test("auto-advance drives every stage to done (on by default — no switch click)", async ({ page }) => {
+test("auto-advance carries the task to done once a stage is started by hand — opening starts nothing", async ({ page }) => {
   await openTask(page);
+  await expect(page.locator(".term")).toHaveCount(0);   // #39 — opening ran nothing
+  await page.getByRole("button", { name: /Run (stage|again)/ }).first().click();   // the explicit start
   await expect(page.locator(".stage .tag.done")).toHaveCount(3, { timeout: 120_000 });
-  await expect(page.locator(".term")).toBeVisible();   // the run-log pane is up
+  await expect(page.locator(".term").first()).toBeVisible();   // the run-log pane is up
 });
 
 test("a throwaway task can be created and deleted (git history kept)", async ({ page }) => {
@@ -431,9 +433,9 @@ test("a throwaway task can be created and deleted (git history kept)", async ({ 
   await modal.locator("select").selectOption("feature");
   await modal.getByRole("button", { name: "Create", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Throwaway" })).toBeVisible();
-  // auto-advance drives the fresh task to done on its own — wait for it so the
-  // delete below never races a live background run on that branch
-  await expect(page.locator(".stage .tag.done")).toHaveCount(3, { timeout: 30_000 });
+  // #39 — a freshly opened task runs nothing on its own, so there's no live
+  // background run for the delete below to race
+  await expect(page.locator(".stage .tag.done")).toHaveCount(0);
   page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: /Delete task/ }).click();
   await expect(page.locator(".kcard", { hasText: "Throwaway" })).toHaveCount(0, { timeout: 20_000 });

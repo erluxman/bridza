@@ -229,10 +229,12 @@ test("a delivered task follows on into its handoff flow, gated on the source", a
   await expect(followBtn).toBeVisible();          // handoff declared by the flow
   await expect(followBtn).toBeDisabled();         // …but only after delivery
 
-  // ⚡ auto-advance starts ON by default — no switch click needed; the run-log
-  // pane shows what the runner is doing in the background
+  // #39 — opening the task ran nothing: start the first stage by hand, and ⚡
+  // auto-advance (on by default) carries the rest; the run-log pane shows it
+  await expect(page.locator(".term")).toHaveCount(0);
+  await page.getByRole("button", { name: /Run (stage|again)/ }).first().click();
   await expect(page.locator(".stage .tag.done")).toHaveCount(3, { timeout: 120_000 });
-  await expect(page.locator(".term")).toBeVisible();
+  await expect(page.locator(".term").first()).toBeVisible();
 
   await expect(followBtn).toBeEnabled();
   await followBtn.click();

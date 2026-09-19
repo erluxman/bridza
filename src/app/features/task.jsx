@@ -12,6 +12,10 @@ import { Hamburger, ColGrip, useColWidth, Kv, Expandable } from "../ui.jsx";
 import { DiffView, FileModal } from "./diff.jsx";
 import { TermDrawer } from "./term.jsx";
 
+// where a task's auto-advance setting is remembered (per task, like the other
+// view preferences in this screen)
+const autoKey = (key) => "bridza.autoAdvance." + key;
+
 export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, onBack, onChange, onOpenTask, flash, collapsed, onExpandSide }) {
   const stageObjs = task.stages.map((id) => (pipeline.stages || []).find((s) => s.id === id) || { id, name: id });
   // flow handoff: when this task's flow declares `next` and this task is
@@ -47,7 +51,11 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   const [resolveOpen, setResolveOpen] = useState(false);
   const [conflict, setConflict] = useState(null);   // #15 — paused merge conflict { files, dir, target }
   const [fileOpen, setFileOpen] = useState(null);   // #7 — path of a file opened in the editor
-  const [automating, setAutomating] = useState(false);
+  const [automating, setAutomating] = useState(false);   // a chained run is live right now
+  // …distinct from the auto-advance SETTING: on by default, per task, remembered
+  // across navigation/reload. It only says whether a finished stage may carry the
+  // task on to the next one; it never starts anything by itself.
+  const [autoAdvance, setAutoAdvance] = useState(true);
   // ONE task-level terminal log: everything any run of this task prints (stage
   // runs + auto-advance) lands here — shown in the auto-advance card. The log
   // lives in a module store keyed pipeline/task, so it survives navigating away
@@ -72,7 +80,14 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   // changing task: restore THIS task's background-run log from the module store
   // instead of wiping it — the pane keeps showing what the runner did/does even
   // if you left and came back mid-run. Run-related state always resets.
-  useEffect(() => { setTaskLog(readLog(key)); setShowTerm(false); setAutomating(false); }, [key]);
+  useEffect(() => {
+    setTaskLog(readLog(key)); setShowTerm(false); setAutomating(false);
+    setAutoAdvance(localStorage.getItem(autoKey(key)) !== "0");   // default ON
+  }, [key]);
+  const toggleAutoAdvance = (on) => {
+    setAutoAdvance(on);
+    try { localStorage.setItem(autoKey(key), on ? "1" : "0"); } catch (e) { /* ignore */ }
+  };
   useEffect(() => {
     let on = true;
     api.getPlan(dir).then((r) => { if (on) setPlan((r && r.plan) || { deps: {}, milestones: [], pos: {}, links: {} }); });
@@ -91,9 +106,8 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   // The brief (context.md): the task's intent in full. Not part of the project
   // state payload — it's prose per task, loaded on open.
   const [brief, setBrief] = useState("");
-  const [briefLoaded, setBriefLoaded] = useState(false);   // auto-advance waits for this: prompts carry the intent
-  const loadBrief = useCallback(() => api.getContext(dir, pipeline.id, task.id).then((r) => { setBrief((r && r.text) || ""); setBriefLoaded(true); }), [dir, pipeline.id, task.id]);
-  useEffect(() => { setBrief(""); setBriefLoaded(false); loadBrief(); }, [loadBrief]);
+  const loadBrief = useCallback(() => api.getContext(dir, pipeline.id, task.id).then((r) => setBrief((r && r.text) || "")), [dir, pipeline.id, task.id]);
+  useEffect(() => { setBrief(""); loadBrief(); }, [loadBrief]);
   // context.md opens with "# <title>"; the title is already in the header and
   // in the prompt, so strip it and keep the body.
   const briefBody = String(brief || "").replace(/^\s*#[^\n]*\n+/, "").trim();
@@ -197,12 +211,17 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   };
   // Automate: run every stage of this task back-to-back. The prompt for each
   // stage is assembled from the task intent + the stage's own hint/system prompt.
-  const automate = async () => {
+  // `from` is the first stage auto-advance may touch: chaining after a finished
+  // stage passes the NEXT index, so an earlier (or never-started) stage is never
+  // pulled into the run — you can't auto-advance backwards, least of all into
+  // the first stage.
+  const automate = async (from = 0) => {
     if (automating) return;
-    // Send ALL stages in order — the SERVER resumes from the first incomplete
-    // one by re-checking the branch tip per stage (this client snapshot can be
-    // stale). NO model is ever passed — each tool runs with its own default.
-    const bodies = stageObjs.map((def) => ({
+    // Send every stage from `from` on, in order — the SERVER resumes from the
+    // first incomplete one by re-checking the branch tip per stage (this client
+    // snapshot can be stale). NO model is ever passed — each tool runs with its
+    // own default.
+    const bodies = stageObjs.slice(from).map((def) => ({
       pipeline: pipeline.id, task: task.id, stage: def.id,
       // remember the agent each stage last ran on (falls back to the stage
       // default, then opencode) so auto-advance doesn't reset every stage
@@ -231,22 +250,24 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
     else if (end) flash(`Automate stopped at ${end.stoppedAt || "?"}: ${end.error || "failed"}`, 6000);
   };
 
-  // ⚡ AUTO-ADVANCE ON BY DEFAULT: a task with stages still to run starts
-  // advancing the moment it opens — exactly once per task, and only after the
-  // brief is loaded so every stage prompt carries the captured intent. Opening
-  // a task whose run is still live in the background (this window or another),
-  // or one that's already fully done, never restarts anything; the topbar
-  // switch still lets you re-kick advancing after a stop.
-  const autoStartedRef = useRef(null);
-  useEffect(() => {
-    if (autoStartedRef.current === key) return;
-    if (task.finalized || !briefLoaded) return;
-    autoStartedRef.current = key;
-    if (automating) return;   // already advancing (user kicked it manually first)
-    const work = task.stages.some((s) => (task.tracking[s] || {}).status !== "done");
-    const liveHere = runningStages && [...runningStages].some((k) => k.startsWith(key + "/"));
-    if (work && !liveHere) automate();
-  }, [key, briefLoaded, automating, task.finalized, task.stages, task.tracking, runningStages]);
+  // ⚡ AUTO-ADVANCE IS A SETTING, ON BY DEFAULT — never an auto-START. Opening a
+  // task runs nothing: a stage only begins because a human pressed ▸ Run on it.
+  // Once a stage the user started finishes, this carries the task FORWARD
+  // through the stages after it (#39). So the first stage of a task always waits
+  // for a person, and a failed/stopped stage doesn't silently chain on.
+  const stageDone = (end, stageId) => {
+    onChange(); loadTimeline();
+    if (!autoAdvance || automating || task.finalized) return;
+    if (!end || end.status !== "done") return;
+    const next = task.stages.indexOf(stageId) + 1;
+    if (next <= 0 || next >= task.stages.length) return;   // unknown stage, or the last one
+    if (task.stages.slice(next).every((s) => (task.tracking[s] || {}).status === "done")) return;
+    // another stage of this task already running (another window) → let it be.
+    // The stage that just finished doesn't count: this snapshot of the live set
+    // can still list it, the run is over.
+    const liveHere = runningStages && [...runningStages].some((k) => k.startsWith(key + "/") && k !== key + "/" + stageId);
+    if (!liveHere) automate(next);
+  };
 
   // #15 — commit history (the timeline) leads the rail, ahead of blast radius.
   const timelineCard = (
@@ -333,8 +354,8 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
             }} title="Kill this task's live run(s) — the stop is recorded on the timeline">⏹ Stop</button>
           )}
           <button className="btn" onClick={openVscode} title="Open this task's branch worktree in a new VS Code window"><span style={{ color: "var(--accent)" }}>⧉</span> Open in VS Code</button>
-          <label className="switch" title="Auto-advance: AI runs each remaining stage once the previous one finishes (keeps going in the background)">
-            <input type="checkbox" checked={automating} disabled={automating || task.finalized} onChange={(e) => e.target.checked && automate()} />
+          <label className="switch" title="Auto-advance: once a stage you started finishes, AI runs each remaining stage after it (keeps going in the background). Start the task yourself with ▸ Run on its first stage — this never starts anything on its own.">
+            <input type="checkbox" checked={autoAdvance} disabled={automating || task.finalized} onChange={(e) => toggleAutoAdvance(e.target.checked)} />
             <span className="slider" /><span className="switch-lbl">{automating ? "⚡ Auto-advancing…" : "⚡ Auto-advance"}</span>
           </label>
           {handoff && (
@@ -362,7 +383,7 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
             {runLogCard}
             {(() => {
               const records = buildStageRecords(pipeline, task, timeline, runningStages, stageTime);
-              const runner = { dir, pipeline, task, tools, flash, brief: briefBody, onLog: appendLog, onActivity: markActivity, onDone: () => { onChange(); loadTimeline(); }, runningStages };
+              const runner = { dir, pipeline, task, tools, flash, brief: briefBody, onLog: appendLog, onActivity: markActivity, onDone: stageDone, runningStages };
               const shared = { onDiff: setDiffCommit, onOpenFile: setFileOpen, runner };
               const activeId = activeStage || openStage || (records[0] && records[0].id);
               if (view === "inspector") return <InspectorView records={records} activeId={activeId} setActiveId={setActiveStage} {...shared} />;
@@ -384,7 +405,7 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
               live={runningStages && runningStages.has(pipeline.id + "/" + task.id + "/" + def.id)} brief={briefBody}
               tools={tools} seconds={stageTime[def.id] || 0} open={openStage === def.id} inputFiles={inputFiles} onOpenFile={setFileOpen} onActivity={markActivity}
               onToggle={() => setOpenStage(openStage === def.id ? "" : def.id)}
-              onDone={() => { onChange(); loadTimeline(); }} flash={flash} onDiff={setDiffCommit} resultFor={resultFor} onLog={appendLog} />
+              onDone={stageDone} flash={flash} onDiff={setDiffCommit} resultFor={resultFor} onLog={appendLog} />
             );
           })}
         </div>

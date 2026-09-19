@@ -18,5 +18,102 @@
   "routing": {},
   "status": "in-progress",
   "finalized": false,
-  "tracking": {}
+  "tracking": {
+    "repro": {
+      "status": "done",
+      "seconds": 306,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: When opening a task or card, it should not auto-advance for the first step.\n\nWhen I open a task, it should not auto-advance just by opening it. Once I start it, it should auto-advance the stages in it. If auto-advance is enabled, I mean by default it is enabled, but if it is turned off, it should not auto-advance. But auto-advance only works when going from any task which is not the first task. You cannot auto-advance to the first task.\n Thank you.",
+          "startedAt": "2026-09-19T05:12:17.764Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: When opening a task or card, it should not auto-advance for the first step.\n\nWhen I open a task, it should not auto-advance just by opening it. Once I start it, it should auto-advance the stages in it. If auto-advance is enabled, I mean by default it is enabled, but if it is turned off, it should not auto-advance. But auto-advance only works when going from any task which is not the first task. You cannot auto-advance to the first task.\n Thank you.\n\nBy auto advance, I don't mean the configuration, I mean it should not auto start. It should have the configuration auto advance by default, but when I open the card, it should not auto start at any steps.",
+          "startedAt": "2026-09-19T05:14:24.227Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: When opening a task or card, it should not auto-advance for the first step.\n\nWhen I open a task, it should not auto-advance just by opening it. Once I start it, it should auto-advance the stages in it. If auto-advance is enabled, I mean by default it is enabled, but if it is turned off, it should not auto-advance. But auto-advance only works when going from any task which is not the first task. You cannot auto-advance to the first task.\n Thank you.\n\nBy auto advance, I don't mean the configuration, I mean it should not auto start. It should have the configuration auto advance by default, but when I open the card, it should not auto start at any steps.",
+          "startedAt": "2026-09-19T05:18:42.671Z",
+          "status": "running"
+        },
+        {
+          "tool": "claude",
+          "model": "sonnet",
+          "prompt": "Task: When opening a task or card, it should not auto-advance for the first step.\n\nWhen I open a task, it should not auto-advance just by opening it. Once I start it, it should auto-advance the stages in it. If auto-advance is enabled, I mean by default it is enabled, but if it is turned off, it should not auto-advance. But auto-advance only works when going from any task which is not the first task. You cannot auto-advance to the first task.\n Thank you.\n\nBy auto advance, I don't mean the configuration, I mean it should not auto start. It should have the configuration auto advance by default, but when I open the card, it should not auto start at any steps.",
+          "startedAt": "2026-09-19T05:18:53.516Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T05:21:42.999Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/when-opening-a-task-or-card-it-should/repro/outputs/repro.md"
+          ],
+          "sessionId": null,
+          "error": null,
+          "log": "$ claude -p \"Task: When opening a task or card, it should not auto-advance for the first step.\\n\\nWhen I open a task, it should not auto-advance just by opening it. Once I …\" --permission-mode acceptEdits --model sonnet --append-system-prompt \"You are a debugger. Reproduce the reported bug: find the failing path, capture exact steps/inputs and the observed vs expected behavior, and identify the roo…\"\nCan't get shell approval for running vitest in this session — the repro is fully grounded in code inspection instead (exact lines quoted above), which is sufficient for the doc.\n\nrepro.md written to `.bridza/pipelines/engineering/when-opening-a-task-or-card-it-should/repro/outputs/repro.md`. Root cause: mount-time `useEffect` in `src/app/features/task.jsx:234-249` calls `automate()` for any task with incomplete stages — including ones never started — with no server-side backstop either (`server/bridza-run.js:910-941` runs from stage index 0 unconditionally). No fix applied, per stage scope."
+        }
+      ]
+    },
+    "fix": {
+      "status": "done",
+      "seconds": 614,
+      "runs": [
+        {
+          "tool": "claude",
+          "model": "opus",
+          "prompt": "Task: When opening a task or card, it should not auto-advance for the first step.\n\nWhen I open a task, it should not auto-advance just by opening it. Once I start it, it should auto-advance the stages in it. If auto-advance is enabled, I mean by default it is enabled, but if it is turned off, it should not auto-advance. But auto-advance only works when going from any task which is not the first task. You cannot auto-advance to the first task.\n Thank you.\n\nBy auto advance, I don't mean the configuration, I mean it should not auto start. It should have the configuration auto advance by default, but when I open the card, it should not auto start at any steps.\n\nFit check — this task was filed under the \"Bugfix\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Bugfix\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Feature\" (Spec → Build → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-19T05:28:45.647Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T05:38:59.748Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/when-opening-a-task-or-card-it-should/fix/outputs/fix.md",
+            "e2e/app.spec.js",
+            "e2e/ux-views.spec.js",
+            "src/app/__tests__/task-auto.test.jsx",
+            "src/app/features/task.jsx",
+            "src/app/features/views.jsx"
+          ],
+          "sessionId": null,
+          "error": null,
+          "log": "$ claude -p \"Task: When opening a task or card, it should not auto-advance for the first step.\\n\\nWhen I open a task, it should not auto-advance just by opening it. Once I …\" --permission-mode acceptEdits --model opus --append-system-prompt \"You are an implementer. Read repro.md and fix the root cause with the smallest correct change — check every caller of the code you touch and fix at the share…\"\nFit check: single bugfix, one screen + tests → stays in **Bugfix** flow. Fixed.\n\n**Root cause** — `TaskDetail` had mount-time effect calling `automate()` for any task with undone stages. Open card → stage 1 ran. Switch bound to `automating` (live-run state), so \"auto-advance off\" unrepresentable.\n\n**Fix** (`src/app/features/task.jsx`, `views.jsx`):\n- Deleted mount-time auto-start effect. Opening runs nothing, ever.\n- New `stageDone(end, stageId)` — one shared completion path. Chains only if: setting on, run came back `done`, not last stage, work remains, no other stage live.\n- `automate(from = 0)` slices stage list; `stageDone` passes **next** index → auto-advance can't reach back into first (or any unrun earlier) stage. Server unchanged — already resumes from first incomplete in whatever list it gets.\n- Auto-advance now real per-task setting, default **on**, persisted `localStorage` `bridza.autoAdvance.<pipe>/<task>` (same idiom as `bridza.taskView`/`railHidden`). Switch reads/writes it; label still shows \"⚡ Auto-advancing…\" during live chain.\n- `StageRunner` → `onDone(end, def.id)`.\n\n**Shared path check** — `StageRunner` = only stage runner in the screen; both routes (classic `Stage` card + Inspector/Canvas/Chat via `runnerFor`) now point at `stageDone`. Revise/Stop call `onDone()` argless → refresh only, no chain. `App.jsx` `onDone`s are modals, unrelated.\n\n**Tests** — `task-auto.test.jsx` rewritten, 12 tests: open never-started/half-done task starts nothing; run first stage by hand → chains `[\"build\"]` only; middle-stage run in 3-stage task → chains `[\"review\"]`, never back to unrun first; no chain past last stage / on `failed` / while another stage live; setting off → stage runs, nothing chains, off survives reopen; log-survives-navigation kept.\n\n```\nvitest run  →  9 files, 205 passed\n```\nNew tests vs pre-fix code: **8/12 fail** → they bite.\n\nE2E specs asserting old auto-start updated to press ▸ Run first (`e2e/ux-views.spec.js`, `e2e/app.spec.js`). Playwright not run — needs live dev server + browsers, unavailable here. Lint: `src/app` excluded by eslint config.\n\nOutput doc: `.bridza/pipelines/engineering/when-opening-a-task-or-card-it-should/fix/outputs/fix.md`. Changes left uncommitted.\n\nOne behavior note worth your call: switch is now pure preference — it no longer kicks off a run. Starting a task = ▸ Run on its first stage. If you want a one-click \"run everything\" button back, say so and I'll add it as an explicit action."
+        }
+      ]
+    },
+    "fix-review": {
+      "status": "done",
+      "seconds": 246,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: When opening a task or card, it should not auto-advance for the first step.\n\nWhen I open a task, it should not auto-advance just by opening it. Once I start it, it should auto-advance the stages in it. If auto-advance is enabled, I mean by default it is enabled, but if it is turned off, it should not auto-advance. But auto-advance only works when going from any task which is not the first task. You cannot auto-advance to the first task.\n Thank you.\n\nBy auto advance, I don't mean the configuration, I mean it should not auto start. It should have the configuration auto advance by default, but when I open the card, it should not auto start at any steps.\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-19T06:13:19.849Z",
+          "status": "running"
+        },
+        {
+          "tool": "claude",
+          "model": "opus",
+          "prompt": "Task: When opening a task or card, it should not auto-advance for the first step.\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-19T11:50:51.505Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T11:54:57.587Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/when-opening-a-task-or-card-it-should/fix-review/outputs/review.md"
+          ],
+          "sessionId": null,
+          "error": null,
+          "log": "$ claude -p \"Task: When opening a task or card, it should not auto-advance for the first step.\\n\\nMerge readiness — this task's change will be merged into the branch \\\"main\\\"…\" --permission-mode acceptEdits --model opus --append-system-prompt \"You are a reviewer. Verify the fix addresses the root cause in repro.md, check for regressions in sibling callers, and confirm the regression test fails with…\"\nReview written → `fix-review/outputs/review.md`.\n\n**Verdict: approve.** Merge into `main` will be clean.\n\n**Root cause fixed at source.** Mount-time `autoStartedRef` effect deleted, not patched. `automate` now reachable from exactly one call site (`stageDone` → `automate(next)`) — grep-confirmed, no other caller in `src/`. Forward-only enforced by `stageObjs.slice(from)`, not by trusting the server to decline. All 4 root causes in repro.md addressed, incl. the persisted setting.\n\n**Sibling callers clean.** Traced every `onDone` consumer after signature change `onDone()` → `onDone(end, def.id)`:\n- ↺ Revise + ⏹ Stop pass no args → `end` undefined → refresh, chain nothing. Correct.\n- `runnerFor` (Inspector/Canvas/Chat) and the `Stage` card converge on the same `stageDone` — one rule, one place.\n- `App.jsx` `onDone` props are the pipeline/task *modals*, unrelated.\n\n**Regression test bites — verified, not trusted.** Checked out pre-fix `task.jsx`/`views.jsx` from `main`, kept new tests: **8 failed / 4 passed**, incl. headline \"starts NO run at all\". Post-fix 12/12. The 4 passing pre-fix are the #13 guards, correctly unchanged. Source restored from HEAD; no source modification left behind. Full suite: **205/205**.\n\n**Merge:** `merge-tree` → clean tree SHA, no conflicts. `main` is 44 ahead but **zero** of those touch `src/` or `e2e/` — all `.bridza` bookkeeping. No semantic drift either.\n\n4 advisory findings, none blocking. Most substantive: **the switch no longer starts anything**, and nothing replaced it as a \"resume after stop\" affordance — repro.md:21 explicitly allowed flipping it as an explicit start. Defensible (arguably safer) reading of \"should not auto start at any steps\", and recoverable via ▸ Run, but it's a deliberate narrowing that fix.md doesn't flag. Worth recording so it isn't later re-filed as a bug. Also: the setting is `localStorage`, so \"off\" won't follow the task across browsers/machines — repro suggested task-level state; the chosen idiom matches `bridza.taskView` and the blast radius is now small.\n\nTwo caveats on my coverage: Playwright wasn't run (needs live server + browsers), so e2e is statically verified only — I did confirm the `/Run (stage|again)/` regex matches `▸ Run stage`/`▸ Run again` and that the first incomplete stage card is open on arrival, so the button is reachable."
+        }
+      ]
+    }
+  }
 }

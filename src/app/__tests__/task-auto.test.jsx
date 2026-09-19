@@ -1,11 +1,10 @@
 // @vitest-environment jsdom
-// Regression: "every flow stage floor should be in auto advance by default" —
-// 1) opening a task WITH work remaining kicks off auto-advance on its own (no
-// switch click), and 2) the run-log pane survives navigating away and back
-// (the module store retains it, and a still-live background run is shown
-// without silently restarting). Both assertions fail against the old code:
-// automate() was only reachable via the switch, and TaskDetail wiped its log
-// on every task change.
+// Regression #39: opening a task must never START anything. Auto-advance is a
+// SETTING (on by default, per task): once a stage the user ran by hand finishes,
+// it carries the task forward through the stages AFTER it — it can never reach
+// back into the first stage, and turning the switch off stops the chaining.
+// Plus (#13, kept): the run-log pane survives navigating away and back, and a
+// still-live background run is shown without restarting it.
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -64,6 +63,15 @@ function remount(props) {
     host.root.render(<TaskDetail {...baseProps} {...props} />);
   });
 }
+const click = (el) => act(() => el.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+// open a stage card by its header, so its runner (and ▸ Run button) is on screen
+const openStage = (name) => click([...host.querySelectorAll(".stage-hd")].find((h) => h.textContent.startsWith(name)));
+// press ▸ Run on the stage that's open — the only way to START work in a task
+async function runOpenStage() {
+  const btn = host.querySelector(".stage-run .btn.primary");
+  await act(async () => { btn.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+}
+const autoSwitch = () => host.querySelector(".topbar .switch input[type=checkbox]");
 
 beforeEach(() => {
   stubLocalStorage();
@@ -79,6 +87,10 @@ beforeEach(() => {
     onEvent({ t: "out", d: "measuring the floor…" });
     return defer().promise;   // hold the run open so the pane stays live
   });
+  api.runStage.mockImplementation((_dir, _body, onEvent) => {
+    onEvent({ t: "out", d: "measuring the floor…" });
+    return Promise.resolve({ status: "done", exit: 0 });
+  });
 });
 
 afterEach(() => {
@@ -92,23 +104,29 @@ afterEach(() => {
   __resetLogs();
 });
 
-describe("auto-advance on by default", () => {
-  it("opens a task with stages left and starts advancing on its own, log pane showing the run", async () => {
+describe("opening a task starts nothing", () => {
+  it("opens a task with every stage still to run and starts NO run at all", async () => {
     mount();
-    await vi.waitFor(() => expect(api.automate).toHaveBeenCalled());
-    // every stage of the task is sent (the server resumes from the first undone)
-    expect(api.automate.mock.calls[0][1].stages).toHaveLength(2);
-    // the pane is up, labeled as advancing, streaming the runner's output
-    const pane = host.querySelector(".term");
-    expect(pane).toBeTruthy();
-    expect(pane.textContent).toContain("measuring the floor");
-    expect(pane.parentElement.querySelector(".side-label").textContent).toMatch(/Auto-advancing/);
+    await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
+    await act(async () => { await Promise.resolve(); });   // let any (wrong) auto-start land
+    expect(api.automate).not.toHaveBeenCalled();
+    expect(api.runStage).not.toHaveBeenCalled();
+    // the setting is still on by default — it just doesn't start anything
+    expect(autoSwitch().checked).toBe(true);
+  });
+
+  it("opens a half-done task (first stage already done) and still starts nothing", async () => {
+    mount({ task: { ...task, tracking: { planning: { status: "done" } } } });
+    await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
+    await act(async () => { await Promise.resolve(); });
+    expect(api.automate).not.toHaveBeenCalled();
+    expect(api.runStage).not.toHaveBeenCalled();
   });
 
   it("does NOT auto-start a finalized task with stages still open", async () => {
     mount({ task: { ...task, finalized: true } });
     await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
-    await act(async () => { await Promise.resolve(); });   // let any (wrong) auto-start land
+    await act(async () => { await Promise.resolve(); });
     expect(api.automate).not.toHaveBeenCalled();
   });
 
@@ -120,9 +138,81 @@ describe("auto-advance on by default", () => {
   });
 });
 
+describe("auto-advance chains FORWARD from a stage you started", () => {
+  it("carries on after the first stage is run by hand — sending only the stages after it", async () => {
+    mount();
+    await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
+    await runOpenStage();   // ▸ Run on Planning — the explicit start
+    await vi.waitFor(() => expect(api.automate).toHaveBeenCalledTimes(1));
+    const sent = api.automate.mock.calls[0][1].stages;
+    expect(sent.map((s) => s.stage)).toEqual(["build"]);   // never back into the first stage
+    expect(host.querySelector(".term").parentElement.querySelector(".side-label").textContent).toMatch(/Auto-advancing/);
+  });
+
+  it("never reaches back: running a middle stage advances forward only, skipping the unrun first stage", async () => {
+    const three = ["planning", "build", "review"];
+    mount({
+      pipeline: { ...pipeline, stages: [...pipeline.stages, { id: "review", name: "Review", tool: "opencode", hint: "", systemPrompt: "", outputs: [], shell: [], gate: "", auto: true }] },
+      task: { ...task, stages: three },
+    });
+    await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
+    openStage("Build");                 // Planning has never run
+    await runOpenStage();
+    await vi.waitFor(() => expect(api.automate).toHaveBeenCalledTimes(1));
+    expect(api.automate.mock.calls[0][1].stages.map((s) => s.stage)).toEqual(["review"]);
+  });
+
+  it("does not advance past the LAST stage", async () => {
+    // Planning done → Build (the last stage) is the one open on arrival
+    mount({ task: { ...task, tracking: { planning: { status: "done" } } } });
+    await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
+    await runOpenStage();
+    await act(async () => { await Promise.resolve(); });
+    expect(api.automate).not.toHaveBeenCalled();
+  });
+
+  it("does not advance when the stage did not finish done", async () => {
+    api.runStage.mockResolvedValue({ status: "failed", exit: 1, error: "nope" });
+    mount();
+    await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
+    await runOpenStage();
+    await act(async () => { await Promise.resolve(); });
+    expect(api.automate).not.toHaveBeenCalled();
+  });
+
+  it("does not advance while another stage of the task is live elsewhere", async () => {
+    mount({ runningStages: new Set(["eng/t506/build"]) });
+    await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
+    await runOpenStage();
+    await act(async () => { await Promise.resolve(); });
+    expect(api.automate).not.toHaveBeenCalled();
+  });
+});
+
+describe("the auto-advance setting", () => {
+  it("is off once you turn it off — a finished stage then chains nothing, and it is remembered", async () => {
+    mount();
+    await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
+    await click(autoSwitch());
+    expect(autoSwitch().checked).toBe(false);
+    await runOpenStage();
+    await act(async () => { await Promise.resolve(); });
+    expect(api.runStage).toHaveBeenCalledTimes(1);   // the stage the user asked for ran
+    expect(api.automate).not.toHaveBeenCalled();     // nothing chained after it
+
+    remount({});                                     // reopening the task keeps it off
+    expect(autoSwitch().checked).toBe(false);
+    await runOpenStage();
+    await act(async () => { await Promise.resolve(); });
+    expect(api.automate).not.toHaveBeenCalled();
+  });
+});
+
 describe("the run log survives navigation", () => {
   it("keeps showing the background run after leaving the task and coming back, without restarting it", async () => {
     mount();
+    await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
+    await runOpenStage();
     await vi.waitFor(() => expect(api.automate).toHaveBeenCalledTimes(1));
 
     // navigate away (TaskDetail unmounts) …
@@ -137,13 +227,16 @@ describe("the run log survives navigation", () => {
     expect(api.automate).toHaveBeenCalledTimes(1);   // a live run → nothing restarted
   });
 
-  it("restarts advancing on re-open only when nothing is live anymore", async () => {
+  it("does NOT restart advancing on re-open once the run has stopped — reopening is never a start", async () => {
     mount();
+    await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
+    await runOpenStage();
     await vi.waitFor(() => expect(api.automate).toHaveBeenCalledTimes(1));
     act(() => host.root.unmount());
-    // run finished while we were away: no live stages, work remains → start again
+    // run stopped while we were away: work remains, nothing live — still no restart
     remount({ runningStages: new Set() });
-    await vi.waitFor(() => expect(api.automate).toHaveBeenCalledTimes(2));
-    expect(host.querySelector(".term").textContent).toContain("measuring the floor");
+    await act(async () => { await Promise.resolve(); });
+    expect(api.automate).toHaveBeenCalledTimes(1);
+    expect(host.querySelector(".term").textContent).toContain("measuring the floor");   // the log is still there
   });
 });

@@ -60,7 +60,9 @@ export function StageRunner({ dir, pipeline, task, def, track, tools = [], live,
     });
     setRunning(false); if (onRunning) onRunning(false);
     if (end && end.status === "done") flash(`${def.name}: done`); else if (end) flash(`${def.name}: ${end.error || end.status}`);
-    if (onDone) onDone();
+    // hand the outcome + which stage it was to the task: auto-advance chains
+    // forward only from a stage that actually finished `done`
+    if (onDone) onDone(end, def.id);
   };
 
   return (
