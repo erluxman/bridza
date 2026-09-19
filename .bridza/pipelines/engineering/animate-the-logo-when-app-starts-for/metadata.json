@@ -40,6 +40,19 @@
           "log": "$ claude -p \"Task: animate the logo when app starts for the first time\\n\\nOkay, so when you are starting the application for the first time, the Briza logo which is on the …\" --permission-mode acceptEdits --append-system-prompt \"You are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we'll know it works — n…\"\n· model: TOOL DEFAULT (no --model/-m flag — claude's own config decides)\nWrote `spec.md` + `acceptance.md` (replaced stale kanban-archive spec from prior task).\n\n**Spec core:**\n- Target = app logo `⎇ Bridza` in sidebar header (`src/app/features/nav.jsx:45`, `.brand` in `bridza.css:52`) — not landing page logo.\n- \"First time\" = new LS marker key in `LS` map (`src/app/lib/format.js:10`), written at first mount → never replays.\n- Pure CSS keyframe, `transform: scale()` only, double-beat × 3 cycles, `prefers-reduced-motion` guard. No dep, no JS loop.\n\n**Decisions I made** (intent left open, flagging):\n- Once *ever*, not once per session/day — \"first time\" read literally. Contrast: welcome dialog uses per-day (`App.jsx:25`).\n- Finite cycles, not looping forever.\n- Marker still written for reduced-motion users → no surprise pulse later.\n\n**Out of scope, stated:** landing logo, replay setting, other trigger points, artwork change."
         }
       ]
+    },
+    "build": {
+      "status": "running",
+      "seconds": 0,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: animate the logo when app starts for the first time\n\nOkay, so when you are starting the application for the first time, the Briza logo which is on the top left corner should animate like pulse like heartbeat.\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-19T18:27:23.132Z",
+          "status": "running"
+        }
+      ]
     }
   }
 }

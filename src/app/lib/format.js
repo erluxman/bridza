@@ -7,7 +7,7 @@ export const recKey = (d) => "bridza-rec:" + d;
 export const lsGet = (k, def) => { try { const v = localStorage.getItem(k); return v != null ? v : def; } catch (e) { return def; } };
 export const lsSet = (k, v) => { try { if (v != null) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) { /* storage unavailable */ } };
 
-export const LS = { dir: "bridza-project", recents: "bridza-recents", side: "bridza-side", welcome: "bridza-welcome" };
+export const LS = { dir: "bridza-project", recents: "bridza-recents", side: "bridza-side", welcome: "bridza-welcome", logo: "bridza-logo-pulsed" };
 export const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 export const readRecents = () => { try { return JSON.parse(localStorage.getItem(LS.recents)) || []; } catch (e) { return []; } };
 export const base = (p) => (p || "").replace(/\/+$/, "").split("/").pop() || p;

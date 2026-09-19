@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import "./bridza.css";
 import * as api from "./api/client.js";
-import { LS, readRecents, today } from "./lib/format.js";
+import { LS, lsGet, lsSet, readRecents, today } from "./lib/format.js";
 import { useColWidth, ColGrip } from "./ui.jsx";
 import { Welcome, WelcomeDialog, PipelinePicker, NewPipelineModal, NewTaskModal } from "./features/onboarding.jsx";
 import { Sidebar, Inbox } from "./features/nav.jsx";
@@ -28,6 +28,8 @@ export default function App() {
   const [flowOpen, setFlowOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
+  const [firstLaunch, setFirstLaunch] = useState(() => !lsGet(LS.logo, ""));
+  useEffect(() => { if (firstLaunch) lsSet(LS.logo, "1"); }, [firstLaunch]);
   const flash = (m, ms = 2400) => {
     setToast(m);
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -96,7 +98,7 @@ export default function App() {
   return (
     <div className={"app" + (sideCollapsed ? " side-collapsed" : "")} style={sideCollapsed ? undefined : { gridTemplateColumns: `${sideW}px 1fr`, position: "relative" }}>
       {!sideCollapsed && (
-        <Sidebar proj={proj} running={running} runningTasks={runningTasks} active={activePipe} dir={dir} onChange={refresh} flash={flash} onPipe={(id) => { setActivePipe(id); setActiveTask(""); setFlowOpen(false); setInboxOpen(false); setPlanOpen(false); }}
+        <Sidebar proj={proj} running={running} runningTasks={runningTasks} active={activePipe} dir={dir} onChange={refresh} flash={flash} firstLaunch={firstLaunch} onPipe={(id) => { setActivePipe(id); setActiveTask(""); setFlowOpen(false); setInboxOpen(false); setPlanOpen(false); }}
           onNewPipe={() => setModal({ type: "pipeline" })} onClose={closeProject} onPick={pick} recents={recents} onOpen={openDir}
           onOpenTask={(pid, tid) => { setInboxOpen(false); setFlowOpen(false); setPlanOpen(false); setActivePipe(pid); setActiveTask(tid); }}
           onCollapse={() => collapse(true)} inboxCount={(proj.inbox || []).length} inboxActive={inboxOpen} onInbox={() => { setInboxOpen(true); setActiveTask(""); setFlowOpen(false); setPlanOpen(false); }}

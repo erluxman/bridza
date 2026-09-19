@@ -7,7 +7,7 @@ import { pipelineFlows, shortTitle } from "../../../core/domain.js";
 import { base } from "../lib/format.js";
 import { Hamburger, Modal, Field, Expandable } from "../ui.jsx";
 
-export function Sidebar({ proj, running, runningTasks, active, onPipe, onNewPipe, onClose, onPick, recents, onOpen, onOpenTask, onCollapse, inboxCount, inboxActive, onInbox, planActive, onPlan, dir, onChange, flash }) {
+export function Sidebar({ proj, running, runningTasks, active, onPipe, onNewPipe, onClose, onPick, recents, onOpen, onOpenTask, onCollapse, inboxCount, inboxActive, onInbox, planActive, onPlan, dir, onChange, flash, firstLaunch }) {
   const [menu, setMenu] = useState(false);
   const [showArch, setShowArch] = useState(false);
   // right-click a pipeline → our own menu (native browser menu suppressed)
@@ -42,7 +42,7 @@ export function Sidebar({ proj, running, runningTasks, active, onPipe, onNewPipe
     <div className="side">
       <div className="side-hd">
         <div className="spread">
-          <div className="brand">⎇ Bridza</div>
+          <div className={"brand" + (firstLaunch ? " pulse" : "")}>⎇ Bridza</div>
           <button className="btn ghost sm" title="Collapse" onClick={onCollapse}>‹</button>
         </div>
         <div className="proj-switch">
