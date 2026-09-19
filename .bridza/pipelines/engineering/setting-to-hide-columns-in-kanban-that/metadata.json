@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "setting-to-hide-columns-in-kanban-that",
+  "pipeline": "engineering",
+  "title": "Setting to hide columns in Kanban that do not have any item.",
+  "ref": 40,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/setting-to-hide-columns-in-kanban-that",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
