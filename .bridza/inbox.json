@@ -2,6 +2,12 @@
   "v": 1,
   "items": [
     {
+      "id": "in-jzy116",
+      "kind": "idea",
+      "text": "I should be able to change any details from titles to description of any ticket that I create",
+      "time": "2026-09-19T16:51:37.401Z"
+    },
+    {
       "id": "in-fvpqpv",
       "kind": "idea",
       "text": "There should be a search button somewhere or command F should work as find where I can search and find the task with certain text in them from the list of all the tasks on the Kanban.",
