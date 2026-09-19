@@ -56,7 +56,6 @@
     "engineering/a-shortcut-to-search-among-the-tasks-or": 61,
     "engineering/long-press-and-drag-to-create-a": 63,
     "engineering/when-the-inbox-is-0-show-a-confetti": 64,
-    "engineering/create-a-setting-page-on-the-bottom-of": 65,
     "engineering/logo-animation-component": 66,
     "engineering/logo-first-launch-detection": 67,
     "engineering/logo-welcome-screen-integration": 68,
@@ -76,7 +75,8 @@
     "engineering/review-ui-and-ux",
     "engineering/1when-i-delete-a-pipeline-from-the-left",
     "product/this-is-a-test-idea-i-am-just-threading",
-    "engineering/this-is-a-test-issue-and-i-think-it"
+    "engineering/this-is-a-test-issue-and-i-think-it",
+    "engineering/create-a-setting-page-on-the-bottom-of"
   ],
   "archived": {
     "engineering/card-archiving-is-not-working-when": true,
