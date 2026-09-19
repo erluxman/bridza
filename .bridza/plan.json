@@ -236,6 +236,10 @@
     "engineering/purchase-the-selected-model-and-display": {
       "x": 118,
       "y": 863
+    },
+    "engineering/when-opening-a-task-or-card-it-should": {
+      "x": 476,
+      "y": 865
     }
   },
   "sizes": {
