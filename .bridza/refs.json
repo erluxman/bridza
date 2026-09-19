@@ -67,6 +67,7 @@
     "engineering/you-just-should-be-able-to-change-the": true,
     "engineering/kanban-columns-drag-reorder": true,
     "engineering/when-opening-a-task-or-card-it-should": true,
-    "engineering/auto-advance-seems-to-only-works-at-the": true
+    "engineering/auto-advance-seems-to-only-works-at-the": true,
+    "engineering/reduce-the-amount-of-commits-for-the": true
   }
 }
