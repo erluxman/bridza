@@ -1,24 +1,28 @@
-# Review — Reduce the amount of commits for the work group related commit into one commit
+# Review — Highlight selected task in running now sidebar
 
-## Root cause verified
-Every write helper in `server/bridza-store.js` was committing for itself, and high-level actions (like `promoteInbox`) were composed of multiple helpers, resulting in 4-5 commits per UI action.
-
-## Fix addresses root cause
-- **Transaction scope:** `withAction(root, fn)` wraps high-level actions. The first write commits; subsequent writes within the scope amend that commit.
-- **Folding mechanism:** `commitPaths(..., { fold })` allows consecutive identical edits (e.g., kanban drags, plan links) to amend the last commit if it's fresh (5 min window).
-- **Reduced writes:** `promoteInbox` now hands the task brief directly to `createTask`, removing the need for a secondary "edit context" commit and avoiding a redundant placeholder blob.
-- **Safe amends:** `foldTarget` guards against amending commits that are not ours (`bridza@local`), are not the branch tip, or are reached by other refs (tags, other task branches, remotes).
+Branch: `bridza/engineering/highlight-running-task-in-sidebar`
+Reviewed against: `main`
 
 ## Acceptance Check
-- [x] `promoteInbox` leaves **1** commit (was 4).
-- [x] `createTask` leaves **1** commit (was 2-3).
-- [x] Consecutive plan edits fold into **1** commit.
-- [x] Consecutive kanban drags fold into **1** commit.
-- [x] Branch forks off the **final** folded commit, not an intermediate one.
-- [x] Regression tests fail without the fix and pass with it.
+
+- [x] When a task present in `proj.running` is selected, its `.run-task` item receives the active/selected highlight class — `features/nav.jsx:76` appends `" on"` to the matching row; `liveTasks` is built from `proj.running` (nav.jsx:31-40).
+- [x] Highlight matches exactly on pipeline id + task id (`r.pid === active && r.tid === activeTask`); `active`/`activeTask` are the `activePipe`/`activeTask` state passed from `App.jsx:99`.
+- [x] Non-selected running tasks keep standard `.run-task` style — the `" on"` suffix only applies to the exact match.
+- [x] Highlight tracks selection: switching tasks re-targets the highlight; Board (TaskDetail `onBack` → `setActiveTask("")`), Plan (`onPlan`), and Inbox (`onInbox`) all clear `activeTask` (App.jsx:99-103), so the highlight clears; selecting a running task again re-applies it.
+- [x] Highlighted items stay clickable — the button still calls `onOpenTask(r.pid, r.tid)`.
+- [x] `.run-task.on` follows the existing `.on` convention — identical rule to `.pipe.on` (bridza.css:71 vs 88).
+- [x] `pnpm test` — 208 passed · `pnpm lint` — clean · `pnpm build` — succeeds (only pre-existing chunk-size warning).
+
+## Over-Engineering Analysis
+
+- **Unused flexibility:** None. Only the exact selected pair is highlighted, no config surface.
+- **Reinvented stdlib:** None.
+- **Single-caller abstractions:** None — the diff is one new prop (`activeTask`), one className ternary, one CSS rule.
+- **Verdict:** Minimal, surgical implementation. Nothing to delete.
 
 ## Merge Readiness
-- **Conflict:** A content conflict exists in `src/app/__tests__/bridza-store.test.js` because `main` recently added card-archiving tests (`#36`) at the same EOF location where this fix added its regression tests.
-- **Resolution:** The resolution is purely additive (include both test blocks). I have verified the merge in a temporary clone and all 215 tests passed.
-- **Clean Merge:** Once the test conflict is resolved additively, the merge into `main` will be clean.
-- **Note:** `server/bridza-store.js` auto-merges successfully.
+
+- `git diff main...HEAD` touches only `src/app/App.jsx`, `src/app/bridza.css`, `src/app/features/nav.jsx`, the task's `acceptance.md`/`spec.md`, and Bridza stage plumbing under `.bridza/`. No overlapping files with concurrent `main` work.
+- `git merge-tree --write-tree main HEAD` exits 0 with a clean merged tree — **no conflicts**.
+- Outputs and docs name `main` as the landing branch (no stale branch references in generated docs).
+- **Merge into `main` will be clean.**

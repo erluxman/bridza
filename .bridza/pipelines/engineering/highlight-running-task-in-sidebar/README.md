@@ -1,8 +1,8 @@
-# ⏳ Highlight selected task in running now sidebar list
+# ✅ Highlight selected task in running now sidebar list
 
 `bridza/engineering/highlight-running-task-in-sidebar`  ·  pipeline `engineering`
 
-`███████████░░░░░`  **2/3** stages  ·  2m 5s tracked  ·  in-progress
+`████████████████`  **3/3** stages  ·  4m 52s tracked  ·  🎉 all stages done
 
 ## At a glance
 
@@ -10,7 +10,7 @@
 |--:|-------|--------|------|--------|-----:|
 | 1 | spec | ✅ done | 1m 0s | 2 files | 1 |
 | 2 | build | ✅ done | 1m 5s | 3 files | 2 |
-| 3 | review | ⏳ idle | — | — | — |
+| 3 | review | ✅ done | 2m 47s | 1 file | 5 |
 
 ## The story
 
@@ -30,9 +30,13 @@
 
 <sub>opencode · session `ses_f458c52e8ffefM6aZXRJdLjd6k` · exit 0</sub>
 
-### 3. review — ⏳ idle
+### 3. review — ✅ done · 2m 47s · 5 runs
 
-_not run yet_
+**Asked** — Task: Highlight selected task in running now sidebar list Merge readiness — this task's change will be merged into the branch "main" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into "main": review the task's branch against that branch (`git diff main...
+
+**Output** — `review.md`
+
+<sub>opencode · session `ses_f45758085ffeQm1gSYU3VJ9m1g` · exit 0</sub>
 
 ---
 

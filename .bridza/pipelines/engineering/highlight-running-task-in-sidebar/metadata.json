@@ -65,8 +65,8 @@
       ]
     },
     "review": {
-      "status": "running",
-      "seconds": 0,
+      "status": "done",
+      "seconds": 167,
       "runs": [
         {
           "tool": "opencode",
@@ -81,6 +81,35 @@
           "prompt": "Task: Highlight selected task in running now sidebar list\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
           "startedAt": "2026-09-19T16:36:32.543Z",
           "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Highlight selected task in running now sidebar list\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-19T16:38:57.996Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Highlight selected task in running now sidebar list\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-19T16:39:08.941Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Highlight selected task in running now sidebar list\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-19T16:40:33.360Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T16:42:42.861Z",
+          "exit": 0,
+          "files": [
+            "review.md"
+          ],
+          "sessionId": "ses_f45758085ffeQm1gSYU3VJ9m1g",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, a…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\nI'll start by exploring the repository structure and understanding the acceptance criteria.\n· step · 14313 tokens\n· step · 16295 tokens\nThe review.md is stale (from a different task). Let me analyze the actual changes.\n· step · 17584 tokens\n· step · 18084 tokens\n\n\n\n· step · 19612 tokens\nLet me review the implementation files in full context.\n· step · 25039 tokens\nLet me check the review directory structure, merge-tree definitively, and the build outputs conventions.\n· step · 33710 tokens\nMerge-tree writes a clean tree. Let me check the review prompts and run the verification commands.\n· step · 35113 tokens\nNow let me verify the code checks pass.\n· step · 36575 tokens\n· step · 36918 tokens\n· step · 37218 tokens\n· step · 37355 tokens\nAll checks pass. Let me quickly confirm the remaining task README content and git diff scope.\n· step · 38777 tokens\nAll acceptance criteria verified. Writing the review.\n\n\n· step · 40584 tokens\nReview written to `review.md`. Summary:\n\n**Acceptance:** All 7 criteria met. `nav.jsx:76` adds `.run-task.on` only for the exact `activePipe`/`activeTask` match; Board/Plan/Inbox already clear `activeTask` so the highlight tracks correctly. `pnpm test` (208 passed), `pnpm lint`, and `pnpm build` all pass.\n\n**Over-engineering:** None — the diff is one prop, one ternary, one CSS rule. Nothing to delete.\n\n**Merge readiness:** `git merge-tree --write-tree main HEAD` exits 0 (clean tree); no overlapping files with `main`. Merge into `main` will be clean.\n\nOne nit: `acceptance.md`/`spec.md` lack a trailing newline — cosmetic only, not a merge blocker.\n· step · 40791 tokens"
         }
       ]
     }
