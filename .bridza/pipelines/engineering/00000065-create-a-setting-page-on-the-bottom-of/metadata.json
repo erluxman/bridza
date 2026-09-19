@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "create-a-setting-page-on-the-bottom-of",
+  "pipeline": "engineering",
+  "title": "create a setting page on the bottom of left navigation bar",
+  "ref": 65,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/create-a-setting-page-on-the-bottom-of",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}

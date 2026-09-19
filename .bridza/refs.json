@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 65,
+  "next": 66,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -55,7 +55,8 @@
     "engineering/only-claude-can-auto-advance-opencode": 60,
     "engineering/a-shortcut-to-search-among-the-tasks-or": 61,
     "engineering/long-press-and-drag-to-create-a": 63,
-    "engineering/when-the-inbox-is-0-show-a-confetti": 64
+    "engineering/when-the-inbox-is-0-show-a-confetti": 64,
+    "engineering/create-a-setting-page-on-the-bottom-of": 65
   },
   "deleted": [
     "engineering/truncation-check-idea",
