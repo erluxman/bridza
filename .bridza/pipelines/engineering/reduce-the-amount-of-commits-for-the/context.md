@@ -1,0 +1,3 @@
+# Reduce the amount of commits for the work group related commit into one commit or amend it with log of changes in a…
+
+Describe the intent of this task.

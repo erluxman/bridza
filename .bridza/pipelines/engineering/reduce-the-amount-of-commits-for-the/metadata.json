@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "reduce-the-amount-of-commits-for-the",
+  "pipeline": "engineering",
+  "title": "Reduce the amount of commits for the work group related commit into one commit or amend it with log of changes in a…",
+  "ref": 37,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/reduce-the-amount-of-commits-for-the",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
