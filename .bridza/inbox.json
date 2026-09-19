@@ -1,11 +1,4 @@
 {
   "v": 1,
-  "items": [
-    {
-      "id": "in-z76d7c",
-      "kind": "idea",
-      "text": "When I select AI agent and a model for a certain step on a flow, it does not persist or it does not show the persistence to the UI. So it's confusing which model that particular step will use. It should persist, use that model when it's executing that step.\n But I should be able to select which model that step will take.",
-      "time": "2026-09-19T05:05:47.580Z"
-    }
-  ]
+  "items": []
 }
