@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { ensureDataDir, readProject, readPlan, savePlan, createPipeline, savePipeline, archivePipeline, saveKanbanOrder, createTask, deleteTask, readContext, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox, setTaskArchived, deletePipeline } from "../../../server/bridza-store.js";
-import { runStage, git, ensureTaskWorktree } from "../../../server/bridza-run.js";
+import { runStage, git, ensureTaskWorktree, taskDirOn } from "../../../server/bridza-run.js";
 import { STARTER_PIPELINES, rel, judgeStageId, pipelineFlows, exportFlow, parseFlowFile, exportPipeline, parsePipelineFile, shortTitle } from "../../../core/domain.js";
 
 vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
@@ -19,6 +19,17 @@ const MARKETING = { id: "marketing", label: "Marketing", workingDir: ".", stages
   { id: "planning", name: "Planning", tool: "claude", outputs: [{ name: "plan.md" }] },
   { id: "spec", name: "Spec", tool: "claude", outputs: [{ name: "spec.md" }] },
 ] };
+
+// A task's folder is "<padded-ref>-<id>" under the zero-padded naming contract
+// (and the bare id for tasks predating it), so resolve it the way the store
+// does instead of hard-coding either form. `tree` is the repo root by default,
+// a worktree when the assertion is about what a run committed there.
+const T = {
+  task: (p, t, tree) => rel.task(p, taskDirOn(tree || root, p, t)),
+  meta: (p, t, tree) => rel.taskMeta(p, taskDirOn(tree || root, p, t)),
+  ctx: (p, t, tree) => rel.taskContext(p, taskDirOn(tree || root, p, t)),
+  outs: (p, t, st, tree) => rel.stageOutputs(p, taskDirOn(tree || root, p, t), st),
+};
 
 let root, wtBase;
 const dirs = [];
@@ -68,7 +79,7 @@ describe("create pipeline + task", () => {
     const task = readProject(root).pipelines[0].tasks[0];
     expect(task).toMatchObject({ id: "task-506", title: "Q3 launch", status: "in-progress", progress: 0 });
     expect(task.stages).toEqual(["research", "planning", "spec"]);
-    expect(fs.existsSync(path.join(root, rel.taskContext("marketing", "task-506")))).toBe(true);
+    expect(fs.existsSync(path.join(root, T.ctx("marketing", "task-506")))).toBe(true);
   });
 
   it("rejects duplicate pipeline / task ids", () => {
@@ -79,12 +90,83 @@ describe("create pipeline + task", () => {
   });
 });
 
+describe("zero-padded task folders", () => {
+  const taskDirs = (pid) => fs.readdirSync(path.join(root, rel.pipeline(pid)))
+    .filter((d) => d !== ".metadata").sort();
+
+  it("names a new task's folder <padded-ref>-<id> while every key stays plain", () => {
+    createPipeline(root, MARKETING);
+    const r = createTask(root, { pipeline: "marketing", id: "task-506", title: "Q3 launch" });
+    expect(r.ref).toBe(1);
+    expect(taskDirs("marketing")).toEqual(["00000001-task-506"]);
+    // the folder is the ONLY thing that carries the padding
+    expect(r).toMatchObject({ id: "task-506", branch: "bridza/marketing/task-506" });
+    const refs = JSON.parse(fs.readFileSync(path.join(root, ".bridza", "refs.json"), "utf8"));
+    expect(refs.refs).toEqual({ "marketing/task-506": 1 });
+    const task = readProject(root).pipelines[0].tasks[0];
+    expect(task).toMatchObject({ id: "task-506", ref: 1, branch: "bridza/marketing/task-506" });
+    expect(JSON.parse(fs.readFileSync(path.join(root, T.meta("marketing", "task-506")), "utf8")).id).toBe("task-506");
+  });
+
+  it("sorts folders in creation order, not alphabetically by slug", () => {
+    createPipeline(root, MARKETING);
+    createTask(root, { pipeline: "marketing", id: "zulu", title: "first" });
+    createTask(root, { pipeline: "marketing", id: "alpha", title: "second" });
+    // alphabetically "alpha" would come first; by #ref the order is as created
+    expect(taskDirs("marketing")).toEqual(["00000001-zulu", "00000002-alpha"]);
+  });
+
+  it("finds, reads and deletes a LEGACY unpadded task folder", () => {
+    createPipeline(root, MARKETING);
+    // a task exactly as a pre-contract bridza wrote it: bare slug, no refs entry
+    const legacy = path.join(root, rel.pipeline("marketing"), "old-task");
+    fs.mkdirSync(legacy, { recursive: true });
+    fs.writeFileSync(path.join(legacy, "metadata.json"), JSON.stringify({
+      v: 1, id: "old-task", pipeline: "marketing", title: "From before", ref: 41,
+      stages: ["research"], status: "in-progress", tracking: {},
+    }));
+    fs.writeFileSync(path.join(legacy, "context.md"), "Old intent.\n");
+    execFileSync("git", ["add", "-A"], { cwd: root });
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", "legacy task"], { cwd: root });
+
+    const task = readProject(root).pipelines[0].tasks.find((t) => t.id === "old-task");
+    expect(task).toMatchObject({ id: "old-task", title: "From before", ref: 41 });
+    expect(readContext(root, { pipeline: "marketing", task: "old-task" }).text).toBe("Old intent.\n");
+    // a new task alongside it still gets the padded form — the two coexist
+    createTask(root, { pipeline: "marketing", id: "new-task", title: "After" });
+    expect(taskDirs("marketing")).toEqual(["00000001-new-task", "old-task"]);
+    expect(readProject(root).pipelines[0].tasks.map((t) => t.id).sort()).toEqual(["new-task", "old-task"]);
+
+    expect(deleteTask(root, { pipeline: "marketing", task: "old-task" }).ok).toBe(true);
+    expect(taskDirs("marketing")).toEqual(["00000001-new-task"]);
+  });
+
+  it("edits context and deletes through the padded folder", () => {
+    createPipeline(root, MARKETING);
+    createTask(root, { pipeline: "marketing", id: "task-9", title: "Nine" });
+    expect(saveContext(root, { pipeline: "marketing", task: "task-9", text: "New intent.\n" }).ok).toBe(true);
+    expect(fs.readFileSync(path.join(root, rel.taskContext("marketing", "00000001-task-9")), "utf8")).toBe("New intent.\n");
+    expect(readContext(root, { pipeline: "marketing", task: "task-9" }).text).toBe("New intent.\n");
+    expect(deleteTask(root, { pipeline: "marketing", task: "task-9" }).ok).toBe(true);
+    expect(taskDirs("marketing")).toEqual([]);
+  });
+
+  it("refuses a duplicate id whichever folder form the existing task uses", () => {
+    createPipeline(root, MARKETING);
+    createTask(root, { pipeline: "marketing", id: "dup", title: "Padded" });
+    expect(createTask(root, { pipeline: "marketing", id: "dup" }).error).toMatch(/already exists/);
+    // …and no #ref was burned on the rejected attempt
+    const refs = JSON.parse(fs.readFileSync(path.join(root, ".bridza", "refs.json"), "utf8"));
+    expect(refs.next).toBe(2);
+  });
+});
+
 describe("live tracking from the task branch tip", () => {
   it("reflects a stage run's status + progress without touching main", async () => {
     createPipeline(root, MARKETING);
     createTask(root, { pipeline: "marketing", id: "task-506", title: "Q3" });
 
-    process.env.BRIDZA_TOOL_OVERRIDE = JSON.stringify({ bin: "sh", args: ["-c", `echo brief > ${rel.stageOutputs("marketing", "task-506", "research")}/brief.md`] });
+    process.env.BRIDZA_TOOL_OVERRIDE = JSON.stringify({ bin: "sh", args: ["-c", `echo brief > ${T.outs("marketing", "task-506", "research")}/brief.md`] });
     const end = await runStage(root, { tool: "claude", pipeline: "marketing", task: "task-506", stage: "research", prompt: "go" }, () => {});
     expect(end.status).toBe("done");
 
@@ -92,7 +174,7 @@ describe("live tracking from the task branch tip", () => {
     expect(task.live).toBe(true);                       // read from the branch tip
     expect(task.tracking.research.status).toBe("done");
     expect(task.tracking.research.runs[0]).toMatchObject({ prompt: "go", exit: 0 });
-    expect(task.tracking.research.runs[0].files).toContain(`${rel.stageOutputs("marketing", "task-506", "research")}/brief.md`);
+    expect(task.tracking.research.runs[0].files).toContain(`${T.outs("marketing", "task-506", "research")}/brief.md`);
     expect(task.progress).toBe(33);                     // 1 of 3 stages done
     // main is untouched — the stage outputs live only on the task branch
     expect(fs.existsSync(path.join(root, ".bridza", "pipelines", "marketing", "task-506", "research", "outputs", "brief.md"))).toBe(false);
@@ -307,12 +389,12 @@ describe("multiple stage flows per pipeline", () => {
     createPipeline(root, { id: "prod2", label: "Prod2", flows: [{ id: "sf", name: "Spec", stages: [{ id: "sp1", name: "Spec", outputs: [{ name: "spec.md" }] }] }] });
     createPipeline(root, { id: "eng2", label: "Eng2", flows: [{ id: "bf", name: "Build", stages: [{ id: "bd1", name: "Build", outputs: [{ name: "o.md" }] }] }] });
     createTask(root, { pipeline: "prod2", id: "u1", title: "Write the spec", flow: "sf" });
-    process.env.BRIDZA_TOOL_OVERRIDE = JSON.stringify({ bin: "sh", args: ["-c", `echo spec > ${rel.stageOutputs("prod2", "u1", "sp1")}/spec.md`] });
+    process.env.BRIDZA_TOOL_OVERRIDE = JSON.stringify({ bin: "sh", args: ["-c", `echo spec > ${T.outs("prod2", "u1", "sp1")}/spec.md`] });
     await runStage(root, { tool: "claude", pipeline: "prod2", task: "u1", stage: "sp1", prompt: "go" }, () => {});
     createTask(root, { pipeline: "eng2", id: "d1", title: "Build from spec", flow: "bf", dependsOn: "prod2/u1" });
-    const ctx = fs.readFileSync(path.join(root, rel.taskContext("eng2", "d1")), "utf8");
+    const ctx = fs.readFileSync(path.join(root, T.ctx("eng2", "d1")), "utf8");
     expect(ctx).toMatch(/Follow-on from #\d+ "Write the spec" \(prod2\/u1\)/);
-    expect(ctx).toContain(rel.stageOutputs("prod2", "u1", "sp1") + "/spec.md");
+    expect(ctx).toContain(T.outs("prod2", "u1", "sp1") + "/spec.md");
     expect(readPlan(root).links["eng2/d1"]).toEqual(["prod2/u1"]);   // focused-context injection
   });
 
@@ -489,7 +571,7 @@ describe("inbox", () => {
     expect(p.task.id).toBe("right-now-it-seems-a-little-bit");
     expect(p.task.id).not.toMatch(/^-|-$/);
 
-    const ctx = fs.readFileSync(path.join(root, rel.taskContext("marketing", p.task.id)), "utf8");
+    const ctx = fs.readFileSync(path.join(root, T.ctx("marketing", p.task.id)), "utf8");
     expect(ctx).toContain(long);                                           // nothing dropped
     expect(ctx.split("\n")[0]).toBe("# " + p.task.title);
     expect(readContext(root, { pipeline: "marketing", task: p.task.id }).text).toBe(ctx);
@@ -504,7 +586,7 @@ describe("inbox", () => {
     });
     expect(p.task.title).toBe("Stage flow direction is unclear");
     expect(p.task.id).toBe("stage-flow-direction-is-unclear");
-    const ctx = fs.readFileSync(path.join(root, rel.taskContext("marketing", p.task.id)), "utf8");
+    const ctx = fs.readFileSync(path.join(root, T.ctx("marketing", p.task.id)), "utf8");
     expect(ctx).toBe("# Stage flow direction is unclear\n\nraw capture\n\nplus what I worked out afterwards\n");
   });
 });
@@ -534,7 +616,7 @@ describe("context editing", () => {
     createTask(root, { pipeline: "marketing", id: "task-9" });
     const r = saveContext(root, { pipeline: "marketing", task: "task-9", text: "New intent.\n" });
     expect(r.ok).toBe(true);
-    expect(fs.readFileSync(path.join(root, rel.taskContext("marketing", "task-9")), "utf8")).toBe("New intent.\n");
+    expect(fs.readFileSync(path.join(root, T.ctx("marketing", "task-9")), "utf8")).toBe("New intent.\n");
   });
 });
 
@@ -559,7 +641,7 @@ describe("task target branch", () => {
     expect(t.target).toBe("release/1.x");
     expect(t.title).toBe("Ship to release");
     // the metadata file (committed on main; on the task branch runStage lands it) + the commit message carry the target
-    const meta = JSON.parse(fs.readFileSync(path.join(root, rel.taskMeta("marketing", "task-target")), "utf8"));
+    const meta = JSON.parse(fs.readFileSync(path.join(root, T.meta("marketing", "task-target")), "utf8"));
     expect(meta.target).toBe("release/1.x");
     expect(git(root, ["log", "main", "--format=%B", "-1"])).toMatch(/Target: release\/1\.x/);
     expect(git(root, ["rev-parse", t.branch]).trim()).toBe(init);     // forked from release/1.x (= init)
@@ -607,7 +689,7 @@ describe("task archive state", () => {
     createTask(root, { pipeline: "marketing", id: "t1", title: "archived before the fix" });
     // exactly what the old branch-local setTaskArchived left behind
     const wt = ensureTaskWorktree(root, "marketing", "t1");
-    const mp = path.join(wt.worktree, rel.taskMeta("marketing", "t1"));
+    const mp = path.join(wt.worktree, T.meta("marketing", "t1", wt.worktree));
     fs.writeFileSync(mp, JSON.stringify({ ...JSON.parse(fs.readFileSync(mp, "utf8")), archived: true }, null, 2) + "\n");
     git(wt.worktree, ["add", "-A"]);
     git(wt.worktree, ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", "bridza: archive task marketing/t1"]);
@@ -659,7 +741,7 @@ describe("one commit per action", () => {
     expect(body).toContain('- bridza: add task #');
 
     // the brief is the captured text — the placeholder never reached history
-    const ctxPath = rel.taskContext("marketing", p.task.id);
+    const ctxPath = T.ctx("marketing", p.task.id);
     expect(fs.readFileSync(path.join(root, ctxPath), "utf8")).toContain("Sync drops archived cards");
     expect(git(root, ["log", "-p", "--", ctxPath])).not.toContain("Describe the intent of this task.");
   });
@@ -674,7 +756,7 @@ describe("one commit per action", () => {
     // the branch forks off the FINAL commit, not off a version folded away
     expect(git(root, ["rev-parse", r.branch]).trim()).toBe(git(root, ["rev-parse", "HEAD"]).trim());
     const files = git(root, ["show", "--name-only", "--format=", "HEAD"]).trim().split("\n");
-    expect(files).toEqual(expect.arrayContaining([rel.taskMeta("marketing", "t1"), rel.plan()]));
+    expect(files).toEqual(expect.arrayContaining([T.meta("marketing", "t1"), rel.plan()]));
   });
 
   it("folds a run of plan edits into one commit instead of one each", () => {

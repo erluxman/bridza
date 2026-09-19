@@ -12,6 +12,7 @@ import {
   FLOW_FILE_KIND, exportFlow, parseFlowFile,
   PIPELINE_FILE_KIND, exportPipeline, parsePipelineFile,
   STARTER_PIPELINES, CLI_TOOLS, buildFileTree,
+  REF_WIDTH, padRef, taskDirName, parseTaskDir, displayRef,
 } from "../../../core/domain.js";
 
 /* ───────────────────────── naming + branches ───────────────────────── */
@@ -30,6 +31,72 @@ describe("safeRef / branch names", () => {
 });
 
 /* ───────────────────────── AND/OR gates ───────────────────────── */
+
+describe("zero-padded numbered folders", () => {
+  it("pads to a width that covers the ~10 million task target", () => {
+    expect(REF_WIDTH).toBe(8);
+    expect(padRef(17)).toBe("00000017");
+    expect(padRef(1)).toBe("00000001");
+    expect(padRef(10000000)).toBe("10000000");
+    // the whole point: lexicographic order == generation order
+    expect([padRef(9), padRef(10), padRef(100)].slice().sort())
+      .toEqual([padRef(9), padRef(10), padRef(100)].slice().sort((a, b) => a.localeCompare(b)));
+    expect(padRef(9) < padRef(10)).toBe(true);
+  });
+
+  it("builds <padded-ref>-<slug> dir names", () => {
+    expect(taskDirName("engineering", "every-task-when-they-are-converted-into", 17))
+      .toBe("00000017-every-task-when-they-are-converted-into");
+    expect(taskDirName("engineering", "Number Prefix Contract", 3))
+      .toBe("00000003-Number-Prefix-Contract");
+  });
+
+  it("leaves the slug bare when there is no usable ref", () => {
+    for (const bad of [null, undefined, 0, -1, 1.5, "", "abc", NaN]) {
+      expect(taskDirName("engineering", "foo", bad)).toBe("foo");
+    }
+  });
+
+  it("round-trips taskDirName ↔ parseTaskDir", () => {
+    for (const ref of [1, 9, 17, 999, 10000000, 99999999]) {
+      const dir = taskDirName("engineering", "some-task", ref);
+      expect(parseTaskDir(dir)).toEqual({ ref, id: "some-task" });
+    }
+  });
+
+  it("round-trips a ref that has outgrown REF_WIDTH rather than losing identity", () => {
+    const dir = taskDirName("engineering", "some-task", 100000000);
+    expect(dir).toBe("100000000-some-task");
+    expect(parseTaskDir(dir)).toEqual({ ref: 100000000, id: "some-task" });
+  });
+
+  it("treats an unpadded dir as legacy, id untouched", () => {
+    expect(parseTaskDir("every-task-when-they-are-converted-into"))
+      .toEqual({ ref: null, id: "every-task-when-they-are-converted-into" });
+  });
+
+  it("never mis-reads a slug that merely starts with digits", () => {
+    for (const slug of ["2fa-rollout", "1234-abc", "0000001-short-by-one", "12345678"]) {
+      expect(parseTaskDir(slug)).toEqual({ ref: null, id: slug });
+    }
+  });
+
+  it("refuses #0 — refs.json never hands it out", () => {
+    expect(parseTaskDir("00000000-foo")).toEqual({ ref: null, id: "00000000-foo" });
+  });
+
+  it("survives an empty or absent dir name", () => {
+    expect(parseTaskDir("")).toEqual({ ref: null, id: "" });
+    expect(parseTaskDir(null)).toEqual({ ref: null, id: "" });
+  });
+
+  it("displays the plain integer, from either shape", () => {
+    expect(displayRef(17)).toBe(17);
+    expect(displayRef("00000017")).toBe(17);
+    expect(displayRef(padRef(10000000))).toBe(10000000);
+    for (const none of [null, undefined, 0, "", "abc", -4]) expect(displayRef(none)).toBe(null);
+  });
+});
 
 describe("gateSatisfied", () => {
   const done = new Set(["a", "b"]);

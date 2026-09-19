@@ -75,6 +75,73 @@ export function taskSlug(title, max = 40) {
   return cut.replace(/^-+|-+$/g, "");
 }
 
+// ── zero-padded numbered folders ────────────────────────────────────────────
+// A task's on-disk folder carries its project-wide #ref at the front, zero
+// padded to a FIXED width, so a plain `ls` sorts tasks in generation order
+// instead of alphabetically by slug:
+//
+//   pipelines/engineering/00000017-every-task-when-they-are-converted-into/
+//
+// The padded form exists ONLY in the folder name. Keys (.bridza/refs.json,
+// .bridza/plan.json) stay keyed by the plain id "<pipeline>/<task>", and the
+// UI always renders the plain integer (#17, never #00000017) — so renaming a
+// folder never rewrites board state.
+//
+// 8 digits covers 1 … 99,999,999, comfortably past the ~10 million target.
+export const REF_WIDTH = 8;
+
+// 17 → "00000017". A ref too wide for REF_WIDTH is NOT truncated — it grows
+// past the width (sorting degrades, identity survives), which is the safe
+// failure for a number that must never collide.
+export function padRef(n) {
+  return String(n).padStart(REF_WIDTH, "0");
+}
+
+// Is this a ref we can put in front of a folder name? Anything else (null,
+// 0, "abc", 1.5) means the task has no #ref yet and stays unprefixed.
+function usableRef(ref) {
+  const n = Number(ref);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+// The on-disk dir name for a task: "<padded-ref>-<slug>". `pipeline` names the
+// parent dir, not part of the name — it is taken so callers read the same way
+// as rel.task(p, t) and so a future pipeline-scoped numbering has a home.
+// Without a usable ref (a task born before refs, or a failed assignment) the
+// bare slug is returned — never "NaN-foo" or "00000000-foo".
+export function taskDirName(pipeline, task, ref) {
+  const slug = safeRef(task);
+  const n = usableRef(ref);
+  return n === null ? slug : padRef(n) + "-" + slug;
+}
+
+// Inverse of taskDirName: "00000017-foo" → { ref: 17, id: "foo" }.
+// A dir that does not begin with AT LEAST REF_WIDTH digits + "-" + a non-empty
+// remainder is a legacy unpadded dir → { ref: null, id: dirName }. Requiring
+// the full width is what keeps a slug that merely starts with digits
+// ("2fa-rollout", "1234-abc") from being mis-read as a ref; allowing MORE than
+// the width keeps the round-trip total for a ref that has outgrown REF_WIDTH,
+// which padRef deliberately does not truncate.
+const TASK_DIR_RE = new RegExp("^(\\d{" + REF_WIDTH + ",})-(.+)$");
+export function parseTaskDir(dirName) {
+  const s = String(dirName || "");
+  const m = TASK_DIR_RE.exec(s);
+  if (!m) return { ref: null, id: s };
+  const n = Number(m[1]);
+  // "00000000-foo" carries no real ref — treat the whole thing as a legacy id
+  // rather than inventing #0, which refs.json never hands out.
+  if (n <= 0) return { ref: null, id: s };
+  return { ref: n, id: m[2] };
+}
+
+// The UI form of a ref: the plain integer, from either shape. Accepts a number
+// (17) or a padded string ("00000017"); returns null when there is no ref, so
+// callers can render "#" + displayRef(r) only when it is non-null.
+export function displayRef(ref) {
+  if (typeof ref === "string" && /^\d+$/.test(ref)) return usableRef(Number(ref));
+  return usableRef(ref);
+}
+
 // Relative paths (POSIX, repo-root-relative) for every entity. Callers join
 // these onto a repo root or a worktree root. Slugging here keeps the on-disk
 // names legal and stable regardless of the human-facing ids.

@@ -13,7 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { DATA_DIR, taskBranchName, rel, safeRef, CLI_TOOLS, STARTER_PIPELINES, pipelineFlows, gateSatisfied } from "../core/domain.js";
+import { DATA_DIR, taskBranchName, rel, safeRef, taskDirName, parseTaskDir, CLI_TOOLS, STARTER_PIPELINES, pipelineFlows, gateSatisfied } from "../core/domain.js";
 
 export { DATA_DIR, taskBranchName };
 
@@ -66,12 +66,12 @@ export function taskTarget(root, pipeline, task) {
   const branch = taskBranchName(pipeline, task);
   if (branchExists(root, branch)) {
     try {
-      const t = JSON.parse(git(root, ["show", branch + ":" + rel.taskMeta(pipeline, task)]));
+      const t = JSON.parse(git(root, ["show", branch + ":" + rel.taskMeta(pipeline, taskDirAt(root, branch, pipeline, task))]));
       if (t && typeof t.target === "string" && t.target.trim()) return t.target.trim();
     } catch (e) { /* no metadata on the task branch yet */ }
   }
   try {
-    const m = JSON.parse(fs.readFileSync(path.join(root, rel.taskMeta(pipeline, task)), "utf8"));
+    const m = JSON.parse(fs.readFileSync(path.join(root, rel.taskMeta(pipeline, taskDirOn(root, pipeline, task))), "utf8"));
     if (m && typeof m.target === "string" && m.target.trim()) return m.target.trim();
   } catch (e) { /* no working-tree metadata */ }
   return baseBranchName(root);
@@ -97,6 +97,54 @@ export function validRef(ref, label = "ref") {
 // Worktrees live as a VISIBLE sibling of the repo — <repo>.bridza-tasks/<pipeline>/<task>
 // — so the task branch is browseable and runnable, not buried in a cache dir.
 // BRIDZA_WORKTREE_DIR overrides the base wholesale (tests point it at a temp dir).
+// ── where a task lives on disk ───────────────────────────────────────────────
+// A task's logical id ("kanban-archive-issue-cards") is not its folder name.
+// Under the zero-padded naming contract a task's folder is "<padded-ref>-<id>",
+// so a plain listing sorts by creation order; tasks created before the contract
+// keep their bare-slug folder forever. Both forms coexist — refs.json,
+// plan.json and every bridza/* branch name stay keyed by the PLAIN id — so
+// every on-disk lookup resolves the id to whichever folder actually exists.
+//
+// Resolution order, in one place so reads and writes can never disagree:
+//   1. a folder already there whose parsed id matches (padded form preferred)
+//   2. the name the contract says it SHOULD have, from .bridza/refs.json —
+//      this is what makes a write into a fresh worktree land on the padded name
+//   3. the bare id, for a task with no #ref at all
+
+function taskDirsIn(names, id) {
+  return names.find((n) => { const d = parseTaskDir(n); return d.ref !== null && d.id === id; })
+    || (names.includes(id) ? id : null);
+}
+
+function refFromDisk(treeRoot, key) {
+  try { return (JSON.parse(fs.readFileSync(path.join(treeRoot, DATA_DIR, "refs.json"), "utf8")).refs || {})[key] || null; }
+  catch (e) { return null; }
+}
+
+// Against a checked-out tree: the repo root OR a task worktree.
+export function taskDirOn(treeRoot, pipeline, task) {
+  const id = safeRef(task);
+  let names = [];
+  try {
+    names = fs.readdirSync(path.join(treeRoot, rel.pipeline(pipeline)), { withFileTypes: true })
+      .filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch (e) { /* pipeline dir not in this tree yet */ }
+  return taskDirsIn(names, id)
+    || taskDirName(pipeline, id, refFromDisk(treeRoot, safeRef(pipeline) + "/" + id));
+}
+
+// Against a branch tip, for `git show <branch>:<path>` reads. Falls back to the
+// working tree so a task that exists in only one of the two still resolves.
+export function taskDirAt(root, branch, pipeline, task) {
+  const id = safeRef(task);
+  let names = [];
+  try {
+    names = git(root, ["ls-tree", "--name-only", branch, rel.pipeline(pipeline) + "/"])
+      .split("\n").filter(Boolean).map((l) => l.replace(/\/$/, "")).map((l) => l.slice(l.lastIndexOf("/") + 1));
+  } catch (e) { /* no such branch, or no pipeline dir on it */ }
+  return taskDirsIn(names, id) || taskDirOn(root, pipeline, task);
+}
+
 export function worktreeBase(root) {
   if (process.env.BRIDZA_WORKTREE_DIR) return process.env.BRIDZA_WORKTREE_DIR;
   const abs = path.resolve(root);
@@ -171,7 +219,8 @@ export function ensureTaskWorktree(root, pipeline, task, { workingDir = "." } = 
 // every flow's stages, STLC first); the first stage commit carries it.
 function seedTaskFiles(root, wt, pipeline, task) {
   const readJ = (f) => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) { return null; } };
-  const ctx = rel.taskContext(pipeline, task), metaRel = rel.taskMeta(pipeline, task);
+  const td = taskDirOn(root, pipeline, task);
+  const ctx = rel.taskContext(pipeline, td), metaRel = rel.taskMeta(pipeline, td);
   try {
     if (!fs.existsSync(path.join(wt, ctx)) && fs.existsSync(path.join(root, ctx))) {
       fs.mkdirSync(path.dirname(path.join(wt, ctx)), { recursive: true });
@@ -180,7 +229,7 @@ function seedTaskFiles(root, wt, pipeline, task) {
     const src = readJ(path.join(root, metaRel));
     const cur = readJ(path.join(wt, metaRel));
     const next = cur ? healTaskFlow(cur, src) : src;
-    if (next && next !== cur) writeTaskMeta(wt, pipeline, task, next);
+    if (next && next !== cur) writeTaskMeta(wt, pipeline, td, next);
   } catch (e) { /* best-effort: a run still works, just without the seed */ }
 }
 
@@ -244,7 +293,7 @@ export function openWorktree(root, pipeline, task, { workingDir = "." } = {}) {
   // predate the README feature.
   try {
     const meta = readTaskMeta(wt.worktree, pipeline, task);
-    const rp = rel.task(pipeline, task) + "/README.md";
+    const rp = rel.task(pipeline, taskDirOn(wt.worktree, pipeline, task)) + "/README.md";
     fs.writeFileSync(path.join(wt.worktree, rp), renderTaskReadme(meta));
     git(wt.worktree, ["add", "--", rp]);
     if (git(wt.worktree, ["diff", "--cached", "--name-only"]).trim())
@@ -252,7 +301,7 @@ export function openWorktree(root, pipeline, task, { workingDir = "." } = {}) {
   } catch (e) { /* best-effort */ }
   // open the worktree AND surface the README dashboard in a tab, so the data is
   // visible even if the editor's file tree hasn't refreshed.
-  const readmeAbs = path.join(wt.worktree, rel.task(pipeline, task), "README.md");
+  const readmeAbs = path.join(wt.worktree, rel.task(pipeline, taskDirOn(wt.worktree, pipeline, task)), "README.md");
   const readmeArgs = fs.existsSync(readmeAbs) ? [readmeAbs] : [];
   const tries = [
     ["code", ["-n", wt.worktree, ...readmeArgs]],
@@ -268,7 +317,7 @@ export function openWorktree(root, pipeline, task, { workingDir = "." } = {}) {
 // ── task metadata (the per-task tracking store, lives on the task branch) ─────
 
 function readTaskMeta(wtOrRoot, pipeline, task) {
-  const f = path.join(wtOrRoot, rel.taskMeta(pipeline, task));
+  const f = path.join(wtOrRoot, rel.taskMeta(pipeline, taskDirOn(wtOrRoot, pipeline, task)));
   if (!fs.existsSync(f)) return { v: 1, pipeline: safeRef(pipeline), task: safeRef(task), tracking: {} };
   try {
     const j = JSON.parse(fs.readFileSync(f, "utf8"));
@@ -277,7 +326,7 @@ function readTaskMeta(wtOrRoot, pipeline, task) {
   } catch (e) { return { v: 1, pipeline: safeRef(pipeline), task: safeRef(task), tracking: {} }; }
 }
 function writeTaskMeta(wtOrRoot, pipeline, task, meta) {
-  const f = path.join(wtOrRoot, rel.taskMeta(pipeline, task));
+  const f = path.join(wtOrRoot, rel.taskMeta(pipeline, taskDirOn(wtOrRoot, pipeline, task)));
   fs.mkdirSync(path.dirname(f), { recursive: true });
   fs.writeFileSync(f, JSON.stringify(meta, null, 2) + "\n");
 }
@@ -447,8 +496,12 @@ export function stopRuns(pipeline, task, stage) {
 // plan.json carries links: { "<pipeline>/<task>": ["<pipeline>/<task>", …] } —
 // the tickets the user attached to a task as context. Each linked ticket's
 // title + context.md is folded into the prompt so it shapes the work directly.
-function readTaskField(root, pipeline, task, relPath) {
+// `makeRel` is a rel.* builder (rel.taskMeta, rel.taskContext) rather than a
+// finished path: the task's folder name can only be resolved here, once the
+// branch it will be read from is known.
+function readTaskField(root, pipeline, task, makeRel) {
   const branch = taskBranchName(pipeline, task);
+  const relPath = makeRel(pipeline, taskDirAt(root, branch, pipeline, task));
   if (branchExists(root, branch)) {
     try { return git(root, ["show", branch + ":" + relPath]); } catch (e) { /* fall through */ }
   }
@@ -467,11 +520,11 @@ export function focusedContext(root, pipeline, task) {
     if (!lp || !lt) continue;
     let title = lt, ref = refs[key] ? "#" + refs[key] + " " : "";
     try {
-      const m = JSON.parse(readTaskField(root, lp, lt, rel.taskMeta(lp, lt)) || "{}");
+      const m = JSON.parse(readTaskField(root, lp, lt, rel.taskMeta) || "{}");
       if (m.title) title = m.title;
       if (!ref && m.ref) ref = "#" + m.ref + " ";
     } catch (e) { /* no metadata — use the id */ }
-    const ctx = (readTaskField(root, lp, lt, rel.taskContext(lp, lt)) || "").trim();
+    const ctx = (readTaskField(root, lp, lt, rel.taskContext) || "").trim();
     blocks.push(`### ${ref}${title} (${key})\n${ctx || "(no written context)"}`);
   }
   if (!blocks.length) return "";
@@ -534,7 +587,7 @@ export function resolveRunnableTool(toolId, isAvailable = toolAvailable) {
 function taskDoneForGate(root, key) {
   const [p, t] = key.split("/");
   let meta;
-  try { meta = JSON.parse(readTaskField(root, p, t, rel.taskMeta(p, t))); }
+  try { meta = JSON.parse(readTaskField(root, p, t, rel.taskMeta)); }
   catch (e) { return false; }
   if (meta.finalized) return true;
   const stages = [...new Set([...(meta.stages || []), ...Object.keys(meta.tracking || {})])];
@@ -699,6 +752,9 @@ export function runStage(root, body, emit) {
     const startedAt = nowISO();
     const startMs = Date.now();
     const sid = safeRef(stage);
+    // the task's folder inside the worktree — padded "<ref>-<id>" for tasks
+    // born under the naming contract, the bare id for older ones
+    const td = taskDirOn(W, pipeline, task);
     let sessionId = null; // LLM session id: opencode/codex capture it, claude picks it
     let reuse = false;    // opt-in session reuse (task.reuseSession) for this run
     let sessionModel = model || "";   // only reuse a session when the model matches
@@ -714,10 +770,10 @@ export function runStage(root, body, emit) {
 
       // stage scaffold: context.md (NL) + outputs/ (.gitkeep so the empty dir
       // is real on first run; the agent fills it)
-      fs.mkdirSync(path.join(W, rel.stageOutputs(pipeline, task, sid)), { recursive: true });
-      const gk = path.join(W, rel.stageOutputs(pipeline, task, sid), ".gitkeep");
+      fs.mkdirSync(path.join(W, rel.stageOutputs(pipeline, td, sid)), { recursive: true });
+      const gk = path.join(W, rel.stageOutputs(pipeline, td, sid), ".gitkeep");
       if (!fs.existsSync(gk)) fs.writeFileSync(gk, "");
-      if (typeof stageContext === "string") fs.writeFileSync(path.join(W, rel.stageContext(pipeline, task, sid)), stageContext);
+      if (typeof stageContext === "string") fs.writeFileSync(path.join(W, rel.stageContext(pipeline, td, sid)), stageContext);
 
       const meta = readTaskMeta(W, pipeline, task);
       // self-heal the task metadata so the README/app always have identity
@@ -733,7 +789,7 @@ export function runStage(root, body, emit) {
       // EVERY "Run stage" press appends the typed prompt to a human-readable
       // file next to the stage — .bridza/pipelines/<p>/<t>/<stage>/prompts.md —
       // carried by the stage's single commit, readable/greppable/diffable.
-      const plog = path.join(W, rel.stage(pipeline, task, sid), "prompts.md");
+      const plog = path.join(W, rel.stage(pipeline, td, sid), "prompts.md");
       const entry = `## ${startedAt} · run ${track.runs.length} · ${toolId}${model ? " · " + model : ""}\n\n${(prompt && prompt.trim()) || "_(no prompt text — stage defaults)_"}\n\n`;
       if (!fs.existsSync(plog))
         fs.writeFileSync(plog, `# Prompt history — ${stageName || sid}\n\nOne entry per "Run stage" press (oldest first). The same text is in each\nrun record in metadata.json and in the stage's commit message.\n\n` + entry);
@@ -761,7 +817,7 @@ export function runStage(root, body, emit) {
         // stage first so the changed-files list (minus scaffolding) can be
         // recorded INTO the metadata that this same commit will carry.
         git(W, ["add", "-A"]);
-        const metaRel = rel.taskMeta(pipeline, task);
+        const metaRel = rel.taskMeta(pipeline, td);
         const staged = git(W, ["diff", "--cached", "--name-only"]).trim();
         // the agent's output files — exclude bookkeeping (metadata, readme, gitkeep, prompts)
         const files = staged ? staged.split("\n").filter((f) => !f.endsWith(".gitkeep") && f !== metaRel && !f.endsWith("/README.md") && !f.endsWith("/prompts.md")) : [];
@@ -775,7 +831,7 @@ export function runStage(root, body, emit) {
         const r = track.runs[track.runs.length - 1] || {};
         Object.assign(r, { finishedAt: nowISO(), exit, status, files, sessionId, error: error || null, log: outTail.trim() || null });
         writeTaskMeta(W, pipeline, task, meta);
-        try { fs.writeFileSync(path.join(W, rel.task(pipeline, task), "README.md"), renderTaskReadme(meta)); } catch (e) { /* readme is best-effort */ }
+        try { fs.writeFileSync(path.join(W, rel.task(pipeline, td), "README.md"), renderTaskReadme(meta)); } catch (e) { /* readme is best-effort */ }
         const rLines = [
           `bridza(${safeRef(pipeline)}/${safeRef(task)}/${sid}): ${status} · ${toolId} · exit ${exit}`
             + (files.length ? ` · ${files.length} file${files.length === 1 ? "" : "s"}` : ""),
@@ -1164,7 +1220,7 @@ export function finalizeTask(root, pipeline, task, { style = "squash", into, res
     // a descriptive merge subject: who this task IS (#ref + title), not just ids
     const key = safeRef(pipeline) + "/" + safeRef(task);
     let title = "", refNum = null;
-    try { const m = JSON.parse(git(root, ["show", branch + ":" + rel.taskMeta(pipeline, task)])); if (m.title && m.title !== safeRef(task)) title = m.title; } catch (e) { /* no metadata */ }
+    try { const m = JSON.parse(git(root, ["show", branch + ":" + rel.taskMeta(pipeline, taskDirAt(root, branch, pipeline, task))])); if (m.title && m.title !== safeRef(task)) title = m.title; } catch (e) { /* no metadata */ }
     try { refNum = (JSON.parse(fs.readFileSync(path.join(root, DATA_DIR, "refs.json"), "utf8")).refs || {})[key] || null; } catch (e) { /* no refs yet */ }
     const msg = [
       `bridza: finalize ${key}${refNum ? ` · #${refNum}` : ""}${title ? ` "${title.slice(0, 50)}"` : ""} → ${target}`,

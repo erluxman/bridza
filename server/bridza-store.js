@@ -6,8 +6,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { DATA_DIR, rel, safeRef, shortTitle, taskSlug, pipelineFlows, flattenFlows } from "../core/domain.js";
-import { git, isGitRepo, branchExists, baseBranchName, ensureTaskBranch, taskBranchName, removeTaskWorktree, stopRuns, healTaskFlow, validRef } from "./bridza-run.js";
+import { DATA_DIR, rel, safeRef, shortTitle, taskSlug, taskDirName, parseTaskDir, pipelineFlows, flattenFlows } from "../core/domain.js";
+import { git, isGitRepo, branchExists, baseBranchName, ensureTaskBranch, taskBranchName, taskDirOn, taskDirAt, removeTaskWorktree, stopRuns, healTaskFlow, validRef } from "./bridza-run.js";
 
 const BEMAIL = "bridza@local";
 const BIDENT = ["-c", "user.name=bridza", "-c", "user.email=" + BEMAIL];
@@ -33,6 +33,13 @@ function listDirs(dir) {
   return fs.readdirSync(dir, { withFileTypes: true })
     .filter((e) => e.isDirectory() && e.name !== ".metadata")
     .map((e) => e.name);
+}
+// Task folders are named "<padded-ref>-<id>" under the naming contract and
+// bare "<id>" for tasks that predate it. Everything above the filesystem —
+// refs.json, plan.json, branch names, the UI — speaks the plain id, so strip
+// the prefix the moment a listing crosses that line.
+function listTaskIds(dir) {
+  return listDirs(dir).map((d) => parseTaskDir(d).id);
 }
 
 // ── one commit per user action ──────────────────────────────────────────────
@@ -413,7 +420,7 @@ export function assignRefs(root, keys) {
 // fall back to the working-tree stub (just created, no branch yet).
 export function readTaskMeta(root, pipeline, task) {
   const branch = taskBranchName(pipeline, task);
-  const relPath = rel.taskMeta(pipeline, task);
+  const relPath = rel.taskMeta(pipeline, taskDirAt(root, branch, pipeline, task));
   if (branchExists(root, branch)) {
     try { const j = healTaskFlow(JSON.parse(git(root, ["show", branch + ":" + relPath])), readJSON(path.join(root, relPath))); j._live = true; return j; }
     catch (e) { /* branch exists but no metadata yet — fall through */ }
@@ -450,7 +457,8 @@ function scanBranches(root) {
       let tdirs = "";
       try { tdirs = git(root, ["ls-tree", "-d", "--name-only", b, pdir + "/"]); } catch (e) { continue; }
       for (const tdir of tdirs.trim().split("\n").filter(Boolean)) {
-        const tid = path.posix.basename(tdir);
+        // branch trees carry the FOLDER name; the board speaks the plain id
+        const tid = parseTaskDir(path.posix.basename(tdir)).id;
         if (tid === ".metadata") continue;
         if (!found.has(pid)) found.set(pid, new Set());
         found.get(pid).add(tid);
@@ -473,10 +481,9 @@ function readTaskMetaFromAnyBranch(root, scan, pipeline, task) {
     scan.metas.set(key, own);
     return own;
   }
-  const relPath = rel.taskMeta(pipeline, task);
   for (const b of scan.branches || []) {
     try {
-      const j = JSON.parse(git(root, ["show", b + ":" + relPath]));
+      const j = JSON.parse(git(root, ["show", b + ":" + rel.taskMeta(pipeline, taskDirAt(root, b, pipeline, task))]));
       j._live = true; j._onBranch = b;
       scan.metas.set(key, j);
       return j;
@@ -504,7 +511,7 @@ export function readProject(root) {
     // the id→def lookup tasks resolve against: every flow's stages, plus any
     // legacy pool stages not in a flow (first occurrence of an id wins)
     const allStages = flattenFlows([...flows, { stages: def.stages || [] }]);
-    const tids = [...new Set([...listDirs(path.join(pipelinesRoot, pid)), ...(scan.found.get(pid) || [])])]
+    const tids = [...new Set([...listTaskIds(path.join(pipelinesRoot, pid)), ...(scan.found.get(pid) || [])])]
       .filter((tid) => !tombstones.has(pid + "/" + tid));
     const tasks = tids.map((tid) => {
       const meta = readTaskMetaFromAnyBranch(root, scan, pid, tid);
@@ -693,7 +700,7 @@ function deletePipelineIn(root, { id }) {
   const who = `"${def.label || pid}" (${pid})`;
   nameAction(`bridza: delete pipeline ${who}`);
   const pipeDir = path.join(root, rel.pipeline(pid));
-  const taskIds = fs.existsSync(pipeDir) ? listDirs(pipeDir) : [];
+  const taskIds = fs.existsSync(pipeDir) ? listTaskIds(pipeDir) : [];
   for (const tid of taskIds) {
     try { stopRuns(pid, tid); } catch (e) { /* nothing running */ }
     try { removeTaskWorktree(root, pid, tid); } catch (e) { /* no worktree */ }
@@ -769,8 +776,10 @@ function createTaskIn(root, { pipeline, id, title = "", type = "", outputMode = 
   const stageIds = stages && stages.length ? stages.map(safeRef)
     : chosen ? chosen.stages.map((s) => s.id)
       : flattenFlows(flows).map((s) => s.id);
-  const metaPath = rel.taskMeta(pid, tid), ctxPath = rel.taskContext(pid, tid);
-  if (fs.existsSync(path.join(root, metaPath))) return { ok: false, error: "task already exists" };
+  // the existence check resolves the folder the same way every read does, so a
+  // legacy bare-slug task and a padded one are both caught before a #ref is
+  // spent on a duplicate
+  if (fs.existsSync(path.join(root, rel.taskMeta(pid, taskDirOn(root, pid, tid))))) return { ok: false, error: "task already exists" };
   ensureDataDir(root);   // self-heal the .bridza/README.md map + .gitignore for older projects
   // recreating a previously-deleted id lifts its tombstone (it gets a NEW #ref)
   const refsCur = readRefs(root);
@@ -779,6 +788,11 @@ function createTaskIn(root, { pipeline, id, title = "", type = "", outputMode = 
     writeJSON(refsFile(root), refsCur);
   }
   const ref = assignRefs(root, [pid + "/" + tid])[pid + "/" + tid];
+  // ORDER MATTERS: the folder carries the #ref, so it can only be named once
+  // the ref is assigned. The id inside metadata.json, the refs.json/plan.json
+  // keys and the branch name all stay the PLAIN id — only the folder is padded.
+  const tdir = taskDirName(pid, tid, ref);
+  const metaPath = rel.taskMeta(pid, tdir), ctxPath = rel.taskContext(pid, tdir);
   writeJSON(path.join(root, metaPath), {
     v: 1, id: tid, pipeline: pid, title: title || tid, ref, type: type || (tpl ? tpl.id : ""), flow: chosen ? chosen.id : "", template: tpl ? tpl.id : "", outputMode,
     branch: taskBranchName(pid, tid), target: taskTargetResolved, stages: stageIds, routing: {},
@@ -858,7 +872,7 @@ function createTaskIn(root, { pipeline, id, title = "", type = "", outputMode = 
   }
   for (const e of plan.pipeDeps.filter((d) => d && d.to === pid)) {
     if (readPipelineDef(root, e.from).archived) continue;   // hidden pipelines don't gate new work
-    for (const ut of listDirs(path.join(root, rel.pipeline(e.from)))) {
+    for (const ut of listTaskIds(path.join(root, rel.pipeline(e.from)))) {
       const uk = e.from + "/" + ut;
       if (uk === key || g.all.includes(uk)) continue;
       if (readTaskMeta(root, e.from, ut).finalized) continue;   // delivered — nothing to wait on
@@ -897,12 +911,15 @@ function deleteTaskIn(root, { pipeline, task, deleteBranch = false }) {
   try { stopRuns(pid, tid); } catch (e) { /* nothing running */ }
   try { removeTaskWorktree(root, pid, tid); } catch (e) { /* no worktree */ }
 
-  // 1) the task dir on the current branch — committed so history shows the delete
-  const taskDir = path.join(root, rel.task(pid, tid));
+  // 1) the task dir on the current branch — committed so history shows the
+  //    delete. Resolve the folder BEFORE removing it: once it is gone the
+  //    padded name can no longer be read off disk, and the commit needs it.
+  const tdir = taskDirOn(root, pid, tid);
+  const taskDir = path.join(root, rel.task(pid, tdir));
   let committed = false;
   if (fs.existsSync(taskDir)) {
     fs.rmSync(taskDir, { recursive: true, force: true });
-    committed = commitPaths(root, [rel.task(pid, tid)], [
+    committed = commitPaths(root, [rel.task(pid, tdir)], [
       `bridza: delete task ${who} (${key}) — task info removed`,
       "",
       "Removed from the database (.bridza task dir). Git history is kept" + (deleteBranch ? "," : ` on branch ${taskBranchName(pid, tid)},`),
@@ -1094,7 +1111,8 @@ export function promoteInbox(root, { id, pipeline, flow = "", title: titleIn = "
 // a task created on another task's branch has no working-tree copy.
 export function readContext(root, { pipeline, task, stage }) {
   if (!pipeline || !task) return { ok: false, error: "pipeline and task required" };
-  const p = stage ? rel.stageContext(pipeline, task, stage) : rel.taskContext(pipeline, task);
+  const td = taskDirOn(root, pipeline, task);
+  const p = stage ? rel.stageContext(pipeline, td, stage) : rel.taskContext(pipeline, td);
   const own = readText(path.join(root, p));
   if (own.trim()) return { ok: true, text: own };
   for (const b of scanBranches(root).branches || []) {
@@ -1108,7 +1126,8 @@ export function readContext(root, { pipeline, task, stage }) {
 
 // Edit the natural-language context for a task or a stage.
 export function saveContext(root, { pipeline, task, stage, text }) {
-  const p = stage ? rel.stageContext(pipeline, task, stage) : rel.taskContext(pipeline, task);
+  const td = taskDirOn(root, pipeline, task);
+  const p = stage ? rel.stageContext(pipeline, td, stage) : rel.taskContext(pipeline, td);
   writeText(path.join(root, p), String(text ?? ""));
   const snip = String(text ?? "").trim().split("\n")[0].replace(/^#\s*/, "").slice(0, 48);
   // successive saves of the same brief are one edit, not one commit each

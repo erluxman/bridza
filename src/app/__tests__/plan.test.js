@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { readPlan, savePlan, readTaskMeta, createPipeline, createTask } from "../../../server/bridza-store.js";
-import { git, extractImports, resolveImport, buildReverseImportGraph, reverseClosure, runStage, reopenStage } from "../../../server/bridza-run.js";
+import { git, extractImports, resolveImport, buildReverseImportGraph, reverseClosure, runStage, reopenStage, taskDirOn } from "../../../server/bridza-run.js";
 import { gateSatisfied, criticalPath, rel } from "../../../core/domain.js";
 
 // generous: the reopen/failed-run tests do several real runStage rounds (git
@@ -325,7 +325,8 @@ describe("every Run press records the prompt to a file", () => {
       createTask(root, { pipeline: "dev", id: "t4", title: "T4" });
       await runStage(root, { pipeline: "dev", task: "t4", stage: "spec", tool: "opencode", prompt: "first prompt text" }, () => {});
       await runStage(root, { pipeline: "dev", task: "t4", stage: "spec", tool: "opencode", model: "x/y", prompt: "second prompt text" }, () => {});
-      const plog = git(root, ["show", "bridza/dev/t4:.bridza/pipelines/dev/t4/spec/prompts.md"]);
+      // the task's folder is "<padded-ref>-<id>" under the naming contract
+      const plog = git(root, ["show", "bridza/dev/t4:" + rel.stage("dev", taskDirOn(root, "dev", "t4"), "spec") + "/prompts.md"]);
       expect(plog).toMatch(/# Prompt history — Spec|# Prompt history — spec/);
       expect(plog).toMatch(/run 1 · opencode\n\nfirst prompt text/);
       expect(plog).toMatch(/run 2 · opencode · x\/y\n\nsecond prompt text/);

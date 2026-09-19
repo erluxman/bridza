@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { runStage, taskWorktree, git } from "../../../server/bridza-run.js";
+import { runStage, taskWorktree, git, taskDirOn } from "../../../server/bridza-run.js";
 import { createPipeline, createTask, readProject } from "../../../server/bridza-store.js";
 import { rel } from "../../../core/domain.js";
 
@@ -35,24 +35,27 @@ afterEach(() => {
 });
 
 const theTask = () => readProject(root).pipelines[0].tasks[0];
+// a task's folder is "<padded-ref>-<id>" under the naming contract — resolve it
+// the way the store does rather than hard-coding either form
+const tMeta = (tree, pipeline, task) => rel.taskMeta(pipeline, taskDirOn(tree, pipeline, task));
 
 it("running a stage keeps the task's flow and its stage list", async () => {
   await runStage(root, { tool: "claude", pipeline: "eng", task: "t1", stage: "repro" }, () => {});
   expect(theTask().flow).toBe("bugfix");
   expect(theTask().stages).toEqual(["repro", "fix"]);
   const W = taskWorktree(root, "eng", "t1");
-  expect(JSON.parse(git(W, ["show", "HEAD:" + rel.taskMeta("eng", "t1")])).flow).toBe("bugfix");
+  expect(JSON.parse(git(W, ["show", "HEAD:" + tMeta(W, "eng", "t1")])).flow).toBe("bugfix");
 });
 
 it("heals a branch whose committed metadata already lost the flow", async () => {
   await runStage(root, { tool: "claude", pipeline: "eng", task: "t1", stage: "repro" }, () => {});
   const W = taskWorktree(root, "eng", "t1");
-  const f = path.join(W, rel.taskMeta("eng", "t1"));
+  const f = path.join(W, tMeta(W, "eng", "t1"));
   const m = JSON.parse(fs.readFileSync(f, "utf8"));
   fs.writeFileSync(f, JSON.stringify({ ...m, flow: "", stages: ["repro"] }));   // the old bug's output
   G(W, ["commit", "-am", "broken"]);
   expect(theTask().flow).toBe("bugfix");
   expect(theTask().stages).toEqual(["repro", "fix"]);
   await runStage(root, { tool: "claude", pipeline: "eng", task: "t1", stage: "fix" }, () => {});
-  expect(JSON.parse(git(W, ["show", "HEAD:" + rel.taskMeta("eng", "t1")])).flow).toBe("bugfix");
+  expect(JSON.parse(git(W, ["show", "HEAD:" + tMeta(W, "eng", "t1")])).flow).toBe("bugfix");
 });

@@ -47,13 +47,37 @@ Key shape: `.bridza/refs.json` and `.bridza/plan.json` stay keyed by the plain
 task id (`<pipeline>/<slug>`, the `id` from `parseTaskDir`); the folder prefix
 carries ordering only, so renaming a folder never rewrites board state.
 
-Out of scope: writing/renaming folders, migrating existing tasks, UI truncation
-call sites — those are separate sub-tasks. This contract only defines the
-naming, and touches no existing repo folders.
+The write path (`createTask`) names the folder once the `#ref` is assigned, and
+the read path resolves an id to whichever folder exists. Both live behind two
+resolvers in `server/bridza-run.js`, so a read and a write can never disagree:
+
+- `taskDirOn(treeRoot, p, t)` — against a checked-out tree (repo root or a task
+  worktree). Order: an existing folder whose parsed id matches (padded wins) →
+  the name the contract says it should have, from `.bridza/refs.json` → the
+  bare id. Step 2 is what lets a write into a fresh worktree land on the padded
+  name before the folder exists.
+- `taskDirAt(root, branch, p, t)` — the same against a branch tip, for
+  `git show <branch>:<path>` reads; falls back to `taskDirOn`.
+
+Legacy folders are never touched: a task created before the contract keeps its
+bare slug forever and resolves through the same two functions. `scanBranches`
+and every directory listing parse the folder name back to the plain id, so the
+board, the plan network and every `bridza/*` branch name are unchanged.
+
+Out of scope: migrating existing folders to the padded form, and the UI
+truncation call sites — those remain separate sub-tasks.
 
 ## Verification
 
-Unit tests (in `src/app/__tests__/bridza-model.test.js`) cover padding, the
+Unit tests (`src/app/__tests__/bridza-model.test.js`) cover padding, the
 `taskDirName` ↔ `parseTaskDir` round-trip, the 10-million width bound, and the
-legacy no-prefix / leading-digit-slug fallback. `pnpm test`, `pnpm lint`, and
-`pnpm build` pass.
+legacy no-prefix / leading-digit-slug fallback.
+
+Store tests (`src/app/__tests__/bridza-store.test.js`, "zero-padded task
+folders") cover the end-to-end behaviour: a new task lands in
+`00000001-<id>` while its id, branch name and `refs.json` key stay plain;
+folders sort in creation order rather than alphabetically; a legacy unpadded
+folder is still enumerated, read, context-edited and deleted, and coexists with
+padded ones; and a duplicate id is refused without burning a `#ref`.
+
+`pnpm test` (230), `pnpm lint`, `pnpm build` pass.
