@@ -1,4 +1,11 @@
 {
   "v": 1,
-  "items": []
+  "items": [
+    {
+      "id": "in-85ujyz",
+      "kind": "idea",
+      "text": "this was all the comments of our branch into one comment before merging to main so basically the last step of any changes should be squashing comments and that should be changed in every single flow if they change any part of the file system",
+      "time": "2026-09-19T18:47:37.922Z"
+    }
+  ]
 }
