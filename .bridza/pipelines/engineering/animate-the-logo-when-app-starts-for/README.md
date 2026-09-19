@@ -1,8 +1,8 @@
-# ⏳ animate the logo when app starts for the first time
+# ✅ animate the logo when app starts for the first time
 
 `bridza/engineering/animate-the-logo-when-app-starts-for`  ·  pipeline `engineering`
 
-`███████████░░░░░`  **2/3** stages  ·  5m 14s tracked  ·  in-progress
+`████████████████`  **3/3** stages  ·  9m 1s tracked  ·  🎉 all stages done
 
 ## At a glance
 
@@ -10,7 +10,7 @@
 |--:|-------|--------|------|--------|-----:|
 | 1 | spec | ✅ done | 1m 8s | 2 files | 1 |
 | 2 | build | ✅ done | 4m 6s | 2 files | 2 |
-| 3 | review | ⏳ idle | — | — | — |
+| 3 | review | ✅ done | 3m 47s | 1 file | 1 |
 
 ## The story
 
@@ -30,9 +30,13 @@
 
 <sub>claude · exit 0</sub>
 
-### 3. review — ⏳ idle
+### 3. review — ✅ done · 3m 47s
 
-_not run yet_
+**Asked** — Task: animate the logo when app starts for the first time Merge readiness — this task's change will be merged into the branch "main" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into "main": review the task's branch against that branch (`git diff main...
+
+**Output** — `review.md`
+
+<sub>claude · exit 0</sub>
 
 ---
 

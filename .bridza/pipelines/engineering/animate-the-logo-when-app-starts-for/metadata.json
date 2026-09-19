@@ -69,6 +69,27 @@
           "log": "$ claude -p \"Task: animate the logo when app starts for the first time\\n\\nOkay, so when you are starting the application for the first time, the Briza logo which is on the …\" --permission-mode acceptEdits --append-system-prompt \"You are an implementer. Implement strictly to the spec; the shortest working diff wins. Reuse what the codebase already has, prefer the standard library over…\"\n· model: TOOL DEFAULT (no --model/-m flag — claude's own config decides)\nFit check: passes — single small UI feature, one file-set, no breakdown needed. Proceeded.\n\nRun 1 of build already landed most of it (commit `f174194`). Two gaps vs `acceptance.md` remained; fixed both.\n\n**1. Reduced-motion guard was defeated** — `src/app/bridza.css:53` had an unguarded `.brand.pulse { animation: heartbeat … }` *plus* a duplicate inside `@media (prefers-reduced-motion: no-preference)`. Unguarded rule → reduced-motion users still animated. Deleted the unguarded copy; only the guarded one remains.\n\n**2. No test for state logic** — added `src/app/__tests__/logo-pulse.test.jsx`, following the existing `welcome-dialog.test.jsx` pattern (jsdom + in-memory localStorage stub + harness mirroring App's mount logic, real `Sidebar`):\n- marker absent → `.brand pulse` class + `LS.logo` written\n- marker present → `.brand` static\n\n**Not verified: `pnpm test` / `pnpm lint` / `pnpm build` did not run.** `node_modules/` in this worktree is empty, and both `pnpm install` and a read of the main checkout's `node_modules` were denied by the sandbox. Acceptance item 12 is therefore unconfirmed — the test file is unexecuted. Run `pnpm install && pnpm test` locally to close it.\n\nChanges left uncommitted (harness commits stage work)."
         }
       ]
+    },
+    "review": {
+      "status": "done",
+      "seconds": 227,
+      "runs": [
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: animate the logo when app starts for the first time\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-19T18:59:41.175Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T19:03:28.171Z",
+          "exit": 0,
+          "files": [
+            "review.md"
+          ],
+          "sessionId": null,
+          "error": null,
+          "log": "$ claude -p \"Task: animate the logo when app starts for the first time\\n\\nMerge readiness — this task's change will be merged into the branch \\\"main\\\" (on finalize Bridza mer…\" --permission-mode acceptEdits --append-system-prompt \"You are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, abstractions with one …\"\n· model: TOOL DEFAULT (no --model/-m flag — claude's own config decides)\nWrote `review.md`. Verdict: **changes requested**, merge **not** clean.\n\n(Note: root `review.md` held prior task's Kanban review — overwrote per repo's per-task convention; `main`'s copy differs anyway.)\n\n**2 real bugs**\n\n1. **A1 — feature doesn't fire on actual first launch.** `App.jsx:84` → no `bridza-project` key → returns `<Welcome>`. Sidebar never mounts, `.brand` never renders. But `App.jsx:32` effect writes the marker on that same mount. User opens app → Welcome screen → quits without picking folder → marker burned → logo static forever. Never sees it.\n\n2. **A2 — private mode replays every launch.** `lsGet` returns `def` on throw *and* on absent key — indistinguishable. `!lsGet(LS.logo, \"\")` → `true` → pulses. `lsSet` swallows failure → marker never lands → pulses every launch. Acceptance says no animation.\n\n**Merge → `main`: 5 conflicts**, `merge-tree` confirmed. `App.jsx` + `nav.jsx` conflict on exact same lines (main added `activeTask` prop, branch added `firstLaunch` — mechanical, keep both). Plus `.bridza/plan.json`, `acceptance.md`, `spec.md`. `bridza.css` auto-merges. Branch based on `65f5aaa`; main ~100 commits ahead.\n\n**Couldn't verify test/lint/build** — `node_modules` empty here, install denied. Two things found statically that matter:\n- `eslint.config.js:8` ignores `src/app` → **lint never sees any file in this diff**\n- `tsconfig.app.json` has `allowJs` without `checkJs` → `tsc -b` doesn't type-check the `.jsx`\n\nOnly `pnpm test` proves anything. Row is unverified, not passed.\n\n**Over-engineering: basically none.** ~10 lines, no deps, no abstraction. Three deletions: unused `setFirstLaunch`, noise dep `[firstLaunch]` → `[]`, inert `\"\"` default. Rename `@keyframes heartbeat` → `brand-heartbeat` (global sheet, file precedent is `plan-pulse`).\n\n**Test weakness (accepted):** `logo-pulse.test.jsx:29` harness re-implements App's logic instead of importing it — delete `App.jsx:31-32` and it still passes. Matches `welcome-dialog.test.jsx` idiom so I didn't demand a change, but that shape is why A1/A2 slipped through."
+        }
+      ]
     }
   }
 }
