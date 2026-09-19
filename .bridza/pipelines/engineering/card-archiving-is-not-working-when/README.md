@@ -10,7 +10,7 @@
 |--:|-------|--------|------|--------|-----:|
 | 1 | repro | ✅ done | 5m 34s | 2 files | 3 |
 | 2 | fix | ✅ done | 12m 4s | 4 files | 4 |
-| 3 | fix-review | 🔄 running | — | — | 1 |
+| 3 | fix-review | 🔄 running | — | — | 2 |
 
 ## The story
 
@@ -30,7 +30,7 @@
 
 <sub>claude/opus · exit 0</sub>
 
-### 3. fix-review — 🔄 running
+### 3. fix-review — 🔄 running · 2 runs
 
 **Asked** — Task: Card archiving is not working when syncing between devices with git. Alright, for some reason, the archive cards are not displayed in the archive column. Maybe the archive status of that card is not updated on the metadata of it, but many of the DAWN cards right now were archived from a differ
 
