@@ -18,5 +18,42 @@
   "routing": {},
   "status": "in-progress",
   "finalized": false,
-  "tracking": {}
+  "tracking": {
+    "repro": {
+      "status": "done",
+      "seconds": 334,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Card archiving is not working when syncing between devices with git.\n\nAlright, for some reason, the archive cards are not displayed in the archive column. Maybe the archive status of that card is not updated on the metadata of it, but many of the DAWN cards right now were archived from a different computer, but they do not appear here.\n You have to investigate why it was ignored that they were moved to the archive.",
+          "startedAt": "2026-09-19T04:47:58.430Z",
+          "status": "running"
+        },
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Card archiving is not working when syncing between devices with git.\n\nAlright, for some reason, the archive cards are not displayed in the archive column. Maybe the archive status of that card is not updated on the metadata of it, but many of the DAWN cards right now were archived from a different computer, but they do not appear here.\n You have to investigate why it was ignored that they were moved to the archive.",
+          "startedAt": "2026-09-19T04:52:12.249Z",
+          "status": "running"
+        },
+        {
+          "tool": "claude",
+          "model": "opus",
+          "prompt": "Task: Card archiving is not working when syncing between devices with git.\n\nAlright, for some reason, the archive cards are not displayed in the archive column. Maybe the archive status of that card is not updated on the metadata of it, but many of the DAWN cards right now were archived from a different computer, but they do not appear here.\n You have to investigate why it was ignored that they were moved to the archive.",
+          "startedAt": "2026-09-19T05:06:44.744Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T05:12:18.546Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/card-archiving-is-not-working-when/repro/outputs/repro.md",
+            ".bridza/pipelines/engineering/card-archiving-is-not-working-when/repro/outputs/repro.mjs"
+          ],
+          "sessionId": null,
+          "error": null,
+          "log": "$ claude -p \"Task: Card archiving is not working when syncing between devices with git.\\n\\nAlright, for some reason, the archive cards are not displayed in the archive colu…\" --permission-mode acceptEdits --model opus --append-system-prompt \"You are a debugger. Reproduce the reported bug: find the failing path, capture exact steps/inputs and the observed vs expected behavior, and identify the roo…\"\nRepro written. Bug found, nothing fixed.\n\n**`repro.md`** → `.bridza/pipelines/engineering/card-archiving-is-not-working-when/repro/outputs/repro.md` (+ `repro.mjs`, two-device script).\n\n## Root cause\n\n`setTaskArchived` (`server/bridza-run.js:1071`) writes `archived` into the **task worktree**, then `commitWorktree(W, …)` commits it onto `bridza/<pipeline>/<task>`. Base branch never touched.\n\nEvery other board-wide flag commits at repo root → syncs fine:\n\n| state | target | syncs |\n|---|---|---|\n| pipeline archived, kanban order, `#refs`/tombstones | `commitPaths(root, …)` | ✅ |\n| **card archived** | `commitWorktree(W, …)` | ❌ |\n\n## Why it never reaches the other machine\n\n- Archive button exists to declutter **Delivered** → used *after* finalize → no future merge carries flag to `main`.\n- `git ls-remote --heads origin` → 4 branches, **zero `bridza/*`**. Bridza has no push/pull; task branches never published.\n- 30 task `metadata.json` on `origin/main`, **none** has `archived`. Only hit is `\"__archived__\"` — the *column id* in `kanbanOrder`, root-written. That's why the Archived column syncs and shows up, permanently empty. Exactly the reported symptom.\n- Device B: no local `bridza/*` head → `readTaskMeta` falls back to `main`'s file → `archived: !!undefined` = `false` → `currentStage()` skips `ARCHIVED_COL` (`board.jsx:22`).\n\nUI is correct. It faithfully renders `archived: false`.\n\n**Pushing task branches would not fix it** — `branchExists` checks `refs/heads/` and `scanBranches` scans `refs/heads/bridza/`. Clones get `refs/remotes/*`. Fix must put the flag on the base branch.\n\n## Two things worth flagging\n\n- Origin of the bug is the spec: `kanban-archive-issue-cards/build/prompts.md` said commit it \"the same way `setTaskReuse` writes task flags\". `setTaskReuse` is a per-worktree runtime pref — branch-local OK. `archived` is cross-device display state — branch-local wrong.\n- Existing test (`bridza-run.test.js:677`) asserts only worktree + branch tip. Never asserts `readProject(root)`, never crosses a clone. Passes while feature is broken.\n\nArchive intent **not lost** — it's in commits on the other machine's branches, recoverable via `git log --all --grep='bridza: archive task'`.\n\n## Caveat\n\nCould not execute `repro.mjs` — `node` and `pnpm test` both required interactive approval this session. Root cause established from source + this repo's git state; every claim in the doc is backed by a shown command and its output. Script is ready to run when execution is permitted."
+        }
+      ]
+    }
+  }
 }
