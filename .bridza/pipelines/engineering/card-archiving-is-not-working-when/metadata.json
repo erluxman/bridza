@@ -57,7 +57,7 @@
     },
     "fix": {
       "status": "done",
-      "seconds": 477,
+      "seconds": 724,
       "runs": [
         {
           "tool": "opencode",
@@ -86,6 +86,44 @@
           "sessionId": null,
           "error": null,
           "log": "$ claude -p \"Task: Card archiving is not working when syncing between devices with git.\\n\\nFit check — this task was filed under the \\\"Bugfix\\\" flow. The earlier stages' outp…\" --permission-mode acceptEdits --model opus --append-system-prompt \"You are an implementer. Read repro.md and fix the root cause with the smallest correct change — check every caller of the code you touch and fix at the share…\"\nFit check: single root cause, single-commit fix → **Bugfix flow correct**. Implemented.\n\n## Root cause\n`setTaskArchived` wrote `archived` into the task worktree + committed to `bridza/<pipe>/<task>`. Task branches never pushed, readers only see local heads → flag cannot cross devices. Device B reads base-branch metadata → `!!undefined === false`.\n\n## Fix (shared path, not per call site)\nArchive = board state, so store it where pipeline-archive & kanban order live: repo root, base branch.\n\n- `server/bridza-store.js:250` — `readRefs` gains `archived: { \"<pipe>/<task>\": bool }` in `.bridza/refs.json` (same file as delete tombstones, which solve the identical branch-independence problem).\n- `server/bridza-store.js:263` — new `setTaskArchived`, writes + `commitPaths(root, [\".bridza/refs.json\"], …)`.\n- `server/bridza-store.js:408` — `readProject` reads refs.json; falls back to legacy `meta.archived` when no entry, so pre-fix archives still show; explicit `false` outranks a stale flag.\n- `server/bridza-store.js:767` — `deleteTask` retires the archive entry with the `#ref`.\n- `server/bridza-run.js:1070` — branch-local version deleted (no worktree spawned just to archive now).\n- `server/bridge.js:27` — only caller (`/task/archive`); import moved. Endpoint/client/`board.jsx` unchanged.\n\n## Tests\nNew `bridza-store.test.js` → `task archive state`, 3 cases: cross-device (archive → commit on `main` → **clone base branch only, no `bridza/*` head** → reads archived `true`), legacy-flag honour + clear, delete drops entry. Old `bridza-run.test.js` case (asserted only worktree+branch — why bug shipped) removed.\n\n`npx vitest run` over all 6 node suites: **166 passed**.\n\nCaveats:\n- 3 `.jsx` suites not run — no `node_modules` in worktree, `pnpm install` needed approval. They don't touch changed code.\n- `repro.mjs` import updated one line (API moved); couldn't execute it — `node <script>` needs approval here, so verification is via vitest, which covers the same two-device path.\n- Changes left uncommitted for the pipeline's stage commit. Summary written to `fix/outputs/fix.md`."
+        },
+        {
+          "tool": "claude",
+          "model": "opus",
+          "prompt": "Task: Card archiving is not working when syncing between devices with git.\n\nFit check — this task was filed under the \"Bugfix\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Bugfix\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Feature\" (Spec → Build → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.\n\nFit check — this task was filed under the \"Bugfix\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Bugfix\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Feature\" (Spec → Build → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-19T11:51:37.888Z",
+          "status": "running"
+        },
+        {
+          "tool": "claude",
+          "model": "opus",
+          "prompt": "Task: Card archiving is not working when syncing between devices with git.\n\nFit check — this task was filed under the \"Bugfix\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Bugfix\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Feature\" (Spec → Build → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.\n\nCheck the existing implementation and make an improvement if necessary and only if necessary. Use ponytail skill to review it. \n\nFit check — this task was filed under the \"Bugfix\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Bugfix\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Feature\" (Spec → Build → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-19T11:52:35.528Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T11:56:42.923Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/card-archiving-is-not-working-when/fix/outputs/fix.md",
+            "package-lock.json",
+            "server/bridza-store.js",
+            "src/app/__tests__/bridza-store.test.js"
+          ],
+          "sessionId": null,
+          "error": null,
+          "log": "$ claude -p \"Task: Card archiving is not working when syncing between devices with git.\\n\\nFit check — this task was filed under the \\\"Bugfix\\\" flow. The earlier stages' outp…\" --permission-mode acceptEdits --model opus --append-system-prompt \"You are an implementer. Read repro.md and fix the root cause with the smallest correct change — check every caller of the code you touch and fix at the share…\"\nFit: single bug, one root cause, one-commit fix → **Bugfix flow correct**. Proceeded.\n\n**Existing fix (commit ab16ab6) reviewed — sound.** Archive state moved from the task's `bridza/*` branch (never pushed) to root `.bridza/refs.json` on base branch, same home as kanban order + `#ref` tombstones. Reuses existing syncing file, no new deps, endpoint/UI untouched. Ponytail verdict: right rung — nothing to delete.\n\n**One missed caller found + fixed.** `deleteTask` retires the new `refs.archived` entry; `deletePipeline` — the sibling that retires `#ref`s and tombstones the same keys — did not.\n\n- `server/bridza-store.js:591` — one line in existing retire loop:\n```js\nif (refs.archived[key] !== undefined) { delete refs.archived[key]; refsTouched = true; }\n```\n- Failure it prevented: delete pipeline w/ archived card → recreate same pipeline+task id → new card born archived, invisible outside Archived column.\n\n**Regression test:** `src/app/__tests__/bridza-store.test.js` → `\"deleting the whole pipeline retires its tasks' archive entries too\"`. Verified red without fix (`expected true to be false` at :628), green with.\n\n**Tests:** full suite `npx vitest run` → **201 passed, 9 files**. (`node_modules` was empty in worktree → ran `npm install` first.)\n\n`fix.md` updated w/ follow-up section. Not committed — working tree dirty, say word if you want it committed."
+        }
+      ]
+    },
+    "fix-review": {
+      "status": "running",
+      "seconds": 0,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Card archiving is not working when syncing between devices with git.\n\nAlright, for some reason, the archive cards are not displayed in the archive column. Maybe the archive status of that card is not updated on the metadata of it, but many of the DAWN cards right now were archived from a different computer, but they do not appear here.\n You have to investigate why it was ignored that they were moved to the archive.\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-19T06:32:32.721Z",
+          "status": "running"
         }
       ]
     }

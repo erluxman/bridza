@@ -6,7 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { ensureDataDir, readProject, readPlan, savePlan, createPipeline, savePipeline, archivePipeline, saveKanbanOrder, createTask, deleteTask, readContext, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox, setTaskArchived } from "../../../server/bridza-store.js";
+import { ensureDataDir, readProject, readPlan, savePlan, createPipeline, savePipeline, archivePipeline, saveKanbanOrder, createTask, deleteTask, readContext, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox, setTaskArchived, deletePipeline } from "../../../server/bridza-store.js";
 import { runStage, git, ensureTaskWorktree } from "../../../server/bridza-run.js";
 import { STARTER_PIPELINES, rel, judgeStageId, pipelineFlows, exportFlow, parseFlowFile, exportPipeline, parsePipelineFile, shortTitle } from "../../../core/domain.js";
 
@@ -615,6 +615,17 @@ describe("task archive state", () => {
 
     setTaskArchived(root, "marketing", "t1", false);
     expect(archivedOf(root, "t1")).toBe(false);   // the explicit false outranks the stale flag
+  });
+
+  it("deleting the whole pipeline retires its tasks' archive entries too", () => {
+    createPipeline(root, MARKETING);
+    createTask(root, { pipeline: "marketing", id: "t1", title: "gone with the pipeline" });
+    setTaskArchived(root, "marketing", "t1", true);
+    deletePipeline(root, { id: "marketing" });
+
+    createPipeline(root, MARKETING);
+    createTask(root, { pipeline: "marketing", id: "t1", title: "reused id" });
+    expect(archivedOf(root, "t1")).toBe(false);
   });
 
   it("deleting an archived task retires its archive entry too", () => {

@@ -2,14 +2,14 @@
 
 `bridza/engineering/card-archiving-is-not-working-when`  ·  pipeline `engineering`
 
-`███████████░░░░░`  **2/3** stages  ·  13m 31s tracked  ·  in-progress
+`███████████░░░░░`  **2/3** stages  ·  17m 38s tracked  ·  in-progress
 
 ## At a glance
 
 | # | Stage | Status | Time | Output | Runs |
 |--:|-------|--------|------|--------|-----:|
 | 1 | repro | ✅ done | 5m 34s | 2 files | 3 |
-| 2 | fix | ✅ done | 7m 57s | 7 files | 2 |
+| 2 | fix | ✅ done | 12m 4s | 4 files | 4 |
 | 3 | fix-review | 🔄 running | — | — | 1 |
 
 ## The story
@@ -22,11 +22,11 @@
 
 <sub>claude/opus · exit 0</sub>
 
-### 2. fix — ✅ done · 7m 57s · 2 runs
+### 2. fix — ✅ done · 12m 4s · 4 runs
 
 **Asked** — Task: Card archiving is not working when syncing between devices with git. Fit check — this task was filed under the "Bugfix" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single "Bugfix" task. The pipeline's 
 
-**Output** — `.bridza/pipelines/engineering/card-archiving-is-not-working-when/fix/outputs/fix.md`, `.bridza/pipelines/engineering/card-archiving-is-not-working-when/repro/outputs/repro.mjs`, `server/bridge.js`, `server/bridza-run.js`, `server/bridza-store.js`, `src/app/__tests__/bridza-run.test.js`, `src/app/__tests__/bridza-store.test.js`
+**Output** — `.bridza/pipelines/engineering/card-archiving-is-not-working-when/fix/outputs/fix.md`, `package-lock.json`, `server/bridza-store.js`, `src/app/__tests__/bridza-store.test.js`
 
 <sub>claude/opus · exit 0</sub>
 

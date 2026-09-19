@@ -590,6 +590,7 @@ export function deletePipeline(root, { id }) {
   for (const tid of taskIds) {
     const key = pid + "/" + tid;
     if (refs.refs[key] != null) { delete refs.refs[key]; refsTouched = true; }
+    if (refs.archived[key] !== undefined) { delete refs.archived[key]; refsTouched = true; }
     if (!refs.deleted.includes(key)) { refs.deleted.push(key); refsTouched = true; }
   }
   if (refsTouched) { writeJSON(refsFile(root), refs); commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: retire #refs of deleted pipeline ${who} — numbers are never reused`); }

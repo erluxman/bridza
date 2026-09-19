@@ -52,3 +52,21 @@ task branch — exactly why the bug shipped — and was replaced by the above.
 
 `repro/outputs/repro.mjs` was updated for the moved import (one line) and now
 reports device B as archived.
+
+## Follow-up review — one missed caller
+
+`deleteTask` retired the new `refs.archived` entry, but `deletePipeline`
+(`bridza-store.js:590`) — the other place that retires a task's `#ref` and
+tombstones it — did not. A stale `true` therefore outlived the pipeline: delete
+a pipeline holding an archived card, recreate it with the same ids, and the new
+card came back already archived (invisible outside the Archived column).
+
+One line, in the existing retire loop next to the `#ref` deletion:
+
+```js
+if (refs.archived[key] !== undefined) { delete refs.archived[key]; refsTouched = true; }
+```
+
+Covered by `bridza-store.test.js` → `"deleting the whole pipeline retires its
+tasks' archive entries too"` (verified red without the line). Full suite:
+**201 passed**, 9 files.
