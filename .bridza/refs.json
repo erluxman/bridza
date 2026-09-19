@@ -57,6 +57,7 @@
     "engineering/more-conflicts-user-experience-should": true,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": true,
     "engineering/per-day-dismissal": true,
-    "engineering/time-aware-greeting": true
+    "engineering/time-aware-greeting": true,
+    "engineering/welcome-dialog-on-open": true
   }
 }
