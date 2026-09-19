@@ -244,6 +244,10 @@
     "engineering/review-ui-and-ux": {
       "x": 633,
       "y": 734
+    },
+    "engineering/setting-to-hide-columns-in-kanban-that": {
+      "x": -450,
+      "y": 1619
     }
   },
   "sizes": {
