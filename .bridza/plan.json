@@ -318,6 +318,10 @@
     "engineering/task-creation-write-path": {
       "w": 417,
       "h": 38
+    },
+    "engineering/task-enumeration-read-path": {
+      "w": 436,
+      "h": 50
     }
   },
   "links": {
