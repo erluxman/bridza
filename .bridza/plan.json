@@ -92,6 +92,12 @@
         "engineering/create-pr-browser-compose-link"
       ],
       "any": []
+    },
+    "engineering/define-merge-strategy": {
+      "all": [],
+      "any": [
+        "engineering/better-merging-strategy-to-reference"
+      ]
     }
   },
   "milestones": [
@@ -114,7 +120,8 @@
       "tasks": [
         "engineering/define-merge-strategy",
         "engineering/implement-merge-strategy",
-        "engineering/verify-merge-strategy"
+        "engineering/verify-merge-strategy",
+        "engineering/better-merging-strategy-to-reference"
       ],
       "needs": []
     },
@@ -139,9 +146,14 @@
       "tasks": [
         "engineering/i-should-be-able-to-rearrange-the",
         "engineering/kanban-archive-issue-cards",
-        "engineering/kanban-columns-drag-reorder"
+        "engineering/kanban-columns-drag-reorder",
+        "engineering/highlight-selected-task-or-work-item-if",
+        "engineering/auto-advance-seems-to-only-works-at-the",
+        "engineering/ok-when-i-press-command-and-mouse-will"
       ],
-      "needs": []
+      "needs": [
+        "ms-ay5tg"
+      ]
     },
     {
       "id": "ms-numbered-folders",
@@ -228,44 +240,44 @@
       "y": 236
     },
     "engineering/i-should-be-able-to-rearrange-the": {
-      "x": -432,
-      "y": 359
+      "x": 1032,
+      "y": -4
     },
     "engineering/kanban-archive-issue-cards": {
-      "x": -432,
-      "y": 445
+      "x": 1032,
+      "y": 82
     },
     "engineering/kanban-columns-drag-reorder": {
-      "x": -432,
-      "y": 531
+      "x": 1032,
+      "y": 168
     },
     "engineering/ok-when-i-press-command-and-mouse-will": {
-      "x": -60,
-      "y": 603
+      "x": 1404,
+      "y": 240
     },
     "engineering/highlight-selected-task-or-work-item-if": {
-      "x": -61,
-      "y": 448
+      "x": 1403,
+      "y": 85
     },
     "engineering/auto-advance-seems-to-only-works-at-the": {
-      "x": -65,
-      "y": 527
+      "x": 1399,
+      "y": 164
     },
     "engineering/better-merging-strategy-to-reference": {
-      "x": -531,
-      "y": 839
+      "x": -1157,
+      "y": 932
     },
     "engineering/define-merge-strategy": {
-      "x": -583,
-      "y": 925
+      "x": -834,
+      "y": 933
     },
     "engineering/implement-merge-strategy": {
-      "x": -231,
-      "y": 911
+      "x": -482,
+      "y": 919
     },
     "engineering/verify-merge-strategy": {
-      "x": -436,
-      "y": 761
+      "x": -687,
+      "y": 769
     },
     "engineering/card-archiving-is-not-working-when": {
       "x": 278,
@@ -316,28 +328,28 @@
       "y": 1184
     },
     "engineering/create-pr-button-in-task-detail": {
-      "x": 342,
-      "y": 2379
+      "x": 1538,
+      "y": 1768
     },
     "engineering/when-merging-to-main-does-not-happen": {
-      "x": 17,
-      "y": 2465
+      "x": 1213,
+      "y": 1854
     },
     "engineering/do-not-allow-merge-domain-until-the": {
-      "x": 102,
-      "y": 2501
+      "x": 1298,
+      "y": 1890
     },
     "engineering/i-should-be-able-to-change-any-details": {
-      "x": 386,
-      "y": 2552
+      "x": 1582,
+      "y": 1941
     },
     "engineering/archive-tag-backfill-policy": {
       "x": -331,
       "y": 2655
     },
     "engineering/finalize-merge-style-surface": {
-      "x": 37,
-      "y": 2643
+      "x": 1233,
+      "y": 2032
     },
     "engineering/merge-method-decision-adr": {
       "x": 878,
@@ -352,8 +364,8 @@
       "y": 1736
     },
     "engineering/run-ledger-reachability-contract": {
-      "x": 82,
-      "y": 2162
+      "x": 1278,
+      "y": 1551
     },
     "engineering/task-branch-deletion-policy": {
       "x": -466,
@@ -410,8 +422,8 @@
       "h": 66
     },
     "engineering/ok-when-i-press-command-and-mouse-will": {
-      "w": 379,
-      "h": 57
+      "w": 514,
+      "h": 40
     },
     "engineering/auto-advance-seems-to-only-works-at-the": {
       "w": 389,
