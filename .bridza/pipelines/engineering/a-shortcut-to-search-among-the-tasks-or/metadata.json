@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "a-shortcut-to-search-among-the-tasks-or",
+  "pipeline": "engineering",
+  "title": "A shortcut to search among the tasks or cards on the Kanban.",
+  "ref": 61,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/a-shortcut-to-search-among-the-tasks-or",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}

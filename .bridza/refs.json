@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 61,
+  "next": 62,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -52,7 +52,8 @@
     "engineering/merge-strategy-goal-ranking": 57,
     "engineering/run-ledger-reachability-contract": 58,
     "engineering/task-branch-deletion-policy": 59,
-    "engineering/only-claude-can-auto-advance-opencode": 60
+    "engineering/only-claude-can-auto-advance-opencode": 60,
+    "engineering/a-shortcut-to-search-among-the-tasks-or": 61
   },
   "deleted": [
     "engineering/truncation-check-idea",

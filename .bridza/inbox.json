@@ -2,12 +2,6 @@
   "v": 1,
   "items": [
     {
-      "id": "in-fvpqpv",
-      "kind": "idea",
-      "text": "There should be a search button somewhere or command F should work as find where I can search and find the task with certain text in them from the list of all the tasks on the Kanban.",
-      "time": "2026-09-19T11:50:21.870Z"
-    },
-    {
       "id": "in-n88jle",
       "kind": "idea",
       "text": "When the inbox is 0, so confetti animation when I open the inbox.",
