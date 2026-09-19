@@ -96,7 +96,7 @@ export default function App() {
   return (
     <div className={"app" + (sideCollapsed ? " side-collapsed" : "")} style={sideCollapsed ? undefined : { gridTemplateColumns: `${sideW}px 1fr`, position: "relative" }}>
       {!sideCollapsed && (
-        <Sidebar proj={proj} running={running} runningTasks={runningTasks} active={activePipe} dir={dir} onChange={refresh} flash={flash} onPipe={(id) => { setActivePipe(id); setActiveTask(""); setFlowOpen(false); setInboxOpen(false); setPlanOpen(false); }}
+        <Sidebar proj={proj} running={running} runningTasks={runningTasks} active={activePipe} activeTask={activeTask} dir={dir} onChange={refresh} flash={flash} onPipe={(id) => { setActivePipe(id); setActiveTask(""); setFlowOpen(false); setInboxOpen(false); setPlanOpen(false); }}
           onNewPipe={() => setModal({ type: "pipeline" })} onClose={closeProject} onPick={pick} recents={recents} onOpen={openDir}
           onOpenTask={(pid, tid) => { setInboxOpen(false); setFlowOpen(false); setPlanOpen(false); setActivePipe(pid); setActiveTask(tid); }}
           onCollapse={() => collapse(true)} inboxCount={(proj.inbox || []).length} inboxActive={inboxOpen} onInbox={() => { setInboxOpen(true); setActiveTask(""); setFlowOpen(false); setPlanOpen(false); }}

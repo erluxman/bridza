@@ -7,7 +7,7 @@ import { pipelineFlows, shortTitle } from "../../../core/domain.js";
 import { base } from "../lib/format.js";
 import { Hamburger, Modal, Field, Expandable } from "../ui.jsx";
 
-export function Sidebar({ proj, running, runningTasks, active, onPipe, onNewPipe, onClose, onPick, recents, onOpen, onOpenTask, onCollapse, inboxCount, inboxActive, onInbox, planActive, onPlan, dir, onChange, flash }) {
+export function Sidebar({ proj, running, runningTasks, active, activeTask, onPipe, onNewPipe, onClose, onPick, recents, onOpen, onOpenTask, onCollapse, inboxCount, inboxActive, onInbox, planActive, onPlan, dir, onChange, flash }) {
   const [menu, setMenu] = useState(false);
   const [showArch, setShowArch] = useState(false);
   // right-click a pipeline → our own menu (native browser menu suppressed)
@@ -73,7 +73,7 @@ export function Sidebar({ proj, running, runningTasks, active, onPipe, onNewPipe
           <div className="running-tasks" style={{ margin: "2px 0 10px", borderLeftColor: "var(--accent)" }}>
             <div className="side-sub">Running now · {liveTasks.length}</div>
             {liveTasks.map((r) => (
-              <button key={r.pid + "/" + r.tid} className="run-task" onClick={() => onOpenTask(r.pid, r.tid)} title={`${r.pipe} · ${r.title} — stage ${r.stage}`}>
+              <button key={r.pid + "/" + r.tid} className={"run-task" + (r.pid === active && r.tid === activeTask ? " on" : "")} onClick={() => onOpenTask(r.pid, r.tid)} title={`${r.pipe} · ${r.title} — stage ${r.stage}`}>
                 <span className="livedot" />
                 <span className="rt-name">{r.title}</span>
                 <span className="rt-pipe">{r.pipe}</span>

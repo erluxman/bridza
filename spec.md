@@ -1,21 +1,18 @@
-# Kanban archive issue cards
+# Highlight selected task in running now sidebar
 
 ## What
 
-Every card in the Kanban board (`src/app/features/board.jsx`) gets an explicit Archive button. Clicking it moves the card out of its current column into a distinct "Archived" column at the end of the board. Clicking Archive again restores the card to its previous column. Archiving is always manual — nothing archives automatically.
+When the user selects a task (from the kanban board or task detail) that is still running in the background, the matching item in the "Running now" list of the left sidebar gets an active/selected highlight. Selection is the existing `activePipe` + `activeTask` state in `App.jsx` — only the sidebar's visual state changes.
 
 ## Why
 
-Finished tasks in "Delivered" accumulate and clutter the terminal column. Archiving lets users clear visual noise from completed work without losing the record. The card remains queryable and restorable, just out of the active view.
+Users need immediate visual feedback in the sidebar to know which running task they are currently viewing or inspecting, improving spatial awareness and navigation state.
 
 ## How
 
-- Add an archive affordance (🗄 button) to every card in `board.jsx`, including cards in "Delivered".
-- Clicking Archive sets an `archived` boolean flag on the task's metadata (`.bridza/pipelines/<pipeline>/<task>/metadata.json`), following the same commit path as `setTaskReuse` in `server/bridza-run.js`.
-- Add a bridge endpoint in `server/bridge.js` that writes the `archived` flag and commits it.
-- When `archived: true`, exclude the card from all stage columns and from "Delivered". Instead, render it in a distinct "Archived" column appended after "Delivered" in the kanban layout.
-- Archived cards count separately; their count appears in the "Archived" column header.
-- Clicking Archive on an already-archived card toggles it back to `archived: false` and restores it to its previous column (determined by `currentStage(t)` logic).
-- Persist across reload: read `archived` from metadata on mount.
+- Pass the selected task (pipeline id + task id) from `App.jsx` into `Sidebar` (`features/nav.jsx`).
+- In the "Running now" list (`liveTasks.map`), add the active/selected class to the `.run-task` button whose `pid`/`tid` match the selected task, following the existing `.on` selected convention (e.g. `run-task on`).
+- Add a `.run-task.on` highlight rule in `bridza.css`.
+- Non-selected running tasks keep their current standard running style.
 
-Out of scope: automatic archiving on any condition, bulk archive operations, filtering archived cards by date.
+Out of scope: URL/route changes, highlighting on other surfaces (plan view, pipeline list), any selection source other than `activePipe`/`activeTask`.

@@ -1,12 +1,9 @@
-# Acceptance — Kanban archive issue cards
+# Acceptance — Highlight selected task in running now sidebar
 
-- [ ] Every card (including those in "Delivered") shows an archive button (e.g. 🗄).
-- [ ] Clicking Archive on a non-archived card moves it out of its current column into a distinct "Archived" column at the end of the board.
-- [ ] The card's `archived` flag is persisted in `.bridza/pipelines/<pipeline>/<task>/metadata.json` via a new bridge endpoint, committed the same way as task reuse flags.
-- [ ] Archived cards do not appear in their stage columns or in "Delivered"; they render only in "Archived".
-- [ ] The "Archived" column header displays the count of archived cards.
-- [ ] Clicking Archive on an archived card toggles `archived: false` and restores the card to its previous column (determined by `currentStage` logic).
-- [ ] Archiving persists across reload.
-- [ ] No automatic archiving: only explicit user clicks change the archived state.
-- [ ] Unit/component tests cover archive → restore round-trip and persistence.
+- [ ] When a task present in `proj.running` (and therefore in the sidebar "Running now" list) is selected, its `.run-task` item receives the active/selected highlight class.
+- [ ] The highlighted item matches the selected task exactly (pipeline id + task id from `activePipe`/`activeTask`).
+- [ ] Non-selected running tasks in the "Running now" list keep the standard running style — no highlight.
+- [ ] The highlight tracks selection: switching to a different task, the board, Plan, or Inbox clears it; selecting the running task again re-applies it.
+- [ ] Highlighted items remain clickable and open the task as before.
+- [ ] The highlight class follows the existing `.on` selected convention with styling in `bridza.css`.
 - [ ] `pnpm test`, `pnpm lint`, and `pnpm build` all pass.
