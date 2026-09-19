@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 35,
+  "next": 36,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -28,7 +28,8 @@
     "engineering/task-enumeration-read-path": 31,
     "engineering/ui-ref-display": 32,
     "engineering/highlight-running-task-in-sidebar": 33,
-    "engineering/url-path-sync-for-selected-task": 34
+    "engineering/url-path-sync-for-selected-task": 34,
+    "engineering/1when-i-delete-a-pipeline-from-the-left": 35
   },
   "deleted": [
     "engineering/truncation-check-idea",
