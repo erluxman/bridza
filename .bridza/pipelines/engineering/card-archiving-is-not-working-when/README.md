@@ -1,4 +1,4 @@
-# ⏳ Card archiving is not working when syncing between devices with git.
+# 🔄 Card archiving is not working when syncing between devices with git.
 
 `bridza/engineering/card-archiving-is-not-working-when`  ·  pipeline `engineering`
 
@@ -9,7 +9,7 @@
 | # | Stage | Status | Time | Output | Runs |
 |--:|-------|--------|------|--------|-----:|
 | 1 | repro | ✅ done | 5m 34s | 2 files | 3 |
-| 2 | fix | ⏳ idle | — | — | — |
+| 2 | fix | 🔄 running | — | — | 1 |
 | 3 | fix-review | ⏳ idle | — | — | — |
 
 ## The story
@@ -22,9 +22,11 @@
 
 <sub>claude/opus · exit 0</sub>
 
-### 2. fix — ⏳ idle
+### 2. fix — 🔄 running
 
-_not run yet_
+**Asked** — Task: Card archiving is not working when syncing between devices with git. Alright, for some reason, the archive cards are not displayed in the archive column. Maybe the archive status of that card is not updated on the metadata of it, but many of the DAWN cards right now were archived from a differ
+
+<sub>opencode · exit ?</sub>
 
 ### 3. fix-review — ⏳ idle
 
