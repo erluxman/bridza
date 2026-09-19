@@ -86,6 +86,7 @@
     "engineering/reduce-the-amount-of-commits-for-the": true,
     "engineering/highlight-running-task-in-sidebar": true,
     "engineering/i-should-be-able-to-rearrange-the": true,
-    "engineering/ok-when-i-press-command-and-mouse-will": true
+    "engineering/ok-when-i-press-command-and-mouse-will": true,
+    "engineering/number-prefix-contract": true
   }
 }
