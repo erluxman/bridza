@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 41,
+  "next": 42,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -34,7 +34,8 @@
     "engineering/reduce-the-amount-of-commits-for-the": 37,
     "engineering/purchase-the-selected-model-and-display": 38,
     "engineering/when-opening-a-task-or-card-it-should": 39,
-    "engineering/setting-to-hide-columns-in-kanban-that": 40
+    "engineering/setting-to-hide-columns-in-kanban-that": 40,
+    "engineering/animate-the-logo-when-app-starts-for": 41
   },
   "deleted": [
     "engineering/truncation-check-idea",
