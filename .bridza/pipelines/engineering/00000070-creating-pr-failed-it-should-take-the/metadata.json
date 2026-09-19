@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "creating-pr-failed-it-should-take-the",
+  "pipeline": "engineering",
+  "title": "creating PR failed it should take the titles and description from the…",
+  "ref": 70,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/creating-pr-failed-it-should-take-the",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
