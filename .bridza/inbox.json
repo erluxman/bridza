@@ -2,6 +2,12 @@
   "v": 1,
   "items": [
     {
+      "id": "in-12ajbp",
+      "kind": "idea",
+      "text": "along with merge to main button there should be a button called create PR if the github cli is already there then that button will directly create a PR if there it is there is not it will open that creates a pr  link in a browser.",
+      "time": "2026-09-19T16:33:42.946Z"
+    },
+    {
       "id": "in-fvpqpv",
       "kind": "idea",
       "text": "There should be a search button somewhere or command F should work as find where I can search and find the task with certain text in them from the list of all the tasks on the Kanban.",
