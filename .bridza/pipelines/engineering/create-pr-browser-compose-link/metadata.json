@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "id": "create-pr-browser-compose-link",
+  "pipeline": "engineering",
+  "title": "Create PR button — GitHub compose link in browser",
+  "type": "subtask",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": ["spec", "build", "review"],
+  "tracking": {}
+}

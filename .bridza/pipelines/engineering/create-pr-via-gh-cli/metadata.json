@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "id": "create-pr-via-gh-cli",
+  "pipeline": "engineering",
+  "title": "Create PR button — direct GitHub CLI (gh) path",
+  "type": "subtask",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": ["spec", "build", "review"],
+  "tracking": {}
+}

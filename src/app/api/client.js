@@ -58,6 +58,7 @@ export const getFile = (dir, pipeline, task, path) => get(`/file?pipeline=${enco
 export const saveFile = (dir, body) => post("/file/save", dir, body);
 export const fetchTime = (dir, pipeline, task) => get(`/time?pipeline=${encodeURIComponent(pipeline)}&task=${encodeURIComponent(task)}`, dir);
 export const saveTime = (dir, pipeline, task, time) => post("/time", dir, { pipeline, task, time });
+export const createPR = (dir, body) => post("/pr", dir, body);
 
 // Stream an ndjson timeline endpoint: parses each event and calls onEvent for
 // each, resolving with the final {t:"end",…} event. An optional AbortSignal

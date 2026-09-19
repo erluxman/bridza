@@ -86,6 +86,12 @@
         "engineering/auto-advance-chain-registry"
       ],
       "any": []
+    },
+    "engineering/create-pr-via-gh-cli": {
+      "all": [
+        "engineering/create-pr-browser-compose-link"
+      ],
+      "any": []
     }
   },
   "milestones": [
@@ -170,6 +176,16 @@
         "engineering/auto-advance-state-truth-toggle",
         "engineering/auto-advance-progress-badges",
         "engineering/auto-advance-stop-and-resume"
+      ],
+      "needs": []
+    },
+    {
+      "id": "ms-create-pr-button",
+      "title": "Create PR button in task detail",
+      "due": "",
+      "tasks": [
+        "engineering/create-pr-browser-compose-link",
+        "engineering/create-pr-via-gh-cli"
       ],
       "needs": []
     }
@@ -400,6 +416,8 @@
     "engineering/auto-advance-chain-registry": 5,
     "engineering/auto-advance-state-truth-toggle": 5,
     "engineering/auto-advance-progress-badges": 3,
-    "engineering/auto-advance-stop-and-resume": 4
+    "engineering/auto-advance-stop-and-resume": 4,
+    "engineering/create-pr-browser-compose-link": 3,
+    "engineering/create-pr-via-gh-cli": 4
   }
 }

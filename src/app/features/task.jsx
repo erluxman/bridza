@@ -179,9 +179,16 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
     const r = await api.finalize(dir, { pipeline: pipeline.id, task: task.id, resolveMain, mainCommitMessage });
     if (r.conflict) { setConflict(r); flash(`merge conflict on ${r.target} — ${r.files.length} file${r.files.length === 1 ? "" : "s"} need resolving`, 5000); return; }
     if (r.needsResolve) { setResolveOpen(true); flash("your checkout of main has uncommitted changes — review and resolve below", 4000); return; }
-    setResolveOpen(false);
-    if (r.ok) { flash(r.autocommit ? `committed “${r.autocommit.message}” + merged → ${r.target}` : (r.mainResolved ? `${r.mainResolved.action === "stash" ? "stashed main" : "committed main"} + merged → ${r.target}` : `merged → ${r.target}`), 4800); onChange(); }
+setResolveOpen(false);
+    if (r.ok) { flash(r.autocommit ? `committed "${r.autocommit.message}" + merged → ${r.target}` : (r.mainResolved ? `${r.mainResolved.action === "stash" ? "stashed main" : "committed main"} + merged → ${r.target}` : `merged → ${r.target}`), 4800); onChange(); }
     else flash(r.error, 4800);
+  };
+  const createPR = async () => {
+    flash("creating PR…", 6000);
+    const r = await api.createPR(dir, { pipeline: pipeline.id, task: task.id, target: targetName });
+    if (!r.ok) { flash(r.error, 5000); return; }
+    flash(r.existing ? `PR already exists` : `PR created`, 4000);
+    if (r.url) window.open(r.url, "_blank");
   };
   const openVscode = async () => {
     flash("opening VS Code…");
@@ -364,6 +371,7 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
               → {handoff.tf.name}
             </button>
           )}
+          <button className="btn primary" onClick={createPR} title={`Create a PR for ${task.branch} → ${targetName}`}>Create PR</button>
           <button className="btn" onClick={() => finalize()} disabled={task.finalized} title={`Merge this task's branch into ${targetName}`}>{task.finalized ? "Finalized" : `Finalize → ${targetName}`}</button>
         </div>
       </div>

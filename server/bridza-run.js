@@ -1485,3 +1485,50 @@ export function taskTimeline(root, pipeline, task) {
   }
   return { ok: true, branch, commits };
 }
+
+export function createPR(root, pipeline, task, targetBranch) {
+  if (!isGitRepo(root)) return { ok: false, error: "not a git repository" };
+  const branch = taskBranchName(pipeline, task);
+  if (!branchExists(root, branch)) return { ok: false, error: "task branch does not exist — run a stage first" };
+
+  const ghAvailable = toolAvailable("gh");
+  let repoUrl = "";
+  try {
+    const remote = git(root, ["remote", "get-url", "origin"]).trim();
+    const m = remote.match(/github\.com[/:]([^/]+)\/([^/.]+)/);
+    if (!m) return { ok: false, error: "no GitHub remote found — add a GitHub origin first" };
+    repoUrl = `https://github.com/${m[1]}/${m[2]}`;
+  } catch (e) { return { ok: false, error: "no remote origin configured" }; }
+
+  const target = targetBranch || taskTarget(root, pipeline, task);
+  let title = task, body = "";
+  try {
+    const meta = JSON.parse(fs.readFileSync(path.join(root, DATA_DIR, rel.taskMeta(pipeline, task)), "utf8"));
+    if (meta.title) title = meta.title;
+    const ctx = fs.readFileSync(path.join(root, DATA_DIR, rel.taskContext(pipeline, task)), "utf8").trim();
+    if (ctx) body = ctx.replace(/^\s*#.*\n+/, "").slice(0, 2000);
+  } catch (e) { /* no metadata */ }
+
+  if (ghAvailable) {
+    try {
+      const existing = execFileSync("gh", ["pr", "view", branch, "--json", "url"], { encoding: "utf8", cwd: root, stdio: ["ignore", "pipe", "ignore"] });
+      const j = JSON.parse(existing);
+      if (j.url) return { ok: true, url: j.url, existing: true };
+    } catch (e) { /* no existing PR */ }
+    try {
+      const args = ["pr", "create", "--base", target, "--head", branch];
+      if (title) args.push("--title", title);
+      if (body) args.push("--body", body);
+      const out = execFileSync("gh", args, { encoding: "utf8", cwd: root, stdio: ["ignore", "pipe", "pipe"] });
+      const urlMatch = out.match(/https:\/\/github\.com\/[^\/]+\/[^\/]+\/pull\/\d+/);
+      return { ok: true, url: urlMatch ? urlMatch[0] : out.trim() };
+    } catch (e) {
+      const err = String((e && e.stderr) || (e && e.message) || e);
+      return { ok: false, error: "gh pr create failed: " + firstLine(err) };
+    }
+  }
+
+  const compareUrl = `${repoUrl}/compare/${target}...${branch}?expand=1`;
+  const prUrl = `${repoUrl}/pull/new/${target}...${branch}`;
+  return { ok: true, url: prUrl, compare: compareUrl, title, body };
+}
