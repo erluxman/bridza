@@ -1,4 +1,11 @@
 {
   "v": 1,
-  "items": []
+  "items": [
+    {
+      "id": "in-ui1zpy",
+      "kind": "idea",
+      "text": "the settings should be should have a category like VS code we may not have all the features but that's the way we eventually will go",
+      "time": "2026-09-19T18:35:28.178Z"
+    }
+  ]
 }
