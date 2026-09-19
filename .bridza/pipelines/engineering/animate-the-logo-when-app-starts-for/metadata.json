@@ -18,5 +18,28 @@
   "routing": {},
   "status": "in-progress",
   "finalized": false,
-  "tracking": {}
+  "tracking": {
+    "spec": {
+      "status": "done",
+      "seconds": 68,
+      "runs": [
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: animate the logo when app starts for the first time\n\nOkay, so when you are starting the application for the first time, the Briza logo which is on the top left corner should animate like pulse like heartbeat.",
+          "startedAt": "2026-09-19T18:26:10.864Z",
+          "status": "done",
+          "finishedAt": "2026-09-19T18:27:18.978Z",
+          "exit": 0,
+          "files": [
+            "acceptance.md",
+            "spec.md"
+          ],
+          "sessionId": null,
+          "error": null,
+          "log": "$ claude -p \"Task: animate the logo when app starts for the first time\\n\\nOkay, so when you are starting the application for the first time, the Briza logo which is on the …\" --permission-mode acceptEdits --append-system-prompt \"You are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we'll know it works — n…\"\n· model: TOOL DEFAULT (no --model/-m flag — claude's own config decides)\nWrote `spec.md` + `acceptance.md` (replaced stale kanban-archive spec from prior task).\n\n**Spec core:**\n- Target = app logo `⎇ Bridza` in sidebar header (`src/app/features/nav.jsx:45`, `.brand` in `bridza.css:52`) — not landing page logo.\n- \"First time\" = new LS marker key in `LS` map (`src/app/lib/format.js:10`), written at first mount → never replays.\n- Pure CSS keyframe, `transform: scale()` only, double-beat × 3 cycles, `prefers-reduced-motion` guard. No dep, no JS loop.\n\n**Decisions I made** (intent left open, flagging):\n- Once *ever*, not once per session/day — \"first time\" read literally. Contrast: welcome dialog uses per-day (`App.jsx:25`).\n- Finite cycles, not looping forever.\n- Marker still written for reduced-motion users → no surprise pulse later.\n\n**Out of scope, stated:** landing logo, replay setting, other trigger points, artwork change."
+        }
+      ]
+    }
+  }
 }
