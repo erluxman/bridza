@@ -73,6 +73,7 @@
     "engineering/when-opening-a-task-or-card-it-should": true,
     "engineering/auto-advance-seems-to-only-works-at-the": true,
     "engineering/reduce-the-amount-of-commits-for-the": true,
-    "engineering/highlight-running-task-in-sidebar": true
+    "engineering/highlight-running-task-in-sidebar": true,
+    "engineering/i-should-be-able-to-rearrange-the": true
   }
 }
