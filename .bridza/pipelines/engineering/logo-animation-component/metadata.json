@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "id": "logo-animation-component",
+  "pipeline": "engineering",
+  "title": "Build animated logo component (SVG + CSS keyframes)",
+  "type": "subtask",
+  "status": "pending",
+  "finalized": false,
+  "stages": ["spec", "build", "review"],
+  "tracking": {}
+}

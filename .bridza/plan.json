@@ -68,6 +68,13 @@
         "engineering/highlight-running-task-in-sidebar"
       ],
       "any": []
+    },
+    "engineering/logo-welcome-screen-integration": {
+      "all": [
+        "engineering/logo-first-launch-detection",
+        "engineering/logo-animation-component"
+      ],
+      "any": []
     }
   },
   "milestones": [
@@ -140,6 +147,17 @@
       "tasks": [
         "engineering/highlight-running-task-in-sidebar",
         "engineering/url-path-sync-for-selected-task"
+      ],
+      "needs": []
+    },
+    {
+      "id": "ms-logo-first-launch",
+      "title": "Logo animation on first launch",
+      "due": "",
+      "tasks": [
+        "engineering/logo-first-launch-detection",
+        "engineering/logo-animation-component",
+        "engineering/logo-welcome-screen-integration"
       ],
       "needs": []
     }
@@ -330,6 +348,9 @@
     "engineering/implement-merge-strategy": 4,
     "engineering/verify-merge-strategy": 2,
     "engineering/highlight-running-task-in-sidebar": 2,
-    "engineering/url-path-sync-for-selected-task": 3
+    "engineering/url-path-sync-for-selected-task": 3,
+    "engineering/logo-first-launch-detection": 1,
+    "engineering/logo-animation-component": 2,
+    "engineering/logo-welcome-screen-integration": 2
   }
 }

@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "id": "logo-first-launch-detection",
+  "pipeline": "engineering",
+  "title": "Detect first app launch via localStorage flag",
+  "type": "subtask",
+  "status": "pending",
+  "finalized": false,
+  "stages": ["spec", "build", "review"],
+  "tracking": {}
+}
