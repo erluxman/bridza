@@ -248,6 +248,10 @@
     "engineering/setting-to-hide-columns-in-kanban-that": {
       "x": -450,
       "y": 1619
+    },
+    "engineering/animate-the-logo-when-app-starts-for": {
+      "x": -447,
+      "y": 1504
     }
   },
   "sizes": {
