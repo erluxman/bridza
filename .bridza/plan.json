@@ -254,28 +254,28 @@
       "y": 1504
     },
     "engineering/number-prefix-contract": {
-      "x": 81,
-      "y": 1187
+      "x": 37,
+      "y": 1184
     },
     "engineering/task-enumeration-read-path": {
-      "x": 347,
-      "y": 1359
+      "x": 303,
+      "y": 1356
     },
     "engineering/task-creation-write-path": {
-      "x": 347,
-      "y": 1273
+      "x": 303,
+      "y": 1270
     },
     "engineering/naming-contract-tests": {
-      "x": 347,
-      "y": 1187
+      "x": 303,
+      "y": 1184
     },
     "engineering/ui-ref-display": {
-      "x": 347,
-      "y": 1445
+      "x": 303,
+      "y": 1442
     },
     "engineering/migration-existing-tasks": {
-      "x": 613,
-      "y": 1187
+      "x": 569,
+      "y": 1184
     }
   },
   "sizes": {
