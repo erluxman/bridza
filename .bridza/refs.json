@@ -99,6 +99,7 @@
     "engineering/i-should-be-able-to-rearrange-the": true,
     "engineering/ok-when-i-press-command-and-mouse-will": true,
     "engineering/number-prefix-contract": true,
-    "engineering/a-shortcut-to-search-among-the-tasks-or": true
+    "engineering/a-shortcut-to-search-among-the-tasks-or": true,
+    "engineering/long-press-and-drag-to-create-a": true
   }
 }
