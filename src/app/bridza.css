@@ -50,7 +50,6 @@ textarea.input { resize: vertical; min-height: 64px; }
 .side { background: var(--bg-1); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .side-hd { padding: 14px 14px 10px; border-bottom: 1px solid var(--line); }
 .brand { font-family: "Space Grotesk", var(--sans); font-weight: 700; letter-spacing: .3px; font-size: 16px; }
-.brand.pulse { animation: heartbeat 1.2s ease-in-out 3; }
 @keyframes heartbeat {
   0%, 100% { transform: scale(1); }
   15% { transform: scale(1.15); }
