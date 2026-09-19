@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DATA_DIR, rel, safeRef, shortTitle, taskSlug, pipelineFlows, flattenFlows } from "../core/domain.js";
-import { git, isGitRepo, branchExists, baseBranchName, ensureTaskBranch, taskBranchName, removeTaskWorktree, stopRuns, healTaskFlow } from "./bridza-run.js";
+import { git, isGitRepo, branchExists, baseBranchName, ensureTaskBranch, taskBranchName, removeTaskWorktree, stopRuns, healTaskFlow, validRef } from "./bridza-run.js";
 
 const BIDENT = ["-c", "user.name=bridza", "-c", "user.email=bridza@local"];
 
@@ -248,7 +248,28 @@ export function readRefs(root) {
     // tombstones: deleted tasks stay deleted even if their dir still exists on
     // some task branch (branch scanning would otherwise resurrect them)
     deleted: (j && Array.isArray(j.deleted)) ? j.deleted : [],
+    // board-wide archive state, key → bool. Lives HERE (root, base branch) and
+    // not in the task's metadata.json, because a task's metadata is read from
+    // its bridza/* branch tip — which is never pushed, so it can't cross to
+    // another computer. Explicit `false` is kept so that unarchiving also wins
+    // over a legacy `archived: true` left in an old task metadata.json.
+    archived: (j && j.archived && typeof j.archived === "object" && !Array.isArray(j.archived)) ? j.archived : {},
   };
+}
+
+// Archive/restore a task. Board-level display state → committed at the repo
+// root on the base branch (like pipeline archive and kanban order), so a
+// `git push` of that branch carries it to every other device.
+export function setTaskArchived(root, pipeline, task, archived) {
+  const bad = validRef(pipeline, "pipeline") || validRef(task, "task");
+  if (bad) return { ok: false, error: bad };
+  const key = safeRef(pipeline) + "/" + safeRef(task);
+  const refs = readRefs(root);
+  refs.archived[key] = !!archived;
+  writeJSON(refsFile(root), refs);
+  const commit = commitPaths(root, [DATA_DIR + "/refs.json"],
+    `bridza: ${archived ? "archive" : "unarchive"} task ${key}`);
+  return { ok: true, archived: !!archived, committed: commit.committed };
 }
 
 // Assign #numbers to the given task keys that don't have one yet. Commits once.
@@ -355,6 +376,7 @@ export function readProject(root) {
   const refsAll = readRefs(root);
   const refs = refsAll.refs;
   const tombstones = new Set(refsAll.deleted);
+  const archivedFlags = refsAll.archived;
   const base = baseBranchName(root);
   const scan = scanBranches(root);
   const pids = [...new Set([...listDirs(pipelinesRoot), ...scan.found.keys()])];
@@ -380,7 +402,10 @@ export function readProject(root) {
         id: meta.id || tid, pipeline: pid, title: meta.title || tid,
         ref: refs[pid + "/" + tid] || meta.ref || null,
         type: meta.type || "", template: meta.template || "", flow: meta.flow || meta.template || "",
-        status: meta.status || "in-progress", finalized: !!meta.finalized, reuseSession: !!meta.reuseSession, archived: !!meta.archived,
+        status: meta.status || "in-progress", finalized: !!meta.finalized, reuseSession: !!meta.reuseSession,
+        // root refs.json wins; a legacy flag in the task's own metadata (written
+        // by the old branch-local archive) still counts when there's no entry
+        archived: archivedFlags[pid + "/" + tid] === undefined ? !!meta.archived : !!archivedFlags[pid + "/" + tid],
         stages, tracking: tr, branch: taskBranchName(pid, tid),
         target: meta.target || base,
         progress: stages.length ? Math.round((done / stages.length) * 100) : 0,
@@ -565,6 +590,7 @@ export function deletePipeline(root, { id }) {
   for (const tid of taskIds) {
     const key = pid + "/" + tid;
     if (refs.refs[key] != null) { delete refs.refs[key]; refsTouched = true; }
+    if (refs.archived[key] !== undefined) { delete refs.archived[key]; refsTouched = true; }
     if (!refs.deleted.includes(key)) { refs.deleted.push(key); refsTouched = true; }
   }
   if (refsTouched) { writeJSON(refsFile(root), refs); commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: retire #refs of deleted pipeline ${who} — numbers are never reused`); }
@@ -739,6 +765,7 @@ export function deleteTask(root, { pipeline, task, deleteBranch = false }) {
   //    scanning can't resurrect it from another task's branch tip
   const refs = readRefs(root);
   delete refs.refs[key];
+  delete refs.archived[key];
   if (!refs.deleted.includes(key)) refs.deleted.push(key);
   writeJSON(refsFile(root), refs);
   commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: retire ${refNum ? "#" + refNum : "the #ref"} of deleted task ${key} — numbers are never reused`);

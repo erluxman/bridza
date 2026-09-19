@@ -1067,19 +1067,9 @@ export function setTaskReuse(root, pipeline, task, on) {
   return { ok: true, reuseSession: !!on, committed: c.committed };
 }
 
-// Toggle task archive state.
-export function setTaskArchived(root, pipeline, task, archived) {
-  const bad = validRef(pipeline, "pipeline") || validRef(task, "task");
-  if (bad) return { ok: false, error: bad };
-  const wt = ensureTaskWorktree(root, pipeline, task);
-  if (!wt.ok) return wt;
-  const W = wt.worktree;
-  const m = readTaskMeta(W, pipeline, task);
-  m.archived = !!archived;
-  writeTaskMeta(W, pipeline, task, m);
-  const c = commitWorktree(W, `bridza: ${archived ? "archive" : "unarchive"} task ${safeRef(pipeline)}/${safeRef(task)}`);
-  return { ok: true, archived: !!archived, committed: c.committed };
-}
+// Task archive state is board-level, not branch-level: see setTaskArchived in
+// bridza-store.js, which commits it to .bridza/refs.json at the repo root so it
+// syncs between devices (a task's bridza/* branch never leaves its machine).
 
 // ── finalize: merge the task branch into its target branch ──────────────────
 
