@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 38,
+  "next": 39,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -31,7 +31,8 @@
     "engineering/url-path-sync-for-selected-task": 34,
     "engineering/1when-i-delete-a-pipeline-from-the-left": 35,
     "engineering/card-archiving-is-not-working-when": 36,
-    "engineering/reduce-the-amount-of-commits-for-the": 37
+    "engineering/reduce-the-amount-of-commits-for-the": 37,
+    "engineering/purchase-the-selected-model-and-display": 38
   },
   "deleted": [
     "engineering/truncation-check-idea",
