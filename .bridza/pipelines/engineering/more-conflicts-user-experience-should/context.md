@@ -4,3 +4,16 @@ Alright, so when this merge conflict opens that, so when we are trying to merge 
 
 
 For additional information, do research on how to make the merge config or merging issue easy, like also take a reference of GitHub's config resolution DY as well If it's easy to be resolved on the UI of this app itself, do that Otherwise, direct me to, redirect me to VS code with necessary parameters already provided there so that I can just select what is to be selected or delete or add
+
+## KNOWN HOT FILE (added after #36)
+
+`.bridza/refs.json` is now the most likely recurring conflict in this repo: it
+is a single JSON file at the repo root, on the base branch, rewritten by every
+`#ref` assignment, every task/pipeline delete, and — since #36 — every archive
+or unarchive click, from every device that syncs.
+
+Use it as the first concrete test case for whatever conflict UX this task
+builds: two devices archiving different cards is a realistic, reproducible
+conflict with an obvious correct resolution (union of both maps). If the UI can
+resolve that class automatically, most refs.json conflicts disappear.
+

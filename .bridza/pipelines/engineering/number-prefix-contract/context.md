@@ -50,3 +50,19 @@ path, the migration, and the UI truncation.
 
 Note: this contract itself writes no folders and touches no existing tasks —
 existing repos keep current folders until the migration sub-task runs.
+
+## KEY-SHAPE CONSEQUENCE (added after #36)
+
+The folder name is also the KEY shape used across the project's board state.
+`.bridza/refs.json` stores three maps keyed `"<pipeline>/<task>"` — `refs`
+(#numbers), `deleted` (tombstones) and `archived` (board archive state, added
+by #36) — and `.bridza/plan.json` keys `deps`, `est` and milestone `tasks` the
+same way.
+
+So this contract must define which of the two forms is the canonical key — the
+plain task id (`every-task-…`) or the padded folder name (`00000017-every-task-…`)
+— and expose ONE helper that every reader and writer of those maps calls.
+Recommendation: keep the plain id as the key (folder names then carry ordering
+only, and no key rewrite is needed when a folder is renamed); if the padded form
+wins instead, `migration-existing-tasks` must rewrite all three refs.json
+namespaces plus plan.json in the same commit.
