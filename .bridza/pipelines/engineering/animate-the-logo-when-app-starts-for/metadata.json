@@ -5,13 +5,15 @@
   "title": "animate the logo when app starts for the first time",
   "ref": 41,
   "type": "idea",
-  "flow": "dissection",
+  "flow": "feature",
   "template": "",
   "outputMode": "docs",
   "branch": "bridza/engineering/animate-the-logo-when-app-starts-for",
   "target": "main",
   "stages": [
-    "dissect"
+    "spec",
+    "build",
+    "review"
   ],
   "routing": {},
   "status": "in-progress",
