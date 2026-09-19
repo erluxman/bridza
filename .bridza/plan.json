@@ -232,6 +232,10 @@
     "engineering/reduce-the-amount-of-commits-for-the": {
       "x": 305,
       "y": 959
+    },
+    "engineering/purchase-the-selected-model-and-display": {
+      "x": 118,
+      "y": 863
     }
   },
   "sizes": {
