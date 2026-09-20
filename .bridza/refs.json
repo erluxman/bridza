@@ -166,7 +166,8 @@
     "engineering/when-app-is-refreshed-or-page-is": true,
     "engineering/define-merge-strategy": true,
     "engineering/merge-preflight-check": true,
-    "engineering/finalize-merge-style-surface": true
+    "engineering/finalize-merge-style-surface": true,
+    "engineering/merge-strategy-acceptance-matrix": true
   },
   "tags": {
     "complex": {
