@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 97,
+  "next": 98,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -85,7 +85,8 @@
     "engineering/merge-preflight-check": 93,
     "engineering/task-target-branch-selector": 94,
     "engineering/on-the-plan-board-archived-cards-should": 95,
-    "engineering/organize-the-plan-board-and-categorize": 96
+    "engineering/organize-the-plan-board-and-categorize": 96,
+    "engineering/in-the-plan-board-there-should-be-an": 97
   },
   "deleted": [
     "engineering/truncation-check-idea",

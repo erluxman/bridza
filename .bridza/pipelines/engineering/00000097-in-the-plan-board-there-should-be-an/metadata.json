@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "in-the-plan-board-there-should-be-an",
+  "pipeline": "engineering",
+  "title": "In the plan board there should be an arrow to show dependency…",
+  "ref": 97,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/in-the-plan-board-there-should-be-an",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
