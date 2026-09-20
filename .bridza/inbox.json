@@ -1,4 +1,11 @@
 {
   "v": 1,
-  "items": []
+  "items": [
+    {
+      "id": "in-t6no4w",
+      "kind": "idea",
+      "text": "all right create a feature that displays the system design in details of the current project so basically all the files you know you know different ways to look into it you know maybe one kind of chart does not do all the justice maybe we will need some air diagrams\n maybe some git repo visualization tools and stuff like that so basically let's brainstorm about what how many ways there can be to visualize this repo",
+      "time": "2026-09-20T05:48:44.187Z"
+    }
+  ]
 }
