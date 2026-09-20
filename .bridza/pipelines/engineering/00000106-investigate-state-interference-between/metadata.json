@@ -15,7 +15,12 @@
     "fix",
     "fix-review"
   ],
-  "routing": {},
+  "routing": {
+    "repro": {
+      "tool": "claude",
+      "model": ""
+    }
+  },
   "status": "in-progress",
   "finalized": false,
   "tracking": {}
