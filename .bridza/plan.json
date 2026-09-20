@@ -181,7 +181,56 @@
       "needs": []
     }
   ],
-  "pos": {},
+  "pos": {
+    "engineering/creating-pr-failed-it-should-take-the": {
+      "x": 702,
+      "y": 1063
+    },
+    "engineering/create-pr-via-gh-cli": {
+      "x": 415,
+      "y": 1058
+    },
+    "engineering/naming-contract-tests": {
+      "x": -86,
+      "y": 1195
+    },
+    "engineering/merge-preflight-check": {
+      "x": -1051,
+      "y": 974
+    },
+    "engineering/conflict-auto-union-bridza-state": {
+      "x": -1051,
+      "y": 888
+    },
+    "engineering/conflict-open-in-vscode": {
+      "x": -785,
+      "y": 888
+    },
+    "engineering/task-target-branch-selector": {
+      "x": -1051,
+      "y": 1060
+    },
+    "engineering/define-merge-strategy": {
+      "x": -1051,
+      "y": 802
+    },
+    "engineering/implement-merge-strategy": {
+      "x": -785,
+      "y": 802
+    },
+    "engineering/commands-sent-to-claude-are-not": {
+      "x": -455,
+      "y": 670
+    },
+    "engineering/only-claude-can-auto-advance-opencode": {
+      "x": -455,
+      "y": 584
+    },
+    "engineering/purchase-the-selected-model-and-display": {
+      "x": -455,
+      "y": 498
+    }
+  },
   "sizes": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": {
       "w": 399,
