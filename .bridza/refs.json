@@ -181,7 +181,8 @@
     "engineering/task-enumeration-read-path": true,
     "engineering/task-target-branch-selector": true,
     "engineering/ui-ref-display": true,
-    "engineering/plan-agent-categorize-backlog": true
+    "engineering/plan-agent-categorize-backlog": true,
+    "engineering/plan-backlog-box": true
   },
   "tags": {
     "complex": {
