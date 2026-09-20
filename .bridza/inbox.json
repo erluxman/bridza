@@ -1,11 +1,4 @@
 {
   "v": 1,
-  "items": [
-    {
-      "id": "in-kijx44",
-      "kind": "idea",
-      "text": "Wait, so if I open multiple sessions of Breeza in different tabs, does the state of one task detail affect the state of another task detail that I'm opening in a different tab? I think it does. Can you investigate on that?",
-      "time": "2026-09-20T16:10:20.578Z"
-    }
-  ]
+  "items": []
 }
