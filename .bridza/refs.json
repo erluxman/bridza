@@ -75,8 +75,7 @@
     "engineering/atlas-runtime-container-diagram": 82,
     "engineering/atlas-scan-cache-and-ignore": 83,
     "engineering/atlas-shell-and-file-map": 84,
-    "engineering/usage-based-design-changes-automatically": 85,
-    "engineering/commands-sent-to-cloud-are-not": 86
+    "engineering/usage-based-design-changes-automatically": 85
   },
   "deleted": [
     "engineering/truncation-check-idea",
@@ -90,7 +89,8 @@
     "engineering/1when-i-delete-a-pipeline-from-the-left",
     "product/this-is-a-test-idea-i-am-just-threading",
     "engineering/this-is-a-test-issue-and-i-think-it",
-    "engineering/create-a-setting-page-on-the-bottom-of"
+    "engineering/create-a-setting-page-on-the-bottom-of",
+    "engineering/commands-sent-to-cloud-are-not"
   ],
   "archived": {
     "engineering/card-archiving-is-not-working-when": true,
