@@ -187,7 +187,8 @@
     "engineering/run-ledger-reachability-contract": true,
     "engineering/task-branch-deletion-policy": true,
     "engineering/atlas-ai-architecture-overview": true,
-    "engineering/atlas-scan-cache-and-ignore": true
+    "engineering/atlas-scan-cache-and-ignore": true,
+    "engineering/logo-first-launch-detection": true
   },
   "tags": {
     "complex": {
