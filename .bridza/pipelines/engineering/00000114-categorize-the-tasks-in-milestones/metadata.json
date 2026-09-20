@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "id": "categorize-the-tasks-in-milestones",
+  "pipeline": "engineering",
+  "title": "Categorize the tasks in milestones",
+  "ref": 114,
+  "type": "idea",
+  "flow": "dissection",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/categorize-the-tasks-in-milestones",
+  "target": "main",
+  "stages": [
+    "dissect"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
