@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "id": "task-target-branch-selector",
+  "pipeline": "engineering",
+  "title": "Choose and change a task's target branch from the UI",
+  "type": "subtask",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "tracking": {}
+}

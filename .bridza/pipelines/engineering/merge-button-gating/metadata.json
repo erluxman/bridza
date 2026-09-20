@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "id": "merge-button-gating",
+  "pipeline": "engineering",
+  "title": "Gate the Finalize button on a clean preflight",
+  "type": "subtask",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "tracking": {}
+}

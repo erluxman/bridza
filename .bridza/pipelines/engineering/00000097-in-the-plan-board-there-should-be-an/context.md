@@ -1,0 +1,3 @@
+# In the plan board there should be an arrow to show dependency…
+
+In the plan board there should be an arrow to show the direction about which card or items are dependent on which card.

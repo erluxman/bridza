@@ -178,6 +178,7 @@ describe("CLI_TOOLS — session reuse flags", () => {
     expect(claude.args({ prompt: "p", session: { id: "abc", mode: "start" } })).toEqual(expect.arrayContaining(["--session-id", "abc"]));
     expect(claude.args({ prompt: "p", session: { id: "abc", mode: "resume" } })).toEqual(expect.arrayContaining(["--resume", "abc"]));
     const plain = claude.args({ prompt: "p" });
+    expect(plain).toContain("--dangerously-skip-permissions");
     expect(plain).not.toContain("--resume");
     expect(plain).not.toContain("--session-id");
   });
@@ -427,6 +428,72 @@ describe("CLI_TOOLS", () => {
       expect(args.join(" ")).toContain("P");
       expect(args.join(" ")).toContain("M");
     }
+  });
+});
+
+describe("CLI_TOOLS — claude live stream", () => {
+  const claude = CLI_TOOLS.find((t) => t.id === "claude");
+  const render = (evs) => {
+    let out = "", session = null, error = null;
+    for (const ev of evs) {
+      const r = claude.onEvent(ev) || {};
+      if (r.session && !session) session = r.session;
+      if (r.out) out += r.out;
+      if (r.error) error = r.error;
+    }
+    return { out, session, error };
+  };
+
+  it("asks for stream-json, and --verbose alongside it (claude refuses -p stream-json without it)", () => {
+    const a = claude.args({ prompt: "p" });
+    expect(a).toEqual(expect.arrayContaining(["--output-format", "stream-json", "--verbose"]));
+    expect(a.indexOf("--verbose")).toBeGreaterThan(-1);
+  });
+
+  it("surfaces every tool call, so a long run never looks hung", () => {
+    const { out } = render([
+      { type: "system", subtype: "init", session_id: "s1", model: "claude-opus-5", tools: ["Read", "Bash"] },
+      { type: "assistant", session_id: "s1", message: { content: [{ type: "tool_use", name: "Read", input: { file_path: "/w/spec.md" } }] } },
+      { type: "assistant", session_id: "s1", message: { content: [{ type: "tool_use", name: "Bash", input: { command: "pnpm test\nsecond line" } }] } },
+    ]);
+    expect(out).toContain("claude ready");
+    expect(out).toContain("claude-opus-5");
+    expect(out).toContain("· Read /w/spec.md");
+    expect(out).toContain("· Bash pnpm test");
+    expect(out).not.toContain("second line");   // first line only
+  });
+
+  it("passes assistant prose through verbatim — the stage log still reads as the answer", () => {
+    const { out, session } = render([
+      { type: "system", subtype: "init", session_id: "s9", tools: [] },
+      { type: "assistant", session_id: "s9", message: { content: [{ type: "text", text: "Wrote spec.md + acceptance.md." }] } },
+      { type: "result", subtype: "success", is_error: false, num_turns: 3, duration_ms: 7400, total_cost_usd: 0.1974 },
+    ]);
+    expect(out).toContain("Wrote spec.md + acceptance.md.");
+    expect(out).toContain("· done · 3 turns · 7s · $0.1974");
+    expect(session).toBe("s9");
+  });
+
+  it("reports failed tool calls but stays quiet about successful ones", () => {
+    const ok = render([{ type: "user", message: { content: [{ type: "tool_result", content: "file contents" }] } }]);
+    expect(ok.out).toBe("");
+    const bad = render([{ type: "user", message: { content: [{ type: "tool_result", is_error: true, content: "ENOENT: no such file\nstack…" }] } }]);
+    expect(bad.out).toContain("ENOENT: no such file");
+    expect(bad.out).not.toContain("stack");
+  });
+
+  it("turns a non-success result into a stage error instead of a silent pass", () => {
+    expect(render([{ type: "result", subtype: "error_max_turns", is_error: true, result: "hit the turn limit" }]).error)
+      .toBe("hit the turn limit");
+    expect(render([{ type: "result", subtype: "success", is_error: false, num_turns: 1, duration_ms: 10 }]).error).toBeNull();
+  });
+
+  it("ignores event types it has no line for", () => {
+    expect(render([
+      { type: "system", subtype: "hook_started" },
+      { type: "rate_limit_event" },
+      { type: "stream_event", event: {} },
+    ])).toMatchObject({ out: "", error: null });
   });
 });
 

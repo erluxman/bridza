@@ -1,0 +1,21 @@
+{
+  "v": 1,
+  "id": "usage-based-design-changes-automatically",
+  "pipeline": "engineering",
+  "title": "Usage based design changes automatically.",
+  "ref": 85,
+  "type": "idea",
+  "flow": "ui-design",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/usage-based-design-changes-automatically",
+  "target": "main",
+  "stages": [
+    "design-spec",
+    "design"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}

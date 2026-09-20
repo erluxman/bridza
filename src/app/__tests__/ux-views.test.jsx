@@ -132,6 +132,12 @@ describe("the three views render without crashing (with an operable runner)", ()
     expect(h).toContain("system prompt");   // StageRunner is present
     expect(h).toContain("Run again");
   });
+  it("the runner seeds its agent + model from the stage's saved pick, ahead of run history", () => {
+    const routed = { ...task, routing: { build: { tool: "opencode", model: "grok-4" } } };
+    const h = renderToStaticMarkup(<InspectorView records={recs} activeId="build" setActiveId={noop} {...shared} runner={{ ...runner, task: routed }} />);
+    expect(h).toContain('<option value="opencode" selected="">');   // not claude, the agent its last run used
+    expect(h).toContain('value="grok-4"');
+  });
   it("Canvas shows the layout switcher and nodes", () => {
     const h = renderToStaticMarkup(<CanvasView records={recs} activeId="build" setActiveId={noop} {...shared} />);
     expect(h).toContain("layout");

@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "id": "organize-the-plan-board-and-categorize",
+  "pipeline": "engineering",
+  "title": "Organize the plan board and categorize work items or tasks into milestones and build a good workflow among them.",
+  "ref": 96,
+  "type": "idea",
+  "flow": "dissection",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/organize-the-plan-board-and-categorize",
+  "target": "main",
+  "stages": [
+    "dissect"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}

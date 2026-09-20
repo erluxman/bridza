@@ -7,3 +7,5 @@ Validate that the new merge strategy works as expected and resolves the issue of
 - [ ] Test merge performed with the new strategy.
 - [ ] Confirmed it handles conflicts gracefully.
 - [ ] Update documentation (if any) describing the new merging process.
+
+## ARCHIVED by #88 — folded into [[implement-merge-strategy]] as acceptance criteria. Verification is not a separate ticket.

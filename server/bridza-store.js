@@ -6,7 +6,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { DATA_DIR, rel, safeRef, shortTitle, taskSlug, taskDirName, parseTaskDir, pipelineFlows, flattenFlows } from "../core/domain.js";
+import { DATA_DIR, rel, safeRef, shortTitle, taskSlug, taskDirName, parseTaskDir, pipelineFlows, flattenFlows, TAG_PALETTE } from "../core/domain.js";
 import { git, isGitRepo, branchExists, baseBranchName, ensureTaskBranch, taskBranchName, taskDirOn, taskDirAt, removeTaskWorktree, stopRuns, healTaskFlow, validRef } from "./bridza-run.js";
 
 const BEMAIL = "bridza@local";
@@ -379,7 +379,41 @@ export function readRefs(root) {
     // another computer. Explicit `false` is kept so that unarchiving also wins
     // over a legacy `archived: true` left in an old task metadata.json.
     archived: (j && j.archived && typeof j.archived === "object" && !Array.isArray(j.archived)) ? j.archived : {},
+    tags: (j && j.tags && typeof j.tags === "object" && !Array.isArray(j.tags)) ? j.tags : {},
+    taskTags: (j && j.taskTags && typeof j.taskTags === "object" && !Array.isArray(j.taskTags)) ? j.taskTags : {},
   };
+}
+
+export function createTag(root, { name, color }) {
+  // validRef, not a bare emptiness check: it also rejects a name with no letter
+  // or digit ("!!!", "???"), which safeRef would otherwise collapse onto the
+  // single slug "x" — two different tags silently becoming one.
+  const bad = validRef(name, "tag name");
+  if (bad) return { ok: false, error: bad };
+  if (!TAG_PALETTE.includes(color)) return { ok: false, error: "invalid color" };
+  // lowercased before slugging: "Billing" and "billing" are the SAME tag, so
+  // typing it again on another card reuses the entry instead of duplicating it
+  const id = safeRef(name.trim().toLowerCase());
+  const refs = readRefs(root);
+  if (refs.tags[id]) return { ok: true, id, created: false };
+  refs.tags[id] = { name: name.trim(), color };
+  writeJSON(refsFile(root), refs);
+  commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: create tag "${name.trim()}" (${id})`);
+  return { ok: true, id, created: true };
+}
+
+export function setTaskTags(root, pipeline, task, tagIds) {
+  const bad = validRef(pipeline, "pipeline") || validRef(task, "task");
+  if (bad) return { ok: false, error: bad };
+  if (!Array.isArray(tagIds)) return { ok: false, error: "tagIds must be an array" };
+  const key = safeRef(pipeline) + "/" + safeRef(task);
+  const refs = readRefs(root);
+  const validIds = [...new Set(tagIds)].filter((id) => refs.tags[id]);
+  if (validIds.length === 0) delete refs.taskTags[key];
+  else refs.taskTags[key] = validIds;
+  writeJSON(refsFile(root), refs);
+  commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: set tags on task ${key}`);
+  return { ok: true, tags: validIds };
 }
 
 // Archive/restore a task. Board-level display state → committed at the repo
@@ -440,13 +474,14 @@ export function readPipelineDef(root, pipeline) {
 // The scan is CACHED on the branch-tip shas: the UI polls /state every few
 // seconds, and each ls-tree/show is a synchronous git spawn — rescanning only
 // when some bridza branch tip actually moved keeps the poll at one git call.
-let BRANCH_SCAN = { root: null, key: null, found: new Map(), metas: new Map() };
+let BRANCH_SCAN = { root: null, key: null, found: new Map(), taskToBranch: new Map(), metas: new Map() };
 function scanBranches(root) {
   let refs = "";
   try { refs = git(root, ["for-each-ref", "--format=%(refname:short) %(objectname)", "refs/heads/bridza/"]).trim(); }
   catch (e) { refs = ""; }
   if (BRANCH_SCAN.root === root && BRANCH_SCAN.key === refs) return BRANCH_SCAN;
   const found = new Map();   // pipelineId → Set<taskId> discovered at branch tips
+  const taskToBranch = new Map(); // "pipeline/task" → branch name
   const branches = refs ? refs.split("\n").map((l) => l.split(" ")[0]) : [];
   for (const b of branches) {
     let out = "";
@@ -462,10 +497,11 @@ function scanBranches(root) {
         if (tid === ".metadata") continue;
         if (!found.has(pid)) found.set(pid, new Set());
         found.get(pid).add(tid);
+        taskToBranch.set(pid + "/" + tid, b);
       }
     }
   }
-  BRANCH_SCAN = { root, key: refs, found, metas: new Map(), branches };
+  BRANCH_SCAN = { root, key: refs, found, taskToBranch, metas: new Map(), branches };
   return BRANCH_SCAN;
 }
 
@@ -481,13 +517,14 @@ function readTaskMetaFromAnyBranch(root, scan, pipeline, task) {
     scan.metas.set(key, own);
     return own;
   }
-  for (const b of scan.branches || []) {
+  const b = scan.taskToBranch && scan.taskToBranch.get(key);
+  if (b) {
     try {
       const j = JSON.parse(git(root, ["show", b + ":" + rel.taskMeta(pipeline, taskDirAt(root, b, pipeline, task))]));
       j._live = true; j._onBranch = b;
       scan.metas.set(key, j);
       return j;
-    } catch (e) { /* next branch */ }
+    } catch (e) { /* ignore */ }
   }
   scan.metas.set(key, own);
   return own;
@@ -531,13 +568,18 @@ export function readProject(root) {
         // root refs.json wins; a legacy flag in the task's own metadata (written
         // by the old branch-local archive) still counts when there's no entry
         archived: archivedFlags[pid + "/" + tid] === undefined ? !!meta.archived : !!archivedFlags[pid + "/" + tid],
-        stages, tracking: tr, branch: taskBranchName(pid, tid),
+        // readRefs normalises tags/taskTags to {}, so no guard is needed here; a
+        // slug with no registry entry drops out rather than rendering half a chip
+        tags: (refsAll.taskTags[pid + "/" + tid] || [])
+          .filter((id) => refsAll.tags[id])
+          .map((id) => ({ id, name: refsAll.tags[id].name, color: refsAll.tags[id].color })),
+        stages, tracking: tr, routing: meta.routing || {}, branch: taskBranchName(pid, tid),
         target: meta.target || base,
         progress: stages.length ? Math.round((done / stages.length) * 100) : 0,
         live: !!meta._live, onBranch: meta._onBranch || null,
       };
     });
-    return { id: def.id || pid, label: def.label || pid, workingDir: def.workingDir || ".", stages: allStages, flows, templates: def.templates || [], archived: !!def.archived, kanbanOrder: def.kanbanOrder || [], tasks };
+    return { id: def.id || pid, label: def.label || pid, workingDir: def.workingDir || ".", stages: allStages, flows, templates: def.templates || [], archived: !!def.archived, kanbanOrder: def.kanbanOrder || [], tags: refsAll.tags, tasks };
   });
   return { initialized: pipelines.length > 0, business, pipelines, inbox: readInbox(root) };
 }
@@ -932,6 +974,7 @@ function deleteTaskIn(root, { pipeline, task, deleteBranch = false }) {
   const refs = readRefs(root);
   delete refs.refs[key];
   delete refs.archived[key];
+  delete refs.taskTags[key];
   if (!refs.deleted.includes(key)) refs.deleted.push(key);
   writeJSON(refsFile(root), refs);
   commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: retire ${refNum ? "#" + refNum : "the #ref"} of deleted task ${key} — numbers are never reused`);
@@ -980,10 +1023,11 @@ export function readPlan(root) {
     links: (j && j.links && typeof j.links === "object") ? j.links : {},
     pipeDeps: (j && Array.isArray(j.pipeDeps)) ? j.pipeDeps : [],
     est: (j && j.est && typeof j.est === "object") ? j.est : {},
+    archive: (j && j.archive && typeof j.archive === "object") ? j.archive : null,
   };
 }
 
-export function savePlan(root, { deps, milestones, pos, sizes, links, pipeDeps, est } = {}) {
+export function savePlan(root, { deps, milestones, pos, sizes, links, pipeDeps, est, archive } = {}) {
   ensureDataDir(root);
   const cur = readPlan(root);
   const nextDeps = {};
@@ -1034,7 +1078,9 @@ export function savePlan(root, { deps, milestones, pos, sizes, links, pipeDeps, 
     const h = Number(v);
     if (KEY_RE.test(k) && Number.isFinite(h) && h > 0) nextEst[k] = Math.round(h * 10) / 10;
   }
-  const next = { v: 1, deps: nextDeps, milestones: nextMs, pos: nextPos, sizes: nextSizes, links: nextLinks, pipeDeps: nextPD, est: nextEst };
+  const av = archive != null ? archive : cur.archive;
+  const nextArchive = (av && Number.isFinite(+av.x) && Number.isFinite(+av.y)) ? { x: Math.round(+av.x), y: Math.round(+av.y) } : null;
+  const next = { v: 1, deps: nextDeps, milestones: nextMs, pos: nextPos, sizes: nextSizes, links: nextLinks, pipeDeps: nextPD, est: nextEst, archive: nextArchive };
   writeJSON(path.join(root, rel.plan()), next);
   const nD = Object.keys(nextDeps).length, nM = nextMs.length, nL = Object.keys(nextLinks).length;
   const msg = [

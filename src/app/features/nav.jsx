@@ -8,7 +8,7 @@ import { base } from "../lib/format.js";
 import { Hamburger, Modal, Field, Expandable } from "../ui.jsx";
 import { SettingsModal } from "./settings.jsx";
 
-export function Sidebar({ proj, running, runningTasks, active, activeTask, onPipe, onNewPipe, onClose, onPick, recents, onOpen, onOpenTask, onCollapse, inboxCount, inboxActive, onInbox, planActive, onPlan, dir, onChange, flash }) {
+export function Sidebar({ proj, running, runningTasks, active, activeTask, onPipe, onNewPipe, onClose, onPick, recents, onOpen, onOpenTask, onCollapse, inboxCount, inboxActive, onInbox, planActive, onPlan, dir, onChange, flash, pulseKey = 0 }) {
   const [menu, setMenu] = useState(false);
   const [showArch, setShowArch] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -44,7 +44,8 @@ export function Sidebar({ proj, running, runningTasks, active, activeTask, onPip
     <div className="side">
       <div className="side-hd">
         <div className="spread">
-          <div className="brand">⎇ Bridza</div>
+          {/* keyed so a new pulseKey remounts the node and restarts the CSS animation */}
+          <div key={pulseKey} className={"brand" + (pulseKey ? " pulse" : "")}>⎇ Bridza</div>
           <button className="btn ghost sm" title="Collapse" onClick={onCollapse}>‹</button>
         </div>
         <div className="proj-switch">

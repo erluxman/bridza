@@ -722,12 +722,17 @@ export function runStage(root, body, emit) {
     };
     const end = (obj) => { if (ended) return; ended = true; if (runKey) ACTIVE_RUNS.delete(runKey); emit({ t: "end", ...obj }); resolve(obj); };
     const { pipeline, task, stage, prompt, system, shell = [], workingDir = ".", stageContext, stageName, taskTitle, wallSeconds } = body || {};
-    const picked = resolveRunnableTool(body && body.tool);
+    // the stage's saved pick backs every path that gets here without an explicit
+    // one — a chain the window left behind, a stale client snapshot, another
+    // window. An explicit body.tool always wins over it.
+    const saved = stageRouting(root, pipeline, task, stage);
+    const picked = resolveRunnableTool((body && body.tool) || saved.tool);
     if (picked.error) return end({ exit: 1, errorKind: picked.error.startsWith("unknown") ? "unknown-tool" : "no-tool", error: picked.error });
     const tool = picked.tool;
     const toolId = picked.toolId;
     if (picked.fellBackFrom) emit({ t: "out", d: "· " + picked.fellBackFrom + " not installed — falling back to " + toolId + "\n" });
-    const model = (body && body.model) || process.env["BRIDZA_" + String(toolId).toUpperCase() + "_MODEL"] || "";
+    // a saved model belongs to the saved tool: never carry it onto another one
+    const model = (body && body.model) || (saved.tool === toolId ? saved.model : "") || process.env["BRIDZA_" + String(toolId).toUpperCase() + "_MODEL"] || "";
     const bad = validRef(pipeline, "pipeline") || validRef(task, "task") || validRef(stage, "stage");
     if (bad) return end({ exit: 1, errorKind: "bad-ref", error: bad });
     // plan gate: a task wired behind others (a flow handoff, or hand-drawn
@@ -782,6 +787,10 @@ export function runStage(root, body, emit) {
       if (!Array.isArray(meta.stages)) meta.stages = [];
       if (!meta.stages.includes(sid)) meta.stages.push(sid);
       if (!meta.status) meta.status = "in-progress";
+      // keep the saved pick in step with what actually runs — including a
+      // fallback to another agent when the picked one isn't installed
+      if (!meta.routing || typeof meta.routing !== "object") meta.routing = {};
+      meta.routing[sid] = { tool: toolId, model: model || "" };
       const track = meta.tracking[sid] || (meta.tracking[sid] = { status: "idle", seconds: 0, runs: [] });
       track.status = "running";
       track.runs.push({ tool: toolId, model: model || null, prompt: prompt || "", startedAt, status: "running" });
@@ -879,6 +888,15 @@ export function runStage(root, body, emit) {
     let toolError = null;
     const onJsonEvent = (ev) => {
       if (!ev || typeof ev !== "object") return;
+      // tools that ship their own event mapper (claude) translate their schema
+      // themselves; everything below is the opencode shape.
+      if (typeof tool.onEvent === "function") {
+        const r = tool.onEvent(ev) || {};
+        if (r.session && !sessionId) { sessionId = r.session; emit({ t: "session", tool: toolId, sessionId }); }
+        if (r.out) emit({ t: "out", d: r.out });
+        if (r.error) { toolError = r.error; emit({ t: "out", d: "\u2716 " + r.error + "\n" }); }
+        return;
+      }
       if (ev.sessionID && !sessionId) { sessionId = ev.sessionID; emit({ t: "session", tool: toolId, sessionId }); }
       const p = ev.part || {};
       if (ev.type === "text" && typeof p.text === "string") emit({ t: "out", d: p.text + "\n" });
@@ -1121,6 +1139,37 @@ export function setTaskReuse(root, pipeline, task, on) {
   if (!on) clearTaskSessions(root, pipeline, task);
   const c = commitWorktree(W, `bridza: ${on ? "enable" : "disable"} LLM session reuse on ${safeRef(pipeline)}/${safeRef(task)}`);
   return { ok: true, reuseSession: !!on, committed: c.committed };
+}
+
+// ── per-stage agent routing ──────────────────────────────────────────────────
+// The agent (and model) picked for a stage is saved ON THE TASK, keyed by stage,
+// in metadata.routing — so the choice outlives the window that made it: another
+// window, auto-advance, or a run the server carries on alone all resolve it.
+// An empty model means "the tool's own default", exactly as in the picker.
+
+// The saved pick, read from the branch tip (where runs commit it).
+export function stageRouting(root, pipeline, task, stage) {
+  let meta;
+  try { meta = JSON.parse(readTaskField(root, pipeline, task, rel.taskMeta)); } catch (e) { return {}; }
+  const r = meta && meta.routing && meta.routing[safeRef(stage)];
+  return r && typeof r === "object" ? { tool: r.tool || "", model: r.model || "" } : {};
+}
+
+// Save the pick at PICK time, so a stage chosen but never run still remembers.
+export function setStageRouting(root, pipeline, task, stage, { tool, model } = {}) {
+  const bad = validRef(pipeline, "pipeline") || validRef(task, "task") || validRef(stage, "stage");
+  if (bad) return { ok: false, error: bad };
+  const wt = ensureTaskWorktree(root, pipeline, task);
+  if (!wt.ok) return wt;
+  const W = wt.worktree;
+  const m = readTaskMeta(W, pipeline, task);
+  if (!m.routing || typeof m.routing !== "object") m.routing = {};
+  const sid = safeRef(stage);
+  const entry = { tool: String(tool || ""), model: String(model || "").trim() };
+  m.routing[sid] = entry;
+  writeTaskMeta(W, pipeline, task, m);
+  const c = commitWorktree(W, `bridza: ${safeRef(pipeline)}/${safeRef(task)} · ${sid} runs on ${entry.tool || "the stage default"}${entry.model ? " · " + entry.model : ""}`);
+  return { ok: true, routing: m.routing, committed: c.committed };
 }
 
 // Task archive state is board-level, not branch-level: see setTaskArchived in
@@ -1557,21 +1606,51 @@ export function createPR(root, pipeline, task, targetBranch) {
   } catch (e) { return { ok: false, error: "no remote origin configured" }; }
 
   const target = targetBranch || taskTarget(root, pipeline, task);
+  // The compose page: where every fallback sends the user, so the button is
+  // never a dead click whatever `gh` is or isn't on this machine.
+  const composeUrl = `${repoUrl}/compare/${target}...${branch}?expand=1`;
+  const dir = taskDirOn(root, pipeline, task);   // numbered on disk ("00000017-slug")
   let title = task, body = "";
   try {
-    const meta = JSON.parse(fs.readFileSync(path.join(root, DATA_DIR, rel.taskMeta(pipeline, task)), "utf8"));
+    const meta = JSON.parse(fs.readFileSync(path.join(root, rel.taskMeta(pipeline, dir)), "utf8"));
     if (meta.title) title = meta.title;
-    const ctx = fs.readFileSync(path.join(root, DATA_DIR, rel.taskContext(pipeline, task)), "utf8").trim();
-    if (ctx) body = ctx.replace(/^\s*#.*\n+/, "").slice(0, 2000);
   } catch (e) { /* no metadata */ }
+  try {
+    const ctx = fs.readFileSync(path.join(root, rel.taskContext(pipeline, dir)), "utf8").trim();
+    if (ctx) body = ctx.replace(/^\s*#.*\n+/, "").slice(0, 2000);
+  } catch (e) { /* no context */ }
 
   if (ghAvailable) {
     try {
-      const existing = execFileSync("gh", ["pr", "view", branch, "--json", "url"], { encoding: "utf8", cwd: root, stdio: ["ignore", "pipe", "ignore"] });
-      const j = JSON.parse(existing);
-      if (j.url) return { ok: true, url: j.url, existing: true };
-    } catch (e) { /* no existing PR */ }
+      execFileSync("gh", ["auth", "status"], { encoding: "utf8", cwd: root, stdio: ["ignore", "ignore", "pipe"] });
+    } catch (e) {
+      return { ok: false, fallback: true, error: "not logged in to GitHub CLI — run `gh auth login`", url: composeUrl, title, body };
+    }
+
     try {
+      // `gh pr view <branch>` answers with the branch's LATEST pr whatever its
+      // state, so a closed or merged one would block every future PR for the
+      // branch. Only an OPEN one is a reason not to create.
+      const existing = execFileSync("gh", ["pr", "view", branch, "--json", "url,state"], { encoding: "utf8", cwd: root, stdio: ["ignore", "pipe", "ignore"] });
+      const j = JSON.parse(existing);
+      if (j.url && j.state === "OPEN") return { ok: true, url: j.url, existing: true };
+    } catch (e) { /* no existing PR */ }
+
+    try {
+      let hasUpstream = false;
+      try {
+        hasUpstream = !!git(root, ["rev-parse", "--abbrev-ref", `${branch}@{upstream}`]).trim();
+      } catch (e) { /* no upstream */ }
+
+      if (!hasUpstream) {
+        try {
+          execFileSync("git", ["push", "-u", "origin", branch], { encoding: "utf8", cwd: root, stdio: ["ignore", "pipe", "pipe"] });
+        } catch (e) {
+          const err = String((e && e.stderr) || (e && e.message) || e);
+          return { ok: false, error: "push failed: " + firstLine(err) };
+        }
+      }
+
       const args = ["pr", "create", "--base", target, "--head", branch];
       if (title) args.push("--title", title);
       if (body) args.push("--body", body);
@@ -1580,11 +1659,11 @@ export function createPR(root, pipeline, task, targetBranch) {
       return { ok: true, url: urlMatch ? urlMatch[0] : out.trim() };
     } catch (e) {
       const err = String((e && e.stderr) || (e && e.message) || e);
-      return { ok: false, error: "gh pr create failed: " + firstLine(err) };
+      return { ok: false, fallback: true, error: "gh pr create failed: " + firstLine(err), url: composeUrl, title, body };
     }
   }
 
-  const compareUrl = `${repoUrl}/compare/${target}...${branch}?expand=1`;
-  const prUrl = `${repoUrl}/pull/new/${target}...${branch}`;
-  return { ok: true, url: prUrl, compare: compareUrl, title, body };
+  // No `gh` at all: not an error the user can act on here — hand the UI the
+  // compose link and say why it took that road.
+  return { ok: false, fallback: true, error: "GitHub CLI (gh) not installed — opening the compose page", url: composeUrl, title, body };
 }

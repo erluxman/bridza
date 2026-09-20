@@ -90,6 +90,13 @@ export function taskSlug(title, max = 40) {
 // 8 digits covers 1 … 99,999,999, comfortably past the ~10 million target.
 export const REF_WIDTH = 8;
 
+// ── task tags ────────────────────────────────────────────────────────────────
+// Colour NAMES, not hex: a chip is styled by .tag.tag-<name> in bridza.css, so
+// it themes with the rest of the app in light and dark. Shared because both the
+// server (validating a create) and the picker (drawing swatches) need the list.
+export const TAG_PALETTE = ["violet", "indigo", "blue", "emerald", "amber", "rose", "cyan", "orange"];
+
+
 // 17 → "00000017". A ref too wide for REF_WIDTH is NOT truncated — it grows
 // past the width (sorting degrades, identity survives), which is the safe
 // failure for a number that must never collide.
@@ -928,6 +935,24 @@ export function buildFileTree(files) {
 // claude (Claude Code) and opencode. API tools come later behind the same
 // interface. `model` (optional) overrides the tool's own default — set per run,
 // or server-wide via BRIDZA_CLAUDE_MODEL / BRIDZA_OPENCODE_MODEL.
+// One-line summary of a claude tool_use input: the field that says what the
+// call acted on. Order matters — first match wins.
+const CLAUDE_TOOL_ARG = ["file_path", "command", "path", "pattern", "url", "notebook_path", "description", "prompt", "query"];
+function claudeToolArg(input) {
+  if (!input || typeof input !== "object") return "";
+  for (const k of CLAUDE_TOOL_ARG) {
+    const v = input[k];
+    if (typeof v === "string" && v.trim()) return " " + clip(v.trim().split("\n")[0], 90);
+  }
+  return "";
+}
+function clip(s, n) { return s.length > n ? s.slice(0, n - 1) + "\u2026" : s; }
+function claudeResultText(c) {
+  const s = typeof c === "string" ? c
+    : Array.isArray(c) ? c.map((x) => (x && x.text) || "").join(" ") : "";
+  return clip(s.trim().split("\n")[0], 160);
+}
+
 export const CLI_TOOLS = [
   {
     id: "claude",
@@ -936,12 +961,44 @@ export const CLI_TOOLS = [
     // session reuse (opt-in): we pick the id, so START a fresh session with a
     // chosen --session-id, then --resume it on later stages.
     sessionIdSource: "client",
+    // stream: claude's default text output-format prints NOTHING until the whole
+    // run has ended — a multi-minute stage is indistinguishable from a hang.
+    // stream-json emits one event per line, so every tool call shows up live.
+    // --verbose is REQUIRED next to it under -p, or claude refuses to start.
+    stream: "json",
     args: ({ prompt, system, model, session }) => {
-      const a = ["-p", prompt, "--permission-mode", "acceptEdits"];
+      const a = ["-p", prompt, "--output-format", "stream-json", "--verbose",
+        "--dangerously-skip-permissions", "--permission-mode", "acceptEdits"];
       if (model) a.push("--model", model);
       if (system) a.push("--append-system-prompt", system);
       if (session && session.id) a.push(session.mode === "resume" ? "--resume" : "--session-id", session.id);
       return a;
+    },
+    // one claude stream-json event -> { out?, session?, error? }. Assistant text
+    // streams through verbatim so the stage log reads exactly as it used to; the
+    // tool_use lines are the new part — they are what proves it is still working.
+    onEvent: (ev) => {
+      if (ev.type === "system" && ev.subtype === "init")
+        return { session: ev.session_id, out: "\u00b7 claude ready \u00b7 " + (ev.model || "default model") + " \u00b7 " + ((ev.tools || []).length) + " tools\n" };
+      if (ev.type === "assistant") {
+        const out = (((ev.message || {}).content) || []).map((c) =>
+          c.type === "text" ? c.text
+            : c.type === "tool_use" ? "\u00b7 " + c.name + claudeToolArg(c.input)
+              : "").filter(Boolean).join("\n");
+        return out ? { out: out + "\n", session: ev.session_id } : { session: ev.session_id };
+      }
+      if (ev.type === "user") {
+        // only failures are worth a line; successful tool results are noise
+        const bad = (((ev.message || {}).content) || []).find((c) => c.type === "tool_result" && c.is_error);
+        return bad ? { out: "  \u2716 " + claudeResultText(bad.content) + "\n" } : {};
+      }
+      if (ev.type === "result") {
+        if (ev.is_error || ev.subtype !== "success")
+          return { error: ev.error || ev.result || ("claude ended: " + ev.subtype) };
+        const cost = typeof ev.total_cost_usd === "number" ? " \u00b7 $" + ev.total_cost_usd.toFixed(4) : "";
+        return { out: "\u00b7 done \u00b7 " + ev.num_turns + " turns \u00b7 " + Math.round((ev.duration_ms || 0) / 1000) + "s" + cost + "\n" };
+      }
+      return {};
     },
   },
   {

@@ -53,6 +53,16 @@ textarea.input { resize: vertical; min-height: 64px; }
 .side { background: var(--bg-1); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .side-hd { padding: 14px 14px 10px; border-bottom: 1px solid var(--line); }
 .brand { font-family: "Space Grotesk", var(--sans); font-weight: 700; letter-spacing: .3px; font-size: 16px; }
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  15% { transform: scale(1.15); }
+  30% { transform: scale(1); }
+  45% { transform: scale(1.12); }
+  60% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .brand.pulse { animation: heartbeat 1.2s ease-in-out 3; }
+}
 .proj-switch { margin-top: 10px; position: relative; }
 .proj-btn { width: 100%; justify-content: space-between; background: var(--bg-2); }
 .proj-menu { position: absolute; top: calc(100% + 5px); left: 0; right: 0; z-index: 30; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 6px; box-shadow: 0 14px 40px #000a; }
@@ -170,6 +180,23 @@ h1.task-title { flex: 1 1 auto; min-width: 8ch; white-space: nowrap; overflow: h
 .tag.kind-bug { color: var(--danger); border-color: #e0625f55; }
 .tag.kind-feature { color: var(--accent); border-color: #4f9cf255; }
 .tag { text-transform: capitalize; flex: none; }
+
+/* ---- task tags: palette names, not hex, so chips theme with the app ---- */
+.tag.tag-violet,  .tag-dot.tag-violet  { color: #a78bfa; border-color: #7a5ae055; }
+.tag.tag-indigo,  .tag-dot.tag-indigo  { color: #818cf8; border-color: #4f5ae055; }
+.tag.tag-blue,    .tag-dot.tag-blue    { color: var(--accent); border-color: #4f9cf255; }
+.tag.tag-emerald, .tag-dot.tag-emerald { color: var(--accent-2); border-color: #1f9d6b55; }
+.tag.tag-amber,   .tag-dot.tag-amber   { color: #d8a03a; border-color: #d8a03a55; }
+.tag.tag-rose,    .tag-dot.tag-rose    { color: var(--danger); border-color: #e0625f55; }
+.tag.tag-cyan,    .tag-dot.tag-cyan    { color: #38bdf8; border-color: #38bdf855; }
+.tag.tag-orange,  .tag-dot.tag-orange  { color: #f08a3c; border-color: #f08a3c55; }
+.tag-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.tag-dot { display: inline-block; width: 7px; height: 7px; border-radius: 999px; margin-right: 6px; background: currentColor; }
+.tag-menu .item { display: flex; align-items: center; }
+.tag-swatches { display: flex; gap: 4px; margin-bottom: 5px; }
+.tag-swatch { flex: 1; height: 14px; border-radius: 3px; background: currentColor; border: 1px solid transparent; padding: 0; cursor: pointer; opacity: 0.55; }
+.tag-swatch:hover { opacity: 0.85; }
+.tag-swatch.on { opacity: 1; box-shadow: 0 0 0 1px var(--bg-1), 0 0 0 2px currentColor; }
 
 /* ---- kanban ---- */
 .kanban { flex: 1; display: flex; gap: 14px; padding: 18px 22px; overflow-x: auto; align-items: flex-start; min-height: 0; }
@@ -405,7 +432,9 @@ h1.task-title { flex: 1 1 auto; min-width: 8ch; white-space: nowrap; overflow: h
 .plan-node.blocked .pn-box { stroke: #e0625f66; stroke-dasharray: 4 3; opacity: .85; }
 .plan-node.blocked .pn-sub { fill: var(--danger); }
 .plan-node.sel .pn-box { stroke: var(--accent); stroke-width: 2; }
+.plan-node.sel-multi .pn-box { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 4 3; }
 @keyframes plan-pulse { 0%,100% { stroke-opacity: 1; } 50% { stroke-opacity: .35; } }
+.sel-box { fill: var(--accent); fill-opacity: .06; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 6 4; }
 
 .plan-edge path { fill: none; stroke: var(--line-2); stroke-width: 1.6; }
 .plan-edge .via { fill: var(--line-2); }
@@ -464,6 +493,13 @@ h1.task-title { flex: 1 1 auto; min-width: 8ch; white-space: nowrap; overflow: h
 .plan-edge.ms.hot path { stroke: #1f9d6b99; }
 .plan-ms.gated .ms-box { stroke: #d8a03a88; }
 .plan-ms.gated .ms-label { fill: var(--warn, #d8a03a); }
+/* the archive box — milestone chrome, but reads as parked-away dead work */
+.plan-ms.archive .ms-box { fill: #8888880c; stroke: var(--line); stroke-dasharray: 6 4; }
+.plan-ms.archive:hover .ms-box { stroke: var(--line-2); }
+.plan-ms.archive .ms-label { fill: var(--txt-3); }
+.plan-node.arch { opacity: .6; cursor: grab; }
+.plan-node.arch:hover { opacity: .85; }
+.plan-node.arch .pn-box { stroke: var(--line); stroke-dasharray: 4 3; }
 .plan-node, .plan-ms { cursor: grab; }
 .plan-node:active, .plan-ms:active { cursor: grabbing; }
 .btn.ghost.on { color: var(--accent); border-color: #4f9cf255; }

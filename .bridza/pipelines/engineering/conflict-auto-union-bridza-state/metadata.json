@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "id": "conflict-auto-union-bridza-state",
+  "pipeline": "engineering",
+  "title": "Auto-resolve .bridza state conflicts with a union merge driver",
+  "type": "subtask",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "tracking": {}
+}

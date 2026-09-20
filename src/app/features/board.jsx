@@ -6,6 +6,7 @@ import * as api from "../api/client.js";
 import { Hamburger } from "../ui.jsx";
 import { TermDrawer } from "./term.jsx";
 import { applyKanbanOrder, moveColumn } from "./kanban-order.js";
+import { TAG_PALETTE } from "../../../core/domain.js";
 
 const DONE_COL = "__done__";
 const ARCHIVED_COL = "__archived__";
@@ -22,6 +23,46 @@ function currentStage(t) {
   if (t.archived) return ARCHIVED_COL;
   if (t.finalized) return DONE_COL;
   return (t.stages || []).find((s) => (t.tracking[s] || {}).status !== "done") || DONE_COL;
+}
+
+// The tag picker: every registry tag as a toggle row, plus a name input and a
+// swatch row that create a new tag and assign it in one go. The swatches start
+// on the palette's next colour (registry size, so tags made back to back walk
+// the palette), and the create moment is the only chance to choose — recolour
+// after the fact is out of scope.
+function TagMenu({ task, registry, onToggle, onCreate, onClose }) {
+  const entries = Object.entries(registry);
+  const [name, setName] = useState("");
+  const [color, setColor] = useState(TAG_PALETTE[entries.length % TAG_PALETTE.length]);
+  const assigned = new Set((task.tags || []).map((g) => g.id));
+  const submit = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!name.trim()) return;
+    setName("");
+    onCreate(name, color);
+  };
+  return (
+    <div className="proj-menu tag-menu" style={{ right: 6, left: "auto", top: 6, minWidth: 180, zIndex: 5 }} onClick={(e) => e.stopPropagation()}>
+      <div className="path" style={{ padding: "4px 9px" }}>Tags <button className="btn sm ghost" style={{ float: "right" }} onClick={onClose}>✕</button></div>
+      {entries.length === 0 && <div className="muted" style={{ padding: "4px 9px", fontSize: 11 }}>no tags yet — name one below</div>}
+      {entries.map(([id, g]) => (
+        <button className="item" key={id} onClick={(e) => { e.stopPropagation(); onToggle(id); }}>
+          <span className={"tag-dot tag-" + g.color} />{g.name}{assigned.has(id) ? " ✓" : ""}
+        </button>
+      ))}
+      <form onSubmit={submit} style={{ padding: "4px 6px" }}>
+        <div className="tag-swatches">
+          {TAG_PALETTE.map((c) => (
+            <button type="button" key={c} title={c} aria-label={c} aria-pressed={c === color}
+              className={"tag-swatch tag-" + c + (c === color ? " on" : "")}
+              onClick={(e) => { e.stopPropagation(); setColor(c); }} />
+          ))}
+        </div>
+        <input className="search-input" style={{ width: "100%" }} placeholder="new tag…" value={name}
+          autoFocus onChange={(e) => setName(e.target.value)} onClick={(e) => e.stopPropagation()} />
+      </form>
+    </div>
+  );
 }
 
 export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, onChange, flash, collapsed, onExpandSide }) {
@@ -65,11 +106,15 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
     (t.branch && t.branch.toLowerCase().includes(filtered.branch));
   const filteredByCol = {};
   Object.entries(byCol).forEach(([c, ts]) => { filteredByCol[c] = ts.filter(matches); });
-  // hover a card + press "L" → a dropdown of this pipeline's stage flows, so you
-  // can retarget a task without opening it. Only meaningful with several flows.
+  // hover a card + press "L" → the tag picker for that task; "F" → a dropdown of
+  // this pipeline's stage flows, so you can retarget without opening the task.
+  // Tagging is the frequent action so it owns L; the flow menu is rare and
+  // destructive, and stays gated on the pipeline having several flows.
   const flows = pipeline.flows || [];
+  const registry = pipeline.tags || {};
   const [hover, setHover] = useState(null);
   const [flowMenu, setFlowMenu] = useState(null);
+  const [tagMenu, setTagMenu] = useState(null);
   useEffect(() => {
     const onKey = (e) => {
       if ((e.key === "/" || (e.key === "k" && (e.metaKey || e.ctrlKey))) && !/^(input|textarea|select)$/i.test(e.target.tagName || "")) {
@@ -85,14 +130,26 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
     return () => window.removeEventListener("keydown", onKey);
   }, [searchOpen]);
   useEffect(() => {
-    if (!hover || flows.length < 2) return;
+    if (!hover) return;
     const onKey = (e) => {
-      if ((e.key === "l" || e.key === "L") && !/^(input|textarea|select)$/i.test(e.target.tagName || "")) { e.preventDefault(); setFlowMenu(hover); }
-      else if (e.key === "Escape") setFlowMenu(null);
+      const typing = /^(input|textarea|select)$/i.test(e.target.tagName || "");
+      if (typing) return;
+      // only one menu at a time — both sit at the card's top-right corner
+      if (e.key === "l" || e.key === "L") { e.preventDefault(); setFlowMenu(null); setTagMenu(hover); }
+      else if ((e.key === "f" || e.key === "F") && flows.length >= 2) { e.preventDefault(); setTagMenu(null); setFlowMenu(hover); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [hover, flows.length]);
+  // Escape follows the OPEN MENU, not the hover: the pointer leaves the card the
+  // moment you reach for the menu (and the tag picker holds a focused input), so
+  // a hover-scoped listener would strand an open menu with only the ✕ to close it.
+  useEffect(() => {
+    if (!tagMenu && !flowMenu) return;
+    const onKey = (e) => { if (e.key === "Escape") { setFlowMenu(null); setTagMenu(null); } };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tagMenu, flowMenu]);
 const changeFlow = async (t, nf) => {
     setFlowMenu(null);
     if (!nf || nf === t.flow) return;
@@ -101,6 +158,21 @@ const changeFlow = async (t, nf) => {
     const r = await api.retargetTask(dir, { pipeline: pipeline.id, task: t.id, flow: nf });
     if (r.ok) { flash && flash(r.removed ? `flow → ${fl ? fl.name : nf} · ${r.removed} stage commit${r.removed === 1 ? "" : "s"} discarded` : "flow changed", 4000); onChange && onChange(); }
     else flash && flash(r.error);
+  };
+  const saveTags = async (t, ids) => {
+    const r = await api.setTaskTags(dir, { pipeline: pipeline.id, task: t.id, tags: ids });
+    if (r.ok) onChange && onChange();
+    else flash && flash(r.error);
+  };
+  const toggleTag = (t, id) => {
+    const cur = (t.tags || []).map((x) => x.id);
+    saveTags(t, cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+  };
+  const createAndAssign = async (t, name, color) => {
+    const r = await api.createTag(dir, { name, color });
+    if (!r.ok) return void (flash && flash(r.error));
+    const cur = (t.tags || []).map((x) => x.id);
+    await saveTags(t, cur.includes(r.id) ? cur : [...cur, r.id]);
   };
   const toggleArchive = async (e, t) => {
     e.stopPropagation();
@@ -146,17 +218,23 @@ const changeFlow = async (t, nf) => {
                    <div className="kcard" key={t.id} style={{ position: "relative" }} onClick={() => onOpen(t.id)}
                      onMouseEnter={() => setHover(t.id)} onMouseLeave={() => { setHover((h) => (h === t.id ? null : h)); }}>
                      <div className="spread"><b title={t.title}>{t.ref ? <span className="tref">#{t.ref}</span> : null}{t.title}</b><div style={{ display: "flex", gap: "6px", alignItems: "center" }}>{runningTasks && runningTasks.has(pipeline.id + "/" + t.id) ? <span className="tag running"><span className="livedot" /> running</span> : t.finalized && !t.archived && <span className="tag done">✓</span>}<button className="btn sm ghost" onClick={(e) => toggleArchive(e, t)} title={t.archived ? "Restore from archive" : "Archive task"}>🗄</button></div></div>
+                     {(t.tags || []).length > 0 && (
+                       <div className="tag-chips">{t.tags.map((g) => <span className={"tag tag-" + g.color} key={g.id}>{g.name}</span>)}</div>
+                     )}
                      <div className="muted mono kcard-branch">{t.branch}</div>
                      <div className="bar"><i style={{ width: t.progress + "%" }} /></div>
                      <div className="muted" style={{ fontSize: 11, marginTop: 5 }}>{t.progress}% · {t.stages.length} stages</div>
-                     {flows.length > 1 && hover === t.id && flowMenu !== t.id && !t.finalized && (
-                       <div className="muted" style={{ fontSize: 10, marginTop: 4, opacity: 0.65 }}>press <b>L</b> to change flow</div>
+                     {hover === t.id && flowMenu !== t.id && tagMenu !== t.id && !t.finalized && (
+                       <div className="muted" style={{ fontSize: 10, marginTop: 4, opacity: 0.65 }}>press <b>L</b> to tag{flows.length > 1 ? <> · <b>F</b> for flow</> : null}</div>
                      )}
                      {flowMenu === t.id && (
                        <div className="proj-menu" style={{ right: 6, left: "auto", top: 6, minWidth: 160, zIndex: 5 }} onClick={(e) => e.stopPropagation()} onMouseLeave={() => setFlowMenu(null)}>
                          <div className="path" style={{ padding: "4px 9px" }}>Change stage flow</div>
                          {flows.map((f) => <button className="item" key={f.id} onClick={(e) => { e.stopPropagation(); changeFlow(t, f.id); }}>{f.id === t.flow ? "● " : ""}{f.name}</button>)}
                        </div>
+                     )}
+                     {tagMenu === t.id && (
+                       <TagMenu task={t} registry={registry} onToggle={(id) => toggleTag(t, id)} onCreate={(name, color) => createAndAssign(t, name, color)} onClose={() => setTagMenu(null)} />
                      )}
                    </div>
                  ))}

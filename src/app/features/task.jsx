@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import * as api from "../api/client.js";
 import { pipelineFlows, specLabel } from "../../../core/domain.js";
 import { slug, runPrompt, fmt, workFiles, base, ago } from "../lib/format.js";
-import { buildStageRecords, lastRunTool } from "../lib/record.js";
+import { buildStageRecords, lastRunTool, lastRunModel } from "../lib/record.js";
 import { logKey, readLog, appendLog as storeLog } from "../lib/autolog.js";
 import { InspectorView, CanvasView, ChatView, StageRunner } from "./views.jsx";
 import { Hamburger, ColGrip, useColWidth, Kv, Expandable } from "../ui.jsx";
@@ -51,6 +51,7 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   const [resolveOpen, setResolveOpen] = useState(false);
   const [conflict, setConflict] = useState(null);   // #15 — paused merge conflict { files, dir, target }
   const [fileOpen, setFileOpen] = useState(null);   // #7 — path of a file opened in the editor
+  const [creatingPr, setCreatingPr] = useState(false);
   const [automating, setAutomating] = useState(false);   // a chained run is live right now
   // …distinct from the auto-advance SETTING: on by default, per task, remembered
   // across navigation/reload. It only says whether a finished stage may carry the
@@ -184,11 +185,24 @@ setResolveOpen(false);
     else flash(r.error, 4800);
   };
   const createPR = async () => {
+    if (creatingPr) return;
+    setCreatingPr(true);
     flash("creating PR…", 6000);
-    const r = await api.createPR(dir, { pipeline: pipeline.id, task: task.id, target: targetName });
-    if (!r.ok) { flash(r.error, 5000); return; }
-    flash(r.existing ? `PR already exists` : `PR created`, 4000);
-    if (r.url) window.open(r.url, "_blank");
+    try {
+      const r = await api.createPR(dir, { pipeline: pipeline.id, task: task.id, target: targetName });
+      if (r.fallback) {
+        flash(r.error, 5000);
+        if (r.url) window.open(r.url, "_blank");
+        return;
+      }
+      if (!r.ok) { flash(r.error, 5000); return; }
+      flash(r.existing ? `PR already exists · ${r.url}` : `PR created · ${r.url}`, 5000);
+      if (r.url) window.open(r.url, "_blank");
+    } catch (e) {
+      flash("could not reach the server: " + (e && e.message || e), 5000);
+    } finally {
+      setCreatingPr(false);
+    }
   };
   const openVscode = async () => {
     flash("opening VS Code…");
@@ -226,17 +240,21 @@ setResolveOpen(false);
     if (automating) return;
     // Send every stage from `from` on, in order — the SERVER resumes from the
     // first incomplete one by re-checking the branch tip per stage (this client
-    // snapshot can be stale). NO model is ever passed — each tool runs with its
-    // own default.
-    const bodies = stageObjs.slice(from).map((def) => ({
-      pipeline: pipeline.id, task: task.id, stage: def.id,
-      // remember the agent each stage last ran on (falls back to the stage
-      // default, then opencode) so auto-advance doesn't reset every stage
-      tool: lastRunTool((task.tracking[def.id] || {}).runs) || def.tool || "opencode",
-      prompt: runPrompt(pipeline, task, def, [task.title && ("Task: " + task.title), briefBody, def.hint].filter(Boolean).join("\n\n") || ("Complete the " + (def.name || def.id) + " stage.")),
-      system: def.systemPrompt || "", shell: def.shell || [], workingDir: pipeline.workingDir || ".",
-      stageName: def.name || def.id, taskTitle: task.title,
-    }));
+    // snapshot can be stale).
+    const bodies = stageObjs.slice(from).map((def) => {
+      // the agent+model saved for the stage (task.routing) wins, then the one it
+      // last ran on, then the stage default — so auto-advance never resets a pick
+      const routed = (task.routing && task.routing[def.id]) || {};
+      const runs = (task.tracking[def.id] || {}).runs;
+      return {
+        pipeline: pipeline.id, task: task.id, stage: def.id,
+        tool: routed.tool || lastRunTool(runs) || def.tool || "opencode",
+        model: routed.model || lastRunModel(runs) || "",
+        prompt: runPrompt(pipeline, task, def, [task.title && ("Task: " + task.title), briefBody, def.hint].filter(Boolean).join("\n\n") || ("Complete the " + (def.name || def.id) + " stage.")),
+        system: def.systemPrompt || "", shell: def.shell || [], workingDir: pipeline.workingDir || ".",
+        stageName: def.name || def.id, taskTitle: task.title,
+      };
+    });
     if (!bodies.length) { flash("This task has no stages.", 4000); return; }
     setAutomating(true);
     const append = appendLog;
@@ -344,6 +362,7 @@ setResolveOpen(false);
           {/* one line, ellipsised: a long title must never push the toolbar
               around — the full text lives in the Brief card below */}
           <h1 className="task-title" style={{ marginLeft: 6 }} title={task.title}>{task.ref ? <span className="tref">#{task.ref}</span> : null}{task.title}</h1>
+          {(task.tags || []).map((g) => <span className={"tag tag-" + g.color} key={g.id}>{g.name}</span>)}
         </div>
         <div className="row">
           <div className="seg" title="How to view this task's stages. Stages: the classic runner. Inspector / Canvas / Chat: read & audit what each stage did. Terminal: a real shell in this task's worktree.">
@@ -371,7 +390,7 @@ setResolveOpen(false);
               → {handoff.tf.name}
             </button>
           )}
-          <button className="btn primary" onClick={createPR} title={`Create a PR for ${task.branch} → ${targetName}`}>Create PR</button>
+          <button className="btn primary" onClick={createPR} disabled={creatingPr} title={`Create a PR for ${task.branch} → ${targetName}`}>{creatingPr ? "Creating PR…" : "Create PR"}</button>
           <button className="btn" onClick={() => finalize()} disabled={task.finalized} title={`Merge this task's branch into ${targetName}`}>{task.finalized ? "Finalized" : `Finalize → ${targetName}`}</button>
         </div>
       </div>

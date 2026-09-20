@@ -1,163 +1,135 @@
-# Repro — one user action produces 4–5 bridza commits
+# Repro — Have a different task URL so that I can refresh
 
-Task #37 · `engineering/reduce-the-amount-of-commits-for-the` · stage `repro`
+Task #105 · `engineering/have-a-different-tax-url-so-that-i-can` · stage `repro`
+
+> "tax URL" in the title is a typo for **task URL**.
 
 ## Summary
 
-Every write helper in `server/bridza-store.js` commits **by itself**, and the
-high-level actions are built by *composing* those helpers. Nothing coalesces
-them, so one UI action produces one commit per helper it happens to call.
-Promoting one inbox item into a task = **4 commits**; capture + promote = **5**.
+The Bridza app (`/app`, `app.localhost:5173`) keeps **all** navigation state in
+React component state only. The address bar is `http://localhost:5199/app`
+whether you are on the board, inside a task, in the inbox, in the plan view, or
+in the stage-flow editor. Because the URL never names the open task, a browser
+refresh (or a copy-pasted link, or a Vite HMR full reload) drops the user back
+to the pipeline board — "home".
 
-`commitPaths()` (`server/bridza-store.js:39`) is the only commit primitive; all
-15 call sites go through it, and it can only create a *new* commit — there is no
-amend mode and no "this write belongs to the action already in flight" scope.
+**Reproduced end-to-end.** Failing spec: `e2e/repro-task-url.spec.js` (added by
+this stage; it is a repro, not a fix).
 
-## Reproduction
+## Reproduction steps
 
-### Steps (UI)
+Prereq: dependencies installed (`pnpm install`). This worktree has none; the run
+below borrowed the main checkout's:
+`ln -sfn /Users/risky/projects/erluxman.com/bridza/node_modules node_modules`
+(removed again afterwards so the tree stays clean).
 
-1. Open a project, type an idea into the inbox → **Capture**.
-2. Promote that item into the `engineering` pipeline (pick a flow), confirm
-   title + description in the promote dialog.
-3. `git log` → **5 new commits**, 4 of them from step 2 alone.
-
-### Observed — the user's reported case, still in this repo's history
-
-Captured 10:32:40, promoted 10:32:57. Four commits share the identical second,
-i.e. one click:
-
-```
-$ git log --format='%h %ad %an %s' --date=format:'%H:%M:%S' --name-only d1281a6~1..eecac95
-
-d1281a6 10:32:40 bridza  bridza: inbox capture (idea) · "Alright, for some reason, the archive cards are …"
-                   .bridza/inbox.json
-8d0e747 10:32:57 bridza  bridza: assign task #ref #36 → engineering/card-archiving-is-not-working-when
-                   .bridza/refs.json
-0fa461a 10:32:57 bridza  bridza: add task #36 "Card archiving is not working when syncing between" (…)
-                   .bridza/pipelines/engineering/card-archiving-is-not-working-when/context.md
-                   .bridza/pipelines/engineering/card-archiving-is-not-working-when/metadata.json
-4d9fa58 10:32:57 bridza  bridza: edit task context of engineering/card-archiving-is-not-working-when · "…"
-                   .bridza/pipelines/engineering/card-archiving-is-not-working-when/context.md
-eecac95 10:32:57 bridza  bridza: inbox promote (idea) "Card archiving is not working when synci" → task #36 …
-                   .bridza/inbox.json
+```bash
+PLAYWRIGHT_BROWSERS_PATH=~/Library/Caches/ms-playwright \
+  ./node_modules/.bin/playwright test e2e/repro-task-url.spec.js
 ```
 
-All five are authored `bridza <bridza@local>` (the `BIDENT` identity,
-`server/bridza-store.js:12`) — machine bookkeeping, not human commits.
+The spec drives the real app against a throwaway git fixture repo:
 
-This very task shows the same shape: `8eafdd8` + `f49fb1c`, both 10:36:21 —
-`createTask` alone is always ≥2 commits.
+1. `goto /app`, clear `localStorage` (and pre-set `bridza-welcome` to today so
+   the once-a-day welcome dialog does not swallow clicks), reload.
+2. Type the fixture repo path into the Welcome panel → Enter.
+3. Category picker → **Engineering** → **Create 1 pipeline**.
+4. Click the **Engineering** pipeline → **New task** → title `Repro Task 105`,
+   flow `feature` → **Create**. The task detail screen opens.
+5. Record `page.url()` on the board and with the task open.
+6. `page.reload()`, wait, record what is on screen.
 
-### Steps (headless driver)
+Manual equivalent: `pnpm dev`, open `http://app.localhost:5173`, open any task,
+look at the address bar, press ⌘R.
 
-`.bridza/pipelines/engineering/reduce-the-amount-of-commits-for-the/repro/repro.mjs`
-builds a scratch repo, calls the store functions directly and prints the commit
-count per action (no npm deps needed):
+## Observed
+
+Verbatim console output from the failing run:
 
 ```
-node repro.mjs <path-to-this-checkout> /tmp/bridza-repro-scratch
+URL on board          : http://localhost:5199/app
+URL with task OPEN    : http://localhost:5199/app
+URL after reload      : http://localhost:5199/app
+task heading visible  : false
+board visible         : true
+main region text      : "Engineering\n⌨ Terminal\n🔍\n⚙ Stage flow\n＋ New task"
 ```
 
-**Not executed**: running `node` requires approval and this session is
-non-interactive (`npx vitest` also fails here — `node_modules` is not installed
-in this worktree). The numbers below therefore come from real git history above
-plus a read of the call graph, both of which agree. The script is left for the
-`fix` stage as a before/after check.
+```
+Error: URL should change when a task is opened
+expect(received).not.toBe(expected) // Object.is equality
+Expected: not "http://localhost:5199/app"
+```
 
 ## Observed vs expected
 
-| Action | Observed commits | Expected |
+| Action | Observed | Expected |
 |---|---|---|
-| `addInbox` (capture) | 1 | 1 |
-| `promoteInbox` | **4** (5 when plan wiring fires) | 1 |
-| `createTask` | **2** (3 with deps/milestone/est) | 1 |
-| Add 8 context links to a task, one by one | **8** | 1 (or few) |
-| Reorder kanban columns | **1 per drag** (4 in 19s observed) | 1 (or few) |
-| `deleteTask` | **2** (removal + `retire #ref`) | 1 |
-
-Scale on this repo — commits since 2026-09-01:
-
-```
-$ git log --format='%s' --since=2026-09-01 | wc -l              → 283
-$ git log --format='%s' --since=2026-09-01 | grep -c '^bridza:'  → 267   (94%)
-
- 117  bridza: edit plan
-  26  bridza: assign task
-  22  bridza: inbox capture
-  20  bridza: add task
-  17  bridza: reorder kanban
-  17  bridza: edit task
-  16  bridza: inbox promote
-```
+| Open a task | URL stays `/app` | URL names the pipeline + task, e.g. `/app/engineering/repro-task-105` |
+| Refresh with a task open | Task closes; pipeline board ("home") renders | Same task detail reopens |
+| Copy/share the address bar | Always points at home | Points at the exact task |
+| Refresh in Inbox / Plan / Stage-flow | Falls back to the board | Stays on that view |
+| Back / Forward buttons | Leave the app entirely (no in-app history entries) | Step through in-app navigation |
 
 ## Root cause
 
-### Cause 1 — commit-per-helper, and the helpers compose (the reported bug)
+There is no router and no `history` integration anywhere in the app. A repo-wide
+grep for `pushState` / `replaceState` / `popstate` / `hashchange` /
+`location.hash` returns **zero** hits in `src/`; `react-router` is not a
+dependency. The only `location` reads are in `src/main.tsx:17-21`, and they run
+once at module load to pick which bundle to mount:
 
-`promoteInbox` (`server/bridza-store.js:890`) is four committing calls in a row:
-
-| # | Code | Commit produced |
-|---|---|---|
-| 1 | `createTask` → `assignRefs` (`:901` → `:621` → `:265`) | `assign task #ref …` |
-| 2 | `createTask` → `commitPaths` (`:663`) | `add task #N …` |
-| 2b | `createTask` → `savePlan` when `planTouched` (`:700` → `:852`) | `edit plan …` (only with deps/milestone/est/pipeDeps) |
-| 3 | `saveContext` (`:903` → `:931`) | `edit task context of …` |
-| 4 | `commitPaths` for the inbox removal (`:905`) | `inbox promote …` |
-
-Each helper is separately reachable from the UI (`server/bridge.js` exposes one
-endpoint per helper), so each commits defensively. There is no transaction scope
-saying "these writes are one action", and `commitPaths` cannot fold into the
-commit it is following.
-
-**Dead blob inside that:** step 2 commits a placeholder `context.md`
-(`"Describe the intent of this task."`, `:652`), then step 3 overwrites the same
-file 0 seconds later with the real brief. Verified:
-
-```
-$ git show 0fa461a:….../context.md
-# Card archiving is not working when syncing between devices with git.
-
-Describe the intent of this task.          ← superseded by 4d9fa58, same second
+```ts
+const isApp =
+  location.hostname.startsWith("app.") ||
+  location.pathname === "/app" ||
+  location.pathname.startsWith("/app/");
 ```
 
-### Cause 2 — no debounce on plan / kanban saves
+Everything after `/app/` is matched but then discarded — nothing parses it.
 
-`savePlan` (`:793`) commits on **every** call, and the UI calls it once per
-interaction with no debounce: `src/app/features/plan.jsx:199`
-(`const save = (next) => { setPlan(next); api.savePlan(dir, next)… }`),
-`src/app/features/task.jsx:568` and `:575`. Adding 8 context links one at a time
-produced 8 commits in under 3 minutes, all touching only `.bridza/plan.json`,
-messages differing only in the counter:
+All navigation lives in `useState` inside `src/app/App.jsx`, initialised to
+"home" on every mount:
 
-```
-b31642c 04:58:36  bridza: edit plan · 10 dep gates, 5 milestones, 1 context link
-d448c3e 04:58:50  bridza: edit plan · 10 dep gates, 5 milestones, 2 context links
-…
-e482628 05:01:21  bridza: edit plan · 10 dep gates, 5 milestones, 8 context links
-```
+- `src/app/App.jsx:22` — `const [activeTask, setActiveTask] = useState("")`
+- `src/app/App.jsx:21` — `const [activePipe, setActivePipe] = useState("")`
+- `src/app/App.jsx:29-31` — `flowOpen` / `inboxOpen` / `planOpen`, all `useState(false)`
 
-`saveKanbanOrder` (`:518`, UI `src/app/features/board.jsx:51`) is the same —
-`cf374a7 … ecc3916`, 4 commits in 19 seconds with byte-identical messages.
-Consecutive edits, one file, one identity, no intervening work: the textbook
-case for amending instead of appending.
+`src/app/App.jsx:36` then computes `atHome = !planOpen && !inboxOpen &&
+!flowOpen && !activeTask`, which is **true on every fresh mount**, and
+`src/app/App.jsx:125` renders `<Board>` because `task` is undefined.
+
+Every "open a task" entry point is a pure `setState` with no URL write —
+`src/app/App.jsx:111` (sidebar), `:119` (plan), `:122` (inbox), `:126` (board
+card), `:129` (task→task), `:139` (task just created).
+
+The single piece of navigation state that *does* survive a reload is the opened
+project folder, persisted to `localStorage` under `bridza-project`
+(`src/app/App.jsx:17`, key from `src/app/lib/format.js:10`). That is exactly why
+the refresh lands on the board rather than on the Welcome screen — the project
+reopens, the task does not.
+
+Secondary consequence, from the same cause (code-level, not exercised by the
+spec above, which creates only one pipeline): `src/app/App.jsx:63` resets
+`activePipe` to `s.pipelines[0].id` whenever the current value is empty, so a
+refresh while viewing the *second* pipeline also silently switches back to the
+first.
 
 ## Notes for the fix stage (nothing fixed here)
 
-- `commitPaths` (`:39`) is the single choke point — fix belongs there plus an
-  action-scope API, not sprinkled over the 15 call sites.
-- Amend precedent already in-tree: `server/bridza-run.js:417`
-  (`saveTaskFile` with `amend` → `commit --amend --no-edit`), with an
-  empty-change guard at `:413`. `commitPaths:43` already has the same
-  nothing-staged guard.
-- Amending is only safe while commits are unpushed and bridza-authored; `BIDENT`
-  (`:12`) makes "is the tip mine?" cheap. Plan/kanban coalescing additionally
-  wants "same action kind + same paths + recent".
-- `promoteInbox` should write the real `context.md` **before** the task commit
-  instead of rewriting it after — removes one commit and the dead blob with no
-  amend logic at all.
-- Tests touching current commit behaviour: `src/app/__tests__/bridza-store.test.js`
-  (asserts `committed: true` in several places), `src/app/__tests__/plan.test.js`.
-  `node_modules` is absent in this worktree — install before running them.
-
-**Nothing was fixed in this stage.**
+- Deep links will resolve in both environments already: `public/_redirects`
+  serves `/* /index.html 200` in production, and Vite dev falls back to
+  `index.html` for unknown paths — so a path-based scheme under `/app/...` needs
+  no extra server work. `src/main.tsx:19` already admits `/app/*` into the app
+  bundle. Note the app also answers on `app.<host>` where the path has no `/app`
+  prefix, so the URL scheme has to work under both prefixes.
+- The URL should carry pipeline id + task id (both are stable slugs, e.g.
+  `engineering` / `have-a-different-tax-url-so-that-i-can`), and ideally the
+  non-board views (`inbox`, `plan`, `flow`) too.
+- Restoring state on load must wait for `refresh()` to populate `proj` before
+  the task lookup at `src/app/App.jsx:98` can succeed; an id in the URL that no
+  longer exists should degrade to the board, not to a blank screen.
+- Guard against the polling `refresh()` at `src/app/App.jsx:77` and the
+  `activePipe` reset at `:63` fighting whatever the URL says.
+- `e2e/repro-task-url.spec.js` should be kept and turned into the regression
+  test once the fix lands (drop the `REPRO:` prefix from its title).

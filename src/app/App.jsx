@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import "./bridza.css";
 import * as api from "./api/client.js";
+import confetti from "canvas-confetti";
 import { LS, readRecents, today } from "./lib/format.js";
+import { parseRoute, routePath, currentPath } from "./lib/route.js";
 import { useColWidth, ColGrip } from "./ui.jsx";
 import { Welcome, WelcomeDialog, PipelinePicker, NewPipelineModal, NewTaskModal } from "./features/onboarding.jsx";
 import { Sidebar, Inbox } from "./features/nav.jsx";
@@ -17,23 +19,32 @@ export default function App() {
   const [proj, setProj] = useState(null);
   const [recents, setRecents] = useState(readRecents);
   const [tools, setTools] = useState([]);
-  const [activePipe, setActivePipe] = useState("");
-  const [activeTask, setActiveTask] = useState("");
+  const [activePipe, setActivePipe] = useState(() => parseRoute().pipe);
+  const [activeTask, setActiveTask] = useState(() => parseRoute().task);
   const [toast, setToast] = useState("");
   const toastTimer = useRef(null);
   const [modal, setModal] = useState(null);
   const [welcomeOpen, setWelcomeOpen] = useState(() => localStorage.getItem(LS.welcome) !== today());
   const [sideCollapsed, setSideCollapsed] = useState(() => localStorage.getItem(LS.side) === "1");
   const [sideW, sideGrip] = useColWidth("bridza.sideW", 264, { min: 200, max: 460, side: "left" });
-  const [flowOpen, setFlowOpen] = useState(false);
-  const [inboxOpen, setInboxOpen] = useState(false);
-  const [planOpen, setPlanOpen] = useState(false);
+  const [flowOpen, setFlowOpen] = useState(() => parseRoute().view === "flow");
+  const [inboxOpen, setInboxOpen] = useState(() => parseRoute().view === "inbox");
+  const [planOpen, setPlanOpen] = useState(() => parseRoute().view === "plan");
+  const confettiShown = useRef(false);
+  // The logo heartbeats every time we land back on the home board (and on the
+  // first render, which is home) — a small pull of focus after a detour.
+  const [logoPulse, setLogoPulse] = useState(0);
+  const atHome = !planOpen && !inboxOpen && !flowOpen && !activeTask;
+  useEffect(() => { if (atHome) setLogoPulse((n) => n + 1); }, [atHome]);
   const flash = (m, ms = 2400) => {
     setToast(m);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(""), ms);
   };
   const collapse = (v) => { setSideCollapsed(v); localStorage.setItem(LS.side, v ? "1" : "0"); };
+  const fireConfetti = () => {
+    confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 }, duration: 2500 });
+  };
 
   // Poll discipline: background polls never stack (a slow server would
   // snowball), but an EXPLICIT refresh — switching projects, after a mutation —
@@ -79,13 +90,51 @@ export default function App() {
   const closeProject = () => { setDir(""); localStorage.removeItem(LS.dir); setProj(null); setActiveTask(""); };
   const forget = (d) => { const next = recents.filter((x) => x !== d); setRecents(next); localStorage.setItem(LS.recents, JSON.stringify(next)); };
 
+  // Which pipeline/task the screen is actually showing: `activePipe` can name
+  // one the project no longer has (a stale URL, a deleted pipeline), so the
+  // fallback below — not the raw state — is what the address bar mirrors.
+  const pipes = (proj && proj.pipelines) || [];
+  const pipeline = pipes.find((p) => p.id === activePipe) || pipes.find((p) => !p.archived) || pipes[0];
+  const task = pipeline && pipeline.tasks.find((t) => t.id === activeTask);
+
+  // ── URL ⇄ navigation state ────────────────────────────────────────────────
+  // The address bar is read once at boot (the useState initialisers above) and
+  // mirrored from then on, so a refresh, a back/forward, or a pasted link all
+  // land on the same screen instead of falling back to the board.
+  const view = planOpen ? "plan" : inboxOpen ? "inbox" : flowOpen ? "flow" : "";
+  useEffect(() => {
+    const onPop = () => {
+      const r = parseRoute();
+      setActivePipe(r.pipe); setActiveTask(r.task);
+      setPlanOpen(r.view === "plan"); setInboxOpen(r.view === "inbox"); setFlowOpen(r.view === "flow");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  // A task id the project doesn't have degrades to that pipeline's board rather
+  // than to a blank screen — and takes the stale id out of the URL with it.
+  useEffect(() => {
+    if (activeTask && pipeline && !pipeline.tasks.some((t) => t.id === activeTask)) setActiveTask("");
+  }, [pipeline, activeTask]);
+  const urlSettled = useRef(false);
+  useEffect(() => {
+    const next = routePath({ pipe: pipeline ? pipeline.id : activePipe, task: activeTask, view });
+    if (next !== currentPath()) {
+      // The first write only resolves what the URL already meant (the default
+      // pipeline, an id that has since vanished); replacing keeps that
+      // normalisation out of the back button's history.
+      window.history[urlSettled.current ? "pushState" : "replaceState"]({}, "", next);
+    }
+    // "settled" only once the project has actually loaded — everything before
+    // that is still boot normalisation, not navigation.
+    if (proj) urlSettled.current = true;
+  }, [proj, pipeline, activePipe, activeTask, view]);
+
   if (!dir || !proj) return <Welcome recents={recents} onPick={pick} onOpen={openDir} onForget={forget} />;
   if (proj.available === false) return <Welcome recents={recents} onPick={pick} onOpen={openDir} onForget={forget} error={`Can't open ${dir}`} />;
   if (!proj.initialized)
     return <PipelinePicker dir={dir} repo={proj.repo} onClose={closeProject} onCreated={(pid) => { setActivePipe(pid); refresh(); }} flash={flash} />;
 
-  const pipeline = proj.pipelines.find((p) => p.id === activePipe) || proj.pipelines.find((p) => !p.archived) || proj.pipelines[0];
-  const task = pipeline && pipeline.tasks.find((t) => t.id === activeTask);
   const topbarNav = { collapsed: sideCollapsed, onExpandSide: () => collapse(false) };
   // what is running RIGHT NOW (server truth — the in-process run registry, not
   // committed metadata, which can say "running" forever after a crashed run)
@@ -96,10 +145,10 @@ export default function App() {
   return (
     <div className={"app" + (sideCollapsed ? " side-collapsed" : "")} style={sideCollapsed ? undefined : { gridTemplateColumns: `${sideW}px 1fr`, position: "relative" }}>
       {!sideCollapsed && (
-        <Sidebar proj={proj} running={running} runningTasks={runningTasks} active={activePipe} activeTask={activeTask} dir={dir} onChange={refresh} flash={flash} onPipe={(id) => { setActivePipe(id); setActiveTask(""); setFlowOpen(false); setInboxOpen(false); setPlanOpen(false); }}
+        <Sidebar proj={proj} running={running} runningTasks={runningTasks} active={activePipe} activeTask={activeTask} pulseKey={logoPulse} dir={dir} onChange={refresh} flash={flash} onPipe={(id) => { setActivePipe(id); setActiveTask(""); setFlowOpen(false); setInboxOpen(false); setPlanOpen(false); }}
           onNewPipe={() => setModal({ type: "pipeline" })} onClose={closeProject} onPick={pick} recents={recents} onOpen={openDir}
           onOpenTask={(pid, tid) => { setInboxOpen(false); setFlowOpen(false); setPlanOpen(false); setActivePipe(pid); setActiveTask(tid); }}
-          onCollapse={() => collapse(true)} inboxCount={(proj.inbox || []).length} inboxActive={inboxOpen} onInbox={() => { setInboxOpen(true); setActiveTask(""); setFlowOpen(false); setPlanOpen(false); }}
+          onCollapse={() => collapse(true)} inboxCount={(proj.inbox || []).length} inboxActive={inboxOpen} onInbox={() => { setInboxOpen(true); setActiveTask(""); setFlowOpen(false); setPlanOpen(false); if (!confettiShown.current && (proj.inbox || []).length === 0) { confettiShown.current = true; fireConfetti(); } }}
           planActive={planOpen} onPlan={() => { setPlanOpen(true); setInboxOpen(false); setFlowOpen(false); setActiveTask(""); }} />
       )}
       {!sideCollapsed && <ColGrip side="left" {...sideGrip} style={{ left: sideW - 3 }} />}
