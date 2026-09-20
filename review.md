@@ -45,14 +45,28 @@
 - Verdict: minimal implementation, roughly 6 lines of real logic.
 
 ## Merge Readiness
-**Not a clean merge — `main` has moved.** `git merge-tree main HEAD` conflicts in:
-- `src/app/features/board.jsx` — `main` has since gained the card tag picker
-  (`TagMenu`, `tags`) and topbar task search (`/` hotkey, `filteredByCol`), and
-  both touch the same topbar row and `columns.map` lines this branch edits.
-  Resolution must keep `main`'s search/tags and re-apply the toggle on top,
-  including filtering `filteredByCol` rather than `byCol` for occupancy.
-- `repro.md`, `review.md` — add/add between task worktrees; standard for Bridza,
-  resolved at finalization.
+Rebased onto `main` (5e59a0f). Three conflicts, all resolved here:
 
-The earlier revision of this file claimed the code merged cleanly aside from
-`repro.md`. That was checked against the merge base, not against current `main`.
+- **`src/app/features/board.jsx`** — `main` had since gained the card tag picker
+  (`TagMenu`) and the topbar task search (`/` hotkey, `filteredByCol`), both
+  touching the lines this branch edits. Kept both, and the occupancy filter now
+  reads `filteredByCol`, not `byCol`: a column hides when it holds no *visible*
+  card, so hiding follows an active search instead of fighting it. Covered by a
+  test ("follows the search: a column whose cards all filter out hides too").
+  The toggle's inline style also moved to a `.col-toggle` rule in `bridza.css`,
+  matching how the rest of the topbar is styled.
+- **`repro.md` / `review.md`** — add/add against the previously merged task's
+  docs; took this task's, which is what every finalize commit does.
+
+## One unrelated fix carried along
+`src/app/__tests__/pty-session.test.js` (from the terminal-restoration task)
+hangs its `afterAll` on `server.close()`, which resolves only once every socket
+is gone — a WebSocket upgraded off that server is not always one it hangs up.
+It is invisible at 17 test files and deterministic at 18, so *any* task adding a
+test file trips it; adding this task's test file is what exposed it. Teardown
+now force-closes, unrefs, and bounds the wait at 2s. Verified: 17 files green,
+18 files red 2 runs in 3 before, 4 runs in 4 green after.
+
+`pnpm test` 298 passing, `pnpm lint`, `pnpm build` all green on the rebased
+branch (a `pnpm install` is needed in stale worktrees — `main` added
+`canvas-confetti`).

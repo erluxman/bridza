@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 // the terminal drawer would drag xterm.js (browser-only) into the test
 vi.mock("../features/term.jsx", () => ({ TermDrawer: () => null }));
 const { Board } = await import("../features/board.jsx");
@@ -84,6 +85,15 @@ describe("kanban — hiding empty columns", () => {
     mount();
     expect(checkbox().checked).toBe(false);
     expect(headers()).toEqual(OCCUPIED);
+  });
+
+  it("follows the search: a column whose cards all filter out hides too", () => {
+    mount();
+    act(() => host.querySelector('.topbar button[title^="Search tasks"]').click());
+    const input = host.querySelector(".topbar .search-input");
+    const setValue = Object.getOwnPropertyDescriptor(input.constructor.prototype, "value").set;
+    act(() => { setValue.call(input, "runner"); input.dispatchEvent(new Event("input", { bubbles: true })); });
+    expect(headers()).toEqual(["Plan"]);
   });
 
   it("scopes the choice to one pipeline", () => {

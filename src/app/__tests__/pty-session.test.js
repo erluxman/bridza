@@ -79,7 +79,12 @@ afterAll(async () => {
   for (const d of dirs) {
     try { const c = await attach(d); c.send({ t: "kill" }); await c.detach(); } catch (e) { /* already gone */ }
   }
-  await new Promise((r) => server.close(r));
+  // close() resolves only once every socket is gone, and a WebSocket upgraded
+  // off this server is not always one it will hang up for us — waiting on it
+  // unbounded hangs the hook (and the whole run) instead of ending the suite.
+  server.closeAllConnections();
+  server.unref();
+  await Promise.race([new Promise((r) => server.close(r)), new Promise((r) => setTimeout(r, 2000))]);
   if (shell === undefined) delete process.env.SHELL; else process.env.SHELL = shell;
   for (const d of dirs) fs.rmSync(d, { recursive: true, force: true });
 });
