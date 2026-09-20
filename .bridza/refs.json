@@ -194,7 +194,8 @@
     "engineering/auto-advance-chain-registry": true,
     "engineering/categorize-the-tasks-in-milestones": true,
     "engineering/archived-should-not-be-just-another": true,
-    "engineering/i-should-be-able-to-change-the-color-of": true
+    "engineering/i-should-be-able-to-change-the-color-of": true,
+    "engineering/remove-automatic-focus-on-search-field": true
   },
   "tags": {
     "complex": {
