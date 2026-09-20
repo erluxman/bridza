@@ -133,8 +133,7 @@
       "tasks": [
         "engineering/url-path-sync-for-selected-task",
         "engineering/setting-to-hide-columns-in-kanban-that",
-        "engineering/i-should-be-able-to-change-any-details",
-        "engineering/display-terminal-despite-not-being-in"
+        "engineering/i-should-be-able-to-change-any-details"
       ],
       "needs": []
     },

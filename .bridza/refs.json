@@ -61,7 +61,6 @@
     "engineering/logo-welcome-screen-integration": 68,
     "engineering/vs-code-like-setting-page": 69,
     "engineering/creating-pr-failed-it-should-take-the": 70,
-    "engineering/display-terminal-despite-not-being-in": 71,
     "engineering/there-should-be-a-separate-step-called": 72,
     "engineering/system-design-diagrams-to-understand": 73,
     "engineering/atlas-ai-architecture-overview": 74,
@@ -105,7 +104,8 @@
     "product/this-is-a-test-idea-i-am-just-threading",
     "engineering/this-is-a-test-issue-and-i-think-it",
     "engineering/create-a-setting-page-on-the-bottom-of",
-    "engineering/commands-sent-to-cloud-are-not"
+    "engineering/commands-sent-to-cloud-are-not",
+    "engineering/display-terminal-despite-not-being-in"
   ],
   "archived": {
     "engineering/card-archiving-is-not-working-when": true,
