@@ -172,7 +172,8 @@
     "engineering/implement-merge-strategy": true,
     "engineering/conflict-open-in-vscode": true,
     "engineering/conflict-auto-union-bridza-state": true,
-    "engineering/merge-strategy-goal-ranking": true
+    "engineering/merge-strategy-goal-ranking": true,
+    "engineering/url-path-sync-for-selected-task": true
   },
   "tags": {
     "complex": {
