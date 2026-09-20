@@ -188,7 +188,8 @@
     "engineering/task-branch-deletion-policy": true,
     "engineering/atlas-ai-architecture-overview": true,
     "engineering/atlas-scan-cache-and-ignore": true,
-    "engineering/logo-first-launch-detection": true
+    "engineering/logo-first-launch-detection": true,
+    "engineering/logo-animation-component": true
   },
   "tags": {
     "complex": {
