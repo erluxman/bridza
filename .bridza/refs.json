@@ -176,7 +176,8 @@
     "engineering/url-path-sync-for-selected-task": true,
     "engineering/logo-welcome-screen-integration": true,
     "engineering/migration-existing-tasks": true,
-    "engineering/naming-contract-tests": true
+    "engineering/naming-contract-tests": true,
+    "engineering/task-creation-write-path": true
   },
   "tags": {
     "complex": {
