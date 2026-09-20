@@ -169,7 +169,8 @@
       "bug"
     ],
     "engineering/in-the-plan-board-there-should-be-an": [
-      "bug"
+      "bug",
+      "complex"
     ]
   }
 }
