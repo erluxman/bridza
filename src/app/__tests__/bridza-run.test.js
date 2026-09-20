@@ -540,7 +540,7 @@ describe("finalize → merge conflict", () => {
     expect(r2.conflict).toBe(true);
     expect(r2.dir).toBe(mwt);
     expect(fs.existsSync(path.join(mwt, ".git"))).toBe(true);
-    expect(pendingConflict(root, "main")).toEqual({ dir: mwt, files: ["app.txt"], target: "main" });
+    expect(pendingConflict(root, "main")).toEqual({ dir: mwt, files: ["app.txt"], target: "main", owner: "marketing/task-506" });
     // stash (the old "resolve dirty main" escape) can't run against a conflict
     expect(finalizeTask(root, "marketing", "task-506", { style: "squash", resolveMain: "stash" }).conflict).toBe(true);
 
@@ -559,6 +559,31 @@ describe("finalize → merge conflict", () => {
     expect(r3.ok).toBe(true);
     expect(git(root, ["show", "main:app.txt"]).trim()).toBe("line1\nmerged line\nline3");
     expect(fs.existsSync(path.join(mwt, ".git"))).toBe(false);
+  });
+
+  it("#106 — a paused merge belongs to the task that parked it: another task can't finalize, finish or abort it", async () => {
+    await diverge();
+    const wt = taskWorktree(root, "marketing", "task-506");
+    fs.writeFileSync(path.join(wt, "app.txt"), "line1\ntask line\nline3\n");
+    git(wt, ["add", "-A"]); git(wt, [...t, "commit", "-m", "task change"]);
+    fs.writeFileSync(path.join(root, "app.txt"), "line1\nmain line\nline3\n");
+    git(root, ["add", "-A"]); git(root, [...t, "commit", "-m", "main change"]);
+    git(root, ["checkout", "-qb", "feature-x"]);
+    const r1 = finalizeTask(root, "marketing", "task-506", { style: "squash" });
+    expect(r1.conflict).toBe(true);
+    const mwt = r1.dir;
+    // another window, another task, the same dir (the leaked-state case) → refused, worktree kept
+    expect(finishConflict(root, { dir: mwt, pipeline: "marketing", task: "task-999", target: "main" })).toMatchObject({ ok: false, error: expect.stringContaining("marketing/task-506") });
+    expect(abortConflict(root, { dir: mwt, pipeline: "marketing", task: "task-999" })).toMatchObject({ ok: false, error: expect.stringContaining("marketing/task-506") });
+    expect(fs.existsSync(path.join(mwt, ".git"))).toBe(true);
+    // another task finalizing into the same target is told whose merge is paused, not handed the conflict
+    git(root, ["branch", "bridza/marketing/task-999", "main"]);
+    expect(finalizeTask(root, "marketing", "task-999", { style: "squash" })).toMatchObject({ ok: false, error: expect.stringContaining("marketing/task-506") });
+    // the owner finishes it; the claim is released
+    fs.writeFileSync(path.join(mwt, "app.txt"), "line1\nmerged line\nline3\n");
+    git(mwt, ["add", "app.txt"]);
+    expect(finishConflict(root, { dir: mwt, pipeline: "marketing", task: "task-506", target: "main" }).ok).toBe(true);
+    expect(pendingConflict(root, "main")).toBeNull();
   });
 
   it("finishConflict refuses while files are still unmerged; abortConflict cancels cleanly", async () => {

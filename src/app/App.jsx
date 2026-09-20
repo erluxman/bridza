@@ -14,7 +14,11 @@ import { PipelineFlow } from "./features/flow.jsx";
 import { PlanView } from "./features/plan.jsx";
 
 export default function App() {
-  const [dir, setDir] = useState(() => localStorage.getItem(LS.dir) || "");
+  // the open project is in the tab's own URL (?dir=) — two tabs on two repos each
+  // reload into their own; localStorage only seeds a fresh tab
+  const urlDir = () => { try { return new URLSearchParams(location.search).get("dir") || ""; } catch (e) { return ""; } };
+  const setUrlDir = (d) => { try { const u = new URL(location.href); if (d) u.searchParams.set("dir", d); else u.searchParams.delete("dir"); history.replaceState(null, "", u); } catch (e) { /* no history api */ } };
+  const [dir, setDir] = useState(() => urlDir() || localStorage.getItem(LS.dir) || "");
   const [proj, setProj] = useState(null);
   const [recents, setRecents] = useState(readRecents);
   const [tools, setTools] = useState([]);
@@ -81,12 +85,12 @@ export default function App() {
   const openDir = (d) => {
     if (!d) return;
     setDir(d); setActiveTask(""); setActivePipe("");
-    localStorage.setItem(LS.dir, d);
+    localStorage.setItem(LS.dir, d); setUrlDir(d);
     const next = [d, ...recents.filter((x) => x !== d)].slice(0, 8);
     setRecents(next); localStorage.setItem(LS.recents, JSON.stringify(next));
   };
   const pick = async () => { const r = await api.pickFolder(); if (r && r.path) openDir(r.path); else if (r && r.error) flash(r.error); };
-  const closeProject = () => { setDir(""); localStorage.removeItem(LS.dir); setProj(null); setActiveTask(""); };
+  const closeProject = () => { setDir(""); localStorage.removeItem(LS.dir); setUrlDir(""); setProj(null); setActiveTask(""); };
   const forget = (d) => { const next = recents.filter((x) => x !== d); setRecents(next); localStorage.setItem(LS.recents, JSON.stringify(next)); };
 
   if (!dir || !proj) return <Welcome recents={recents} onPick={pick} onOpen={openDir} onForget={forget} />;
@@ -125,7 +129,7 @@ export default function App() {
         ) : !task ? (
           <Board dir={dir} pipeline={pipeline} runningTasks={runningTasks} onOpen={setActiveTask} onNewTask={() => setModal({ type: "task" })} onFlow={() => setFlowOpen(true)} onChange={refresh} flash={flash} {...topbarNav} />
         ) : (
-          <TaskDetail dir={dir} proj={proj} pipeline={pipeline} task={task} tools={tools} runningStages={runningStages} onBack={() => setActiveTask("")} onChange={refresh} flash={flash} {...topbarNav}
+          <TaskDetail key={pipeline.id + "/" + task.id} dir={dir} proj={proj} pipeline={pipeline} task={task} tools={tools} runningStages={runningStages} onBack={() => setActiveTask("")} onChange={refresh} flash={flash} {...topbarNav}
             onOpenTask={(pid, tid) => { setActivePipe(pid); setActiveTask(tid); }} />
         )}
       </div>

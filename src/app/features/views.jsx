@@ -41,7 +41,7 @@ export function StageRunner({ dir, pipeline, task, def, track, tools = [], live,
   const termRef = useRef(null);
   // switching task/stage re-seeds from that stage's last run: prompt, agent AND
   // model — so you resume with exactly what you last used, not the tool default.
-  useEffect(() => { setPrompt(seed()); setTool(remembered()); setModel(rememberedModel()); setOut(""); }, [task.id, def.id]);
+  useEffect(() => { setPrompt(seed()); setTool(remembered()); setModel(rememberedModel()); setOut(""); }, [pipeline.id, task.id, def.id]);
   // saved at PICK time, not run time: a stage chosen and never run still keeps
   // its agent, and every later execution of it — anywhere — uses that one.
   // a no-op (the model box blurred untouched) must not write — saving a pick
@@ -90,7 +90,7 @@ export function StageRunner({ dir, pipeline, task, def, track, tools = [], live,
           value={model} onChange={(e) => setModel(e.target.value)} onBlur={() => persist(tool, model.trim())} />
         <datalist id={"models-run-" + def.id}>{models.map((m) => <option key={m} value={m} />)}</datalist>
         {model.trim() && <button className="btn ghost sm" title="Back to the tool's default model" onClick={() => { setModel(""); persist(tool, ""); }}>×</button>}
-        <button className="btn primary" onClick={run} disabled={running}>{running ? "Running…" : (runs.length ? "▸ Run again" : "▸ Run stage")}</button>
+        <button className="btn primary" onClick={run} disabled={running || live} title={live && !running ? "already running in another window" : undefined}>{running ? "Running…" : (runs.length ? "▸ Run again" : "▸ Run stage")}</button>
       </div>
       <button className="uxv-syslink" onClick={() => setSysOpen((o) => !o)} title="The stage's system prompt — applied automatically every run">{sysOpen ? "▾" : "▸"} system prompt</button>
       {sysOpen && <pre className="uxv-pre sys">{def.systemPrompt || "— none —"}</pre>}
@@ -205,11 +205,12 @@ export function InspectorView({ records, activeId, setActiveId, runner, onDiff, 
 
 // ── Canvas: a spatial node graph, 5 layouts, click a node → side sheet ────────
 export function CanvasView({ records, activeId, setActiveId, runner, onDiff, onOpenFile }) {
-  const [mode, setMode] = useState(() => localStorage.getItem("bridza.canvasLayout") || "linear");
-  const pick = (m) => { setMode(m); try { localStorage.setItem("bridza.canvasLayout", m); } catch (e) { /* ignore */ } };
+  const canvasKey = runner ? runner.dir + "|" + runner.pipeline.id + "/" + runner.task.id : "t";
+  const [mode, setMode] = useState(() => localStorage.getItem("bridza.canvasLayout:" + canvasKey) || "linear");
+  const pick = (m) => { setMode(m); try { localStorage.setItem("bridza.canvasLayout:" + canvasKey, m); } catch (e) { /* ignore */ } };
   const NW = 190, NH = 104;
   const base = layoutNodes(records.length, mode, { cell: { w: 230, h: 168 }, nodeW: NW, nodeH: NH });
-  const { over, setNode, clear, count } = useCanvasOverrides("bridza.canvasPos:" + (runner ? runner.pipeline.id + "/" + runner.task.id : "t"));
+  const { over, setNode, clear, count } = useCanvasOverrides("bridza.canvasPos:" + canvasKey);
   const { eff, width, height } = effLayout(base, records.map((r) => r.id), over, NW, NH);
   const rec = records.find((r) => r.id === activeId);
   const center = (i) => ({ x: eff[i].x + eff[i].w / 2, y: eff[i].y + eff[i].h / 2 });

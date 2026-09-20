@@ -513,8 +513,11 @@ describe("wall-clock time store", () => {
   it("persists per-stage seconds in a gitignored .cache and keeps main clean", () => {
     createPipeline(root, MARKETING);
     mergeTime(root, "marketing", "task-7", { research: 120, planning: 30 });
-    mergeTime(root, "marketing", "task-7", { research: 200 });          // merges (overwrite per key)
+    mergeTime(root, "marketing", "task-7", { research: 200 });          // merges (max per key)
     expect(taskTime(root, "marketing", "task-7")).toEqual({ research: 200, planning: 30 });
+    // #106 — a second window posting a smaller total for a stage never winds the clock back
+    mergeTime(root, "marketing", "task-7", { research: 150, planning: 45, __idle: { research: 10 } });
+    expect(taskTime(root, "marketing", "task-7")).toEqual({ research: 200, planning: 45, __idle: { research: 10 } });
     expect(fs.readFileSync(path.join(root, ".bridza", ".gitignore"), "utf8")).toContain(".cache/");
     expect(git(root, ["status", "--porcelain"]).trim()).toBe("");        // .cache is ignored
   });
@@ -528,6 +531,26 @@ describe("wall-clock time store", () => {
     // a later save with no idle data keeps the recorded idle
     mergeTime(root, "marketing", "task-9", { planning: 20 });
     expect(taskTime(root, "marketing", "task-9").__idle).toEqual({ research: 120 });
+  });
+});
+
+describe("#106 — plan saves from two windows", () => {
+  it("merge:true patches the per-task maps key by key; null clears a key; lists still replace", () => {
+    createPipeline(root, MARKETING);
+    savePlan(root, { deps: { "marketing/a": { all: ["marketing/x"], any: [] } }, est: { "marketing/a": 2 }, pos: { "marketing/a": { x: 1, y: 2 } } });
+    // window 2, loaded before window 1's edit, saves ITS one edit
+    savePlan(root, { deps: { "marketing/b": { all: ["marketing/x"], any: [] } }, est: { "marketing/b": 3 }, merge: true });
+    const p = readPlan(root);
+    expect(Object.keys(p.deps).sort()).toEqual(["marketing/a", "marketing/b"]);
+    expect(p.est).toEqual({ "marketing/a": 2, "marketing/b": 3 });
+    expect(p.pos).toEqual({ "marketing/a": { x: 1, y: 2 } });
+    // clearing under merge
+    savePlan(root, { est: { "marketing/a": null }, deps: { "marketing/a": null }, merge: true });
+    expect(readPlan(root).est).toEqual({ "marketing/b": 3 });
+    expect(Object.keys(readPlan(root).deps)).toEqual(["marketing/b"]);
+    // without the flag a section is still replaced wholesale (agents, the old client)
+    savePlan(root, { est: { "marketing/c": 1 } });
+    expect(readPlan(root).est).toEqual({ "marketing/c": 1 });
   });
 });
 
