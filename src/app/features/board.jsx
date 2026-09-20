@@ -3,10 +3,10 @@
 // terminal "Delivered" column when finalized.
 import { useState, useEffect, useRef } from "react";
 import * as api from "../api/client.js";
-import { lsGet } from "../lib/format.js";
+import { lsGet, lsSet } from "../lib/format.js";
 import { Hamburger } from "../ui.jsx";
 import { TermDrawer } from "./term.jsx";
-import { applyKanbanOrder, moveColumn } from "./kanban-order.js";
+import { applyKanbanOrder } from "./kanban-order.js";
 import { TAG_PALETTE } from "../../../core/domain.js";
 
 const DONE_COL = "__done__";
@@ -71,11 +71,11 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
   const nameOf = derived.nameOf;
   // optimistic order right after a drop, until the reloaded pipeline carries it
   const [saved, setSaved] = useState(null);
-  const [showAllColumns, setShowAllColumns] = useState(() => lsGet("bridza.showAllColumns." + pipeline.id, "false") === "true");
-  const toggleShowAll = (val) => {
-    setShowAllColumns(val);
-    try { localStorage.setItem("bridza.showAllColumns." + pipeline.id, val ? "1" : "0"); } catch (e) {}
-  };
+  // empty stage columns are pure noise on a wide board, so they are hidden
+  // unless the user asks for all of them; the choice is per pipeline.
+  const showAllKey = "bridza.showAllColumns." + pipeline.id;
+  const [showAllColumns, setShowAllColumns] = useState(() => lsGet(showAllKey, "0") === "1");
+  const toggleShowAll = (val) => { setShowAllColumns(val); lsSet(showAllKey, val ? "1" : "0"); };
   const columns = applyKanbanOrder(derived.columns, saved && saved.pid === pipeline.id ? saved.order : pipeline.kanbanOrder);
   // header drag: `to` is the insertion slot (0..columns.length) under the pointer
   const [drag, setDrag] = useState(null);
