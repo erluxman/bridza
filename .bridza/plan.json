@@ -182,16 +182,16 @@
   ],
   "pos": {
     "engineering/creating-pr-failed-it-should-take-the": {
-      "x": 702,
-      "y": 1063
+      "x": 607,
+      "y": 1068
     },
     "engineering/create-pr-via-gh-cli": {
-      "x": 415,
-      "y": 1058
+      "x": 542,
+      "y": 965
     },
     "engineering/naming-contract-tests": {
-      "x": -86,
-      "y": 1195
+      "x": -191,
+      "y": 1327
     },
     "engineering/merge-preflight-check": {
       "x": -1051,
@@ -202,8 +202,8 @@
       "y": 888
     },
     "engineering/conflict-open-in-vscode": {
-      "x": -785,
-      "y": 888
+      "x": -657,
+      "y": 970
     },
     "engineering/task-target-branch-selector": {
       "x": -1051,
@@ -228,6 +228,82 @@
     "engineering/purchase-the-selected-model-and-display": {
       "x": -455,
       "y": 498
+    },
+    "engineering/vs-code-like-setting-page": {
+      "x": -1016,
+      "y": 1540
+    },
+    "engineering/usage-based-design-changes-automatically": {
+      "x": -1016,
+      "y": 1626
+    },
+    "engineering/url-path-sync-for-selected-task": {
+      "x": -1044,
+      "y": 1956
+    },
+    "engineering/setting-to-hide-columns-in-kanban-that": {
+      "x": -1044,
+      "y": 2042
+    },
+    "engineering/i-should-be-able-to-change-any-details": {
+      "x": -1044,
+      "y": 2128
+    },
+    "engineering/logo-first-launch-detection": {
+      "x": -615,
+      "y": 1802
+    },
+    "engineering/logo-animation-component": {
+      "x": -615,
+      "y": 1716
+    },
+    "engineering/logo-welcome-screen-integration": {
+      "x": -349,
+      "y": 1716
+    },
+    "engineering/the-time-complexity-for-idea-to-a": {
+      "x": 624,
+      "y": 1400
+    },
+    "engineering/system-design-diagrams-to-understand": {
+      "x": 612,
+      "y": 1480
+    },
+    "engineering/task-enumeration-read-path": {
+      "x": -55,
+      "y": 1490
+    },
+    "engineering/task-creation-write-path": {
+      "x": -55,
+      "y": 1404
+    },
+    "engineering/ui-ref-display": {
+      "x": -55,
+      "y": 1576
+    },
+    "engineering/migration-existing-tasks": {
+      "x": 211,
+      "y": 1318
+    },
+    "engineering/auto-advance-chain-registry": {
+      "x": 113,
+      "y": 497
+    },
+    "engineering/auto-advance-state-truth-toggle": {
+      "x": 521,
+      "y": 590
+    },
+    "engineering/auto-advance-progress-badges": {
+      "x": 519,
+      "y": 496
+    },
+    "engineering/auto-advance-stop-and-resume": {
+      "x": 465,
+      "y": 683
+    },
+    "engineering/create-pr-browser-compose-link": {
+      "x": 46,
+      "y": 962
     }
   },
   "sizes": {
@@ -250,6 +326,26 @@
     "engineering/atlas-request-flow-map": {
       "w": 358,
       "h": 46
+    },
+    "engineering/auto-advance-stop-and-resume": {
+      "w": 510,
+      "h": 42
+    },
+    "engineering/auto-advance-state-truth-toggle": {
+      "w": 435,
+      "h": 38
+    },
+    "engineering/auto-advance-progress-badges": {
+      "w": 425,
+      "h": 50
+    },
+    "engineering/create-pr-via-gh-cli": {
+      "w": 383,
+      "h": 42
+    },
+    "engineering/create-pr-browser-compose-link": {
+      "w": 454,
+      "h": 47
     }
   },
   "links": {},
@@ -295,7 +391,7 @@
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 6
   },
   "archive": {
-    "x": 2798,
-    "y": 380
+    "x": 1240,
+    "y": 670
   }
 }
