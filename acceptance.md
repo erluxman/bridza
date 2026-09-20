@@ -1,15 +1,15 @@
-# Acceptance — Archived cards live in their own box on the plan board
+# Acceptance — The agent picked for a stage sticks to that stage
 
-- [ ] With at least one archived task, the plan board draws exactly one Archive box, labelled as the archive with its card count, containing every archived card — and no archived card is drawn anywhere else on the canvas.
-- [ ] No archived card appears inside any milestone box, in a milestone's `done/n` count, in the milestone panel's task list, or in the "add task (unassigned only)" dropdown.
-- [ ] The Archive box is not a milestone: it has no requires/needs UI, never appears in "add required milestone…", is never highlighted by the critical path, and adds nothing to the milestone count in the topbar.
-- [ ] No dependency wire, gate, or critical-path segment references an archived task — archiving a task that other tasks depend on removes its wires and leaves the dependents' gates evaluating over the remaining live deps.
-- [ ] Dragging the Archive box (from its chrome or from a card inside it) moves the whole box; releasing parks it there, and the position survives a reload of the plan view.
-- [ ] Dragging a milestone box or a live card never moves the Archive box, and dragging the Archive box never moves live cards.
-- [ ] Right-drag selection over the Archive box selects no archived cards; clicking an archived card opens no side panel; double-clicking one opens that task.
-- [ ] Archiving a task that belongs to a milestone removes it from that milestone's box; restoring it from the kanban puts it back in the same milestone with its previous position.
-- [ ] With zero archived tasks, no Archive box is drawn. With every task archived, the board still renders the canvas and the Archive box (not the "No tasks yet" empty state).
-- [ ] `⌖ Fit` frames the Archive box along with the rest of the board wherever it has been parked.
-- [ ] The topbar counts only live tasks and shows the archived count alongside when it is non-zero.
-- [ ] `savePlan` round-trips the archive box position through `.bridza/plan.json`, rejects non-finite values, and a partial save (deps only) keeps it — covered by a store test.
+- [ ] Picking an agent for a stage and running nothing, then closing and reopening the task (or opening it in a second window), shows that agent still selected for that stage.
+- [ ] The pick is stored in the task's `metadata.json` as `routing["<stageId>"] = { tool, model }` on the task branch, and is committed — visible in `git show` of the task branch tip.
+- [ ] Two stages of the same task can hold different agents at once, and picking for one never changes the other; two tasks using the same stage id keep independent picks.
+- [ ] ▸ Run on a stage with a saved pick runs on that agent — the run record in `tracking[stage].runs` and the run's commit message name it.
+- [ ] Auto-advance into a stage that was never run uses that stage's saved agent and model, not `def.tool`/`opencode`.
+- [ ] A run whose request reaches the server with no `tool` uses the saved `routing[stage].tool`; with an explicit `tool`, the explicit one wins.
+- [ ] Choosing an agent for a later stage, starting the task, then closing the window: the run that continues in the background executes that stage on the chosen agent.
+- [ ] A saved model is reapplied on the next run; clearing it with `×` stores "tool default" and the next run passes no model.
+- [ ] Changing the agent for a stage overwrites the previous pick and clears the stored model for that stage.
+- [ ] A task with no `routing` (existing tasks, `routing: {}`) behaves exactly as before: last-run agent, then stage default, then `opencode` — no crash on a `routing` entry naming a stage that no longer exists or an agent that is not installed (falls back as today).
+- [ ] `docs/09-file-format.md` documents the populated `routing` shape.
+- [ ] Tests cover: routing round-trips through read/write of task metadata; `runStage` resolving the agent from routing when the body omits it; the picker seeding from routing ahead of run history.
 - [ ] `pnpm test`, `pnpm lint`, `pnpm build` pass.

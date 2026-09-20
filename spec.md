@@ -1,25 +1,31 @@
-# Archived cards live in their own box on the plan board
+# The agent picked for a stage sticks to that stage
 
 ## What
 
-On the plan board (`src/app/features/plan.jsx`), archived tasks stop being drawn inline among the live ones. Every archived task is drawn inside a single **Archive box** — same chrome as a milestone module box, labelled as the archive — that the user can drag around the canvas and park anywhere. The box is not a milestone: it has no deps, no `needs`, no gating, it never appears in a milestone dropdown, and it is never on the critical path. Milestone boxes never contain an archived card.
+Picking an agent (and model) for a stage of a task **saves that choice on the task**, keyed by stage. Every later execution of that stage — reopening the task in any window, ▸ Run, auto-advance, a run the server continues after the window is gone — uses the saved agent, until the user picks a different one for that stage.
 
 ## Why
 
-The kanban already hides archived tasks; the plan board still draws them inline, so dead work sits loose among live work, gets swept into milestone boxes, and pads the dependency picture. Parking them in one movable box keeps them reachable (they are still real tasks) without letting them clutter the graph the board exists to show.
+The choice currently lives only in `StageRunner`'s React state, seeded from `lastRunTool(runs)` (`src/app/features/views.jsx:28`). So it exists only *after* a run, only for that stage's own run history, and only in the window that is open: a stage picked as `claude` but not yet run, or re-entered from another window, or chained into by auto-advance building bodies from a stale snapshot (`src/app/features/task.jsx:235`), silently falls back to `def.tool` → `opencode`. The user has to re-check the picker every time, and a background run can execute on an agent they did not choose.
 
 ## How
 
-**Split the task list.** `tasks` (built from `proj.pipelines`) keeps only `!t.archived`; archived ones go into a separate `archivedTasks` list carrying the same fields. Everything downstream of `tasks` — `byKey`, `planLayout`, `gateOf`'s `byKey.has` filter, `msMembers`'s `byKey.has` filter, `criticalPath`, `stateOf`, the dep pickers, the milestone task dropdown, the right-drag selection box — then excludes archived tasks with no further change. Archived tasks get no `plan.pos`/`plan.sizes` treatment and no side panel; they are not selectable.
+**Where it lives.** The task's `metadata.json` already reserves an empty `routing: {}` (written at `server/bridza-store.js:801`, documented in `docs/09-file-format.md`). It becomes the store for this:
 
-**Milestone membership is filtered, not erased.** Archiving a card does not rewrite `plan.milestones[].tasks`. `msMembers` already drops keys missing from `byKey`, so an archived card disappears from its milestone box, its `done/n` count, and its gating — and restoring the card from the kanban puts it straight back.
+```json
+"routing": { "<stageId>": { "tool": "claude", "model": "opus" } }
+```
 
-**The box.** One anchor position `plan.archive = { x, y }` holds the box; archived cards are laid out relative to that anchor in a fixed grid (default card width, `PN.H` height, wrapping to a new column after 8 rows) rather than from `plan.pos`. When `plan.archive` is unset, the box defaults to below the live graph (`x = 50`, `y = maxY of live content + gap`). It renders with the milestone box markup (`rect.ms-box`, pins, label) under a `plan-ms archive` class and an archive label (`🗄 Archived · N`), styled in `src/app/bridza.css` so it reads as an archive, not a milestone. With zero archived tasks the box is not rendered.
+`model: ""` (or absent) keeps meaning *the tool's own default* — the same meaning the model box already has. Unknown stage ids are ignored on read, never pruned on write. It is written on the task branch alongside `tracking`, via `readTaskMeta`/`writeTaskMeta`, so it travels with the task like every other per-task fact.
 
-**Dragging.** A mousedown anywhere inside the box (chrome or card) starts a drag of type `"archive"` in the existing drag system; move updates a live anchor, mouseup persists the rounded `{x, y}` via `save({ ...plan, archive })`. A click without movement selects nothing (it must not set `selMs`). Double-clicking an archived card still opens that task. The box contributes to `maxX`/`maxY` so `fit()` frames it, and the canvas renders when there are live **or** archived tasks (the "No tasks yet" empty state only when both are empty).
+**Writing it.** A new `setStageRouting(root, pipeline, task, stage, { tool, model })` in `server/bridza-run.js`, modelled on `setTaskReuse` (validate refs → `ensureTaskWorktree` → read/merge/write meta → `commitWorktree`), exposed as `POST /api/bridza/task/routing` in `server/bridge.js` and `api.setStageRouting` in the client. The `StageRunner` picker calls it when the agent or the model changes — at pick time, not at run time — so a choice made and never run still persists. `runStage` also records `{ tool: toolId, model }` into `routing[stage]` as part of the prompt-commit metadata write it already does (`server/bridza-run.js:787`), keeping the saved choice in step with what actually ran, including a fallback to another agent.
 
-**Persistence.** `readPlan` in `server/bridza-store.js` gains `archive` (an `{x, y}` object or `null` when unset); `savePlan` accepts, validates (finite numbers, rounded) and writes it through like `pos`, keeping it on partial saves. The existing `readPlan` empty-shape assertion in `src/app/__tests__/plan.test.js` is updated for the new key.
+**Reading it.** `readTask`'s projection in `server/bridza-store.js` surfaces `routing: meta.routing || {}` on the task, next to `tracking`. Then:
 
-**Topbar.** The task count stays live-only, with `· N archived` appended when `N > 0`, so cards that vanish from the graph are still accounted for.
+- `StageRunner.remembered()` resolves `routing[def.id].tool` → `lastRunTool(runs)` → `def.tool` → first available tool → `"opencode"`; the model seed resolves `routing[def.id].model` → `lastRunModel(runs)` → `""`.
+- `automate()` in `src/app/features/task.jsx` builds each stage body from `routing[def.id]` first (same precedence), and passes its `model` — instead of today's "no model is ever passed".
+- `runStage` on the server resolves the agent as `body.tool || routing[stage].tool || <stage default>` (and the model likewise) before `resolveRunnableTool`, so any path that reaches the server without an explicit tool — a chain continued after the window closed, a stale client snapshot, another window — still runs the agent the user chose. The client's explicit pick always wins over the stored one.
 
-Out of scope: archiving or restoring from the plan board (the kanban's 🗄 toggle stays the only control), resizing/collapsing/sorting the archive box, per-card positions inside it, and any change to archived *pipelines*.
+**Changing it.** Picking a different agent for that stage overwrites the entry; picking a tool clears the stored model (mirroring the picker's existing `setModel("")` on tool change), and the `×` next to the model box stores `""` = tool default. Nothing clears routing on its own — not finalize, not reopening a stage.
+
+Out of scope: per-pipeline or global agent defaults, a routing editor outside the existing per-stage pickers, changing which agents exist or how they are detected, and back-filling `routing` for tasks that already have run history (their `lastRunTool` fallback already covers them).

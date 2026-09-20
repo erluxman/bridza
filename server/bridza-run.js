@@ -722,12 +722,17 @@ export function runStage(root, body, emit) {
     };
     const end = (obj) => { if (ended) return; ended = true; if (runKey) ACTIVE_RUNS.delete(runKey); emit({ t: "end", ...obj }); resolve(obj); };
     const { pipeline, task, stage, prompt, system, shell = [], workingDir = ".", stageContext, stageName, taskTitle, wallSeconds } = body || {};
-    const picked = resolveRunnableTool(body && body.tool);
+    // the stage's saved pick backs every path that gets here without an explicit
+    // one — a chain the window left behind, a stale client snapshot, another
+    // window. An explicit body.tool always wins over it.
+    const saved = stageRouting(root, pipeline, task, stage);
+    const picked = resolveRunnableTool((body && body.tool) || saved.tool);
     if (picked.error) return end({ exit: 1, errorKind: picked.error.startsWith("unknown") ? "unknown-tool" : "no-tool", error: picked.error });
     const tool = picked.tool;
     const toolId = picked.toolId;
     if (picked.fellBackFrom) emit({ t: "out", d: "· " + picked.fellBackFrom + " not installed — falling back to " + toolId + "\n" });
-    const model = (body && body.model) || process.env["BRIDZA_" + String(toolId).toUpperCase() + "_MODEL"] || "";
+    // a saved model belongs to the saved tool: never carry it onto another one
+    const model = (body && body.model) || (saved.tool === toolId ? saved.model : "") || process.env["BRIDZA_" + String(toolId).toUpperCase() + "_MODEL"] || "";
     const bad = validRef(pipeline, "pipeline") || validRef(task, "task") || validRef(stage, "stage");
     if (bad) return end({ exit: 1, errorKind: "bad-ref", error: bad });
     // plan gate: a task wired behind others (a flow handoff, or hand-drawn
@@ -782,6 +787,10 @@ export function runStage(root, body, emit) {
       if (!Array.isArray(meta.stages)) meta.stages = [];
       if (!meta.stages.includes(sid)) meta.stages.push(sid);
       if (!meta.status) meta.status = "in-progress";
+      // keep the saved pick in step with what actually runs — including a
+      // fallback to another agent when the picked one isn't installed
+      if (!meta.routing || typeof meta.routing !== "object") meta.routing = {};
+      meta.routing[sid] = { tool: toolId, model: model || "" };
       const track = meta.tracking[sid] || (meta.tracking[sid] = { status: "idle", seconds: 0, runs: [] });
       track.status = "running";
       track.runs.push({ tool: toolId, model: model || null, prompt: prompt || "", startedAt, status: "running" });
@@ -1130,6 +1139,37 @@ export function setTaskReuse(root, pipeline, task, on) {
   if (!on) clearTaskSessions(root, pipeline, task);
   const c = commitWorktree(W, `bridza: ${on ? "enable" : "disable"} LLM session reuse on ${safeRef(pipeline)}/${safeRef(task)}`);
   return { ok: true, reuseSession: !!on, committed: c.committed };
+}
+
+// ── per-stage agent routing ──────────────────────────────────────────────────
+// The agent (and model) picked for a stage is saved ON THE TASK, keyed by stage,
+// in metadata.routing — so the choice outlives the window that made it: another
+// window, auto-advance, or a run the server carries on alone all resolve it.
+// An empty model means "the tool's own default", exactly as in the picker.
+
+// The saved pick, read from the branch tip (where runs commit it).
+export function stageRouting(root, pipeline, task, stage) {
+  let meta;
+  try { meta = JSON.parse(readTaskField(root, pipeline, task, rel.taskMeta)); } catch (e) { return {}; }
+  const r = meta && meta.routing && meta.routing[safeRef(stage)];
+  return r && typeof r === "object" ? { tool: r.tool || "", model: r.model || "" } : {};
+}
+
+// Save the pick at PICK time, so a stage chosen but never run still remembers.
+export function setStageRouting(root, pipeline, task, stage, { tool, model } = {}) {
+  const bad = validRef(pipeline, "pipeline") || validRef(task, "task") || validRef(stage, "stage");
+  if (bad) return { ok: false, error: bad };
+  const wt = ensureTaskWorktree(root, pipeline, task);
+  if (!wt.ok) return wt;
+  const W = wt.worktree;
+  const m = readTaskMeta(W, pipeline, task);
+  if (!m.routing || typeof m.routing !== "object") m.routing = {};
+  const sid = safeRef(stage);
+  const entry = { tool: String(tool || ""), model: String(model || "").trim() };
+  m.routing[sid] = entry;
+  writeTaskMeta(W, pipeline, task, m);
+  const c = commitWorktree(W, `bridza: ${safeRef(pipeline)}/${safeRef(task)} · ${sid} runs on ${entry.tool || "the stage default"}${entry.model ? " · " + entry.model : ""}`);
+  return { ok: true, routing: m.routing, committed: c.committed };
 }
 
 // Task archive state is board-level, not branch-level: see setTaskArchived in

@@ -108,7 +108,10 @@ branch timeline, so every run updates it.
   "outputMode": "docs",
   "branch": "bridza/marketing/task-506",
   "stages": ["research", "planning", "spec"],   // the chosen stage set
-  "routing": {},
+  // the agent (and model) PICKED per stage — saved when the user picks it and
+  // kept in step by every run, so the stage runs on it from any window, a
+  // background run, or auto-advance. "" model = the tool's own default.
+  "routing": { "research": { "tool": "claude", "model": "opus" } },
   "status": "in-progress",                       // in-progress | done
   "finalized": false,
   "tracking": {

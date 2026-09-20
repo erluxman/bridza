@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import * as api from "../api/client.js";
 import { pipelineFlows, specLabel } from "../../../core/domain.js";
 import { slug, runPrompt, fmt, workFiles, base, ago } from "../lib/format.js";
-import { buildStageRecords, lastRunTool } from "../lib/record.js";
+import { buildStageRecords, lastRunTool, lastRunModel } from "../lib/record.js";
 import { logKey, readLog, appendLog as storeLog } from "../lib/autolog.js";
 import { InspectorView, CanvasView, ChatView, StageRunner } from "./views.jsx";
 import { Hamburger, ColGrip, useColWidth, Kv, Expandable } from "../ui.jsx";
@@ -226,17 +226,21 @@ setResolveOpen(false);
     if (automating) return;
     // Send every stage from `from` on, in order — the SERVER resumes from the
     // first incomplete one by re-checking the branch tip per stage (this client
-    // snapshot can be stale). NO model is ever passed — each tool runs with its
-    // own default.
-    const bodies = stageObjs.slice(from).map((def) => ({
-      pipeline: pipeline.id, task: task.id, stage: def.id,
-      // remember the agent each stage last ran on (falls back to the stage
-      // default, then opencode) so auto-advance doesn't reset every stage
-      tool: lastRunTool((task.tracking[def.id] || {}).runs) || def.tool || "opencode",
-      prompt: runPrompt(pipeline, task, def, [task.title && ("Task: " + task.title), briefBody, def.hint].filter(Boolean).join("\n\n") || ("Complete the " + (def.name || def.id) + " stage.")),
-      system: def.systemPrompt || "", shell: def.shell || [], workingDir: pipeline.workingDir || ".",
-      stageName: def.name || def.id, taskTitle: task.title,
-    }));
+    // snapshot can be stale).
+    const bodies = stageObjs.slice(from).map((def) => {
+      // the agent+model saved for the stage (task.routing) wins, then the one it
+      // last ran on, then the stage default — so auto-advance never resets a pick
+      const routed = (task.routing && task.routing[def.id]) || {};
+      const runs = (task.tracking[def.id] || {}).runs;
+      return {
+        pipeline: pipeline.id, task: task.id, stage: def.id,
+        tool: routed.tool || lastRunTool(runs) || def.tool || "opencode",
+        model: routed.model || lastRunModel(runs) || "",
+        prompt: runPrompt(pipeline, task, def, [task.title && ("Task: " + task.title), briefBody, def.hint].filter(Boolean).join("\n\n") || ("Complete the " + (def.name || def.id) + " stage.")),
+        system: def.systemPrompt || "", shell: def.shell || [], workingDir: pipeline.workingDir || ".",
+        stageName: def.name || def.id, taskTitle: task.title,
+      };
+    });
     if (!bodies.length) { flash("This task has no stages.", 4000); return; }
     setAutomating(true);
     const append = appendLog;

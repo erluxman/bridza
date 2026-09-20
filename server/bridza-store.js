@@ -534,7 +534,7 @@ export function readProject(root) {
         // root refs.json wins; a legacy flag in the task's own metadata (written
         // by the old branch-local archive) still counts when there's no entry
         archived: archivedFlags[pid + "/" + tid] === undefined ? !!meta.archived : !!archivedFlags[pid + "/" + tid],
-        stages, tracking: tr, branch: taskBranchName(pid, tid),
+        stages, tracking: tr, routing: meta.routing || {}, branch: taskBranchName(pid, tid),
         target: meta.target || base,
         progress: stages.length ? Math.round((done / stages.length) * 100) : 0,
         live: !!meta._live, onBranch: meta._onBranch || null,
