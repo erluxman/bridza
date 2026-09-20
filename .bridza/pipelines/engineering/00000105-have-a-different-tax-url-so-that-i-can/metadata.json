@@ -1,0 +1,105 @@
+{
+  "v": 1,
+  "id": "have-a-different-tax-url-so-that-i-can",
+  "pipeline": "engineering",
+  "title": "Have a different tax URL so that I can refresh.",
+  "ref": 105,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/have-a-different-tax-url-so-that-i-can",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {
+    "repro": {
+      "tool": "claude",
+      "model": ""
+    },
+    "fix": {
+      "tool": "claude",
+      "model": ""
+    },
+    "fix-review": {
+      "tool": "claude",
+      "model": ""
+    }
+  },
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {
+    "repro": {
+      "status": "done",
+      "seconds": 183,
+      "runs": [
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: Have a different tax URL so that I can refresh.\n\nIn the URL, it should show which task is being opened so that when I refresh that page, it should load that task rather than going to home.",
+          "startedAt": "2026-09-20T15:43:13.947Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T15:46:17.136Z",
+          "exit": 0,
+          "files": [
+            "e2e/repro-task-url.spec.js",
+            "repro.md"
+          ],
+          "sessionId": "ab5af453-4622-460c-b243-9744cf043f59",
+          "error": null,
+          "log": "$ claude -p \"Task: Have a different tax URL so that I can refresh.\\n\\nIn the URL, it should show which task is being opened so that when I refresh that page, it should load…\" --output-format stream-json --verbose --dangerously-skip-permissions --permission-mode acceptEdits --append-system-prompt \"You are a debugger. Reproduce the reported bug: find the failing path, capture exact steps/inputs and the observed vs expected behavior, and identify the roo…\"\n· model: TOOL DEFAULT (no --model/-m flag — claude's own config decides)\n· claude ready · claude-opus-5 · 74 tools\nI'll start by exploring the repo to find the task-opening UI code.\n· Bash ls -la && cat .bridza/pipelines/engineering/00000105-have-a-different-tax-url-so-that-i-c…\n· Bash cat repro.md && echo \"=== SRC ===\" && find src -type f | head -100 && echo \"=== PKG ===\" …\n· Bash ls -R .bridza/pipelines/engineering/00000105-have-a-different-tax-url-so-that-i-can/ && e…\n· Bash cat src/main.tsx && echo \"=== CONTEXT.md ===\" && cat .bridza/pipelines/engineering/000001…\n· Bash wc -l src/app/App.jsx src/app/ui.jsx src/app/features/*.jsx src/app/lib/*.js* src/app/api…\n· Bash cat -n src/app/App.jsx\n· Bash cat -n src/app/lib/format.js && echo \"=== E2E ===\" && ls -R e2e && cat playwright.config.…\n· Bash cat -n e2e/global-setup.js && echo \"=== APP SPEC (head 80) ===\" && sed -n 1,80p e2e/app.s…\n· Bash ls node_modules/.bin/ 2>/dev/null | head -20 && echo \"---\" && ls ~/Library/Caches/ms-play…\n· Bash ls -d /Users/risky/projects/erluxman.com/bridza/node_modules 2>/dev/null && echo FOUND; l…\n· Bash ln -sfn /Users/risky/projects/erluxman.com/bridza/node_modules node_modules && ls node_mo…\n· Bash cat vite.config.ts && sed -n 1,40p src/app/api/client.js\nNow let me write a repro test.\n· Bash cat > e2e/repro-task-url.spec.js <<'EOF'\n· Bash PLAYWRIGHT_BROWSERS_PATH=/Users/risky/Library/Caches/ms-playwright ./node_modules/.bin/pl…\n· Bash python3 - <<'EOF'\n· Bash ls public build && cat public/_redirects 2>/dev/null; cat public/_routes.json 2>/dev/null…\n· Bash cat .gitignore && echo \"=== git status ===\" && git status --short\n· Bash git log --oneline -3 --name-only | head -30\n· Bash rm node_modules && rm -rf test-results && git status --short\n· Bash cat > repro.md <<'MDEOF'\nReproduced. Wrote `repro.md`.\n\n**Bug confirmed** — e2e run output:\n```\nURL on board          : http://localhost:5199/app\nURL with task OPEN    : http://localhost:5199/app\nURL after reload      : http://localhost:5199/app\ntask heading visible  : false\nboard visible         : true\n```\n\n**Root cause:** no router, no `history` integration. Grep for `pushState`/`replaceState`/`popstate`/`hashchange` → zero hits in `src/`; no `react-router` dep. `src/main.tsx:17-21` reads `location` once at boot only to pick which bundle to mount, and throws away everything after `/app/`.\n\nAll nav state is `useState` in `src/app/App.jsx`, reset to home on every mount:\n- `:22` `activeTask` → `\"\"`\n- `:21` `activePipe` → `\"\"` (then `:63` snaps to `pipelines[0]` — so the *pipeline* is lost too when you're on the 2nd one)\n- `:29-31` `flowOpen`/`inboxOpen`/`planOpen` → `false`\n\n`:36` `atHome` is therefore true on every load; `:125` renders `<Board>`. Every open-task callback (`:111`, `:119`, `:122`, `:126`, `:129`, `:139`) is pure `setState`, no URL write. Only `dir` survives, via `localStorage` `bridza-project` (`:17`) — which is why refresh lands on the board instead of Welcome.\n\n**Artifacts:**\n- `repro.md` (overwrote the stale one from task #87)\n- `e2e/repro-task-url.spec.js` — failing spec, kept for the fix stage to convert into a regression test\n\n**Notes:** deep links need no server work — `public/_redirects` has `/* /index.html 200`, Vite dev falls back to index.html, and `main.tsx:19` already admits `/app/*`. Scheme must work under both `/app/...` and `app.<host>/...`.\n\n**Env caveat:** this worktree has no `node_modules`; I symlinked the main checkout's to run Playwright, then removed the symlink. Nothing fixed.\n· done · 21 turns · 180s · $1.1814"
+        }
+      ]
+    },
+    "fix": {
+      "status": "done",
+      "seconds": 741,
+      "runs": [
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: Have a different tax URL so that I can refresh.\n\nIn the URL, it should show which task is being opened so that when I refresh that page, it should load that task rather than going to home.\n\nFit check — this task was filed under the \"Bugfix\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Bugfix\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Feature\" (Spec → Build → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-20T15:46:22.051Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T15:58:42.921Z",
+          "exit": 0,
+          "files": [
+            "e2e/repro-task-url.spec.js",
+            "e2e/task-url.spec.js",
+            "fix.md",
+            "src/app/App.jsx",
+            "src/app/__tests__/route.test.js",
+            "src/app/lib/route.js"
+          ],
+          "sessionId": "d8cf2d35-6fa1-4ac6-a706-a75da8c7ca18",
+          "error": null,
+          "log": "exist (the daily welcome dialog blocks clicks in `app.spec.js`/`ux-views.spec.js`) — unrelated to this change. Restoring my work and making my spec robust to running after the others.\n· Bash git checkout HEAD -- src e2e && cp /tmp/task-url.spec.js.bak /dev/null 2>/dev/null; git s…\n· Bash git rm --cached -q e2e/repro-task-url.spec.js 2>/dev/null; git status --short && git diff…\n· Bash git status --short; echo \"--- files in HEAD commit ---\"; git show --stat --oneline HEAD |…\nThe WIP commit accidentally captured the `node_modules` symlink — I'll drop it when finalizing. Now making the spec self-sufficient regardless of fixture state:\n· Bash cat > e2e/task-url.spec.js <<'EOF'\n· Bash PLAYWRIGHT_BROWSERS_PATH=/Users/risky/Library/Caches/ms-playwright ./node_modules/.bin/pl…\n· Bash cat .bridza/pipelines/engineering/00000105-have-a-different-tax-url-so-that-i-can/fix/pro…\nCritical check — the API client must not use relative URLs (deeper paths would break them):\n· Bash grep -n \"fetch(\\|new URL\\|WebSocket\\|location\" src/app/api/client.js src/app/features/ter…\n· Bash sed -n 1,12p src/app/api/client.js && echo \"=== asset/base refs in index.html ===\" && gre…\n· Bash git reset -q --mixed HEAD~1 && rm -f node_modules && rm -rf test-results && git status --…\nTree is back to the stage's own working state (the harness commits stage output). Writing the stage doc:\n· Bash cat > fix.md <<'MDEOF'\n· Bash git status --short && ls node_modules 2>&1 | head -2\nFit check: **fits Bugfix** — one root cause, one shared fix point. Implemented.\n\n**Root cause** (per `repro.md`): no `history` integration anywhere. All nav state is `useState` in `src/app/App.jsx`, reset to home on every mount.\n\n**Fix — at the shared path, not the call sites:**\n\n- `src/app/lib/route.js` (new, pure, 36 lines) — address bar ⇄ nav state. `/app/<pipe>/<task>`, plus `?view=inbox|plan|flow` for non-board screens (query param → no id can collide with a view name). Prefix computed per load with the same test `main.tsx` uses, so it works under both `/app/…` and `app.<host>/…`.\n- `src/app/App.jsx` (+38) — the five nav states boot from the URL; a `popstate` listener maps URL → state (back/forward work); the writer effect mirrors state → URL. The six open-task call sites (`Sidebar`, `PlanView`, `Inbox`, `Board`, `TaskDetail`, `NewTaskModal`) are untouched — same setters.\n\nThree details worth naming:\n- The URL mirrors the **derived** pipeline, not raw `activePipe` — that also kills the secondary bug where refreshing on the 2nd pipeline snapped back to the 1st.\n- A task id the project doesn't have clears itself → that pipeline's board, never a blank screen.\n- Boot normalisation uses `replaceState`, real navigation `pushState` — no back-button trap.\n\nNo router dependency, no server change (deep paths already fall back to `index.html` in Vite, `_redirects`, and electron; every asset/API URL is absolute).\n\n**Regression tests:**\n- `src/app/__tests__/route.test.js` — 10 cases: both prefixes, `?view=`, task-without-pipeline, unknown views, encoding, full round-trip.\n- `e2e/repro-task-url.spec.js` → `e2e/task-url.spec.js` — rewritten as a regression test, made fixture-agnostic: board URL, task URL, back/forward, refresh reopens the task, cold pasted link, plus inbox-survives-refresh.\n\n```\nvitest run                            → 11 files, 254 tests passed\nplaywright test e2e/task-url.spec.js  → 2 passed (also passes after app.spec.js)\n```\n\nOne thing to flag: `e2e/app.spec.js:40` and `e2e/ux-views.spec.js:67` fail — their `openApp` helper doesn't suppress the once-a-day welcome dialog, whose overlay eats the next click. **Pre-existing**, confirmed by re-running the suite with this fix reverted (same two failures). Left alone as out of scope; my spec suppresses the dialog itself. Details in `fix.md`.\n\nLeft the changes uncommitted, matching how the repro stage left its output for the harness to commit. The `node_modules` symlink I borrowed to run Playwright is removed.\n· done · 43 turns · 738s · $3.2506"
+        }
+      ]
+    },
+    "fix-review": {
+      "status": "done",
+      "seconds": 643,
+      "runs": [
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: Have a different tax URL so that I can refresh.\n\nIn the URL, it should show which task is being opened so that when I refresh that page, it should load that task rather than going to home.\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-20T15:58:43.106Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T16:09:25.946Z",
+          "exit": 0,
+          "files": [
+            "review.md"
+          ],
+          "sessionId": "a77ecccd-1459-44cc-8af4-44d3cdc2a42e",
+          "error": null,
+          "log": "lectron/main.js; echo \"--- _redirects ---\"; cat public/_redirects 2>/dev…\n· Bash ls docs/ && grep -rln \"app.localhost\\|/app\" docs/ README.md CLAUDE.md 2>/dev/null | head\n· Bash cat acceptance.md && echo \"=== spec.md ===\" && cat spec.md | head -60\n· Bash ./node_modules/.bin/eslint . 2>&1 | tail -15; echo \"LINT_EXIT=$?\"\n· Bash cat package.json | sed -n '1,40p'\n· Bash ./node_modules/.bin/tsc -b 2>&1 | tail -10; echo \"TSC_EXIT=$?\"; ./node_modules/.bin/vite …\n· Bash PLAYWRIGHT_BROWSERS_PATH=~/Library/Caches/ms-playwright ./node_modules/.bin/playwright te…\n· Bash PLAYWRIGHT_BROWSERS_PATH=~/Library/Caches/ms-playwright ./node_modules/.bin/playwright te…\n· Bash PLAYWRIGHT_BROWSERS_PATH=~/Library/Caches/ms-playwright ./node_modules/.bin/playwright te…\n· Bash git checkout main -- src/app/App.jsx && mv src/app/lib/route.js /tmp/route.js.fixed2 && P…\n· Bash PLAYWRIGHT_BROWSERS_PATH=~/Library/Caches/ms-playwright ./node_modules/.bin/playwright te…\n· Bash grep -rn \"location\\.\\|history\\.\\|href=\\\"/\" src/ --include=\"*.jsx\" --include=\"*.js\" --incl…\n· Bash base=$(git merge-base main HEAD) && echo \"base=$base\" && echo \"--- main-side changes sinc…\n· Bash head -12 review.md && echo \"...\" && cat .bridza/pipelines/engineering/00000105-have-a-dif…\n· Write /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/have-a-different-tax-u…\n· Bash rm -f node_modules && rm -rf dist test-results *.tsbuildinfo && git status --short && ech…\n  ✖ Exit code 1\n· Bash rm -f node_modules; rm -rf dist test-results; rm -f tsconfig.tsbuildinfo node_modules/.tm…\n· Bash grep -n \"closeProject = \\|const onPop\\|if (activeTask && pipeline\\|const urlSettled\\|cons…\n· Bash grep -n \"useState(() => parseRoute()\\|setActivePipe((cur)\\|window.addEventListener(\\\"pops…\n· Bash sed -i '' \\\nReview written to `review.md`.\n\n**Verdict: approved — merge into `main` will be clean.**\n\n**Root cause** — `repro.md` pinned \"no history integration; five `useState` nav fields boot to home\". Fix closes exactly that at the owning state (`App.jsx`), not at the six call sites. Every symptom row in the repro table maps to a line in the fix, including the secondary \"refresh on 2nd pipeline snaps to 1st\" (URL mirrors the *derived* pipeline). Verified the deep-path claims myself: `electron/main.js:44` and `public/_redirects` both fall back to `index.html`; `main.tsx:19` admits `/app/*`.\n\n**Regression test proven red without the fix** — reverted `App.jsx` to main + removed `route.js`:\n```\nplaywright e2e/task-url.spec.js → 1 failed  Expected /\\/app\\/engineering$/  Received \"http://localhost:5199/app\"\nvitest route.test.js           → 1 failed (module gone)\n```\nCaveat: it dies at the first assertion (board URL), so the `page.reload()` assertion isn't independently exercised red. Same cause, proof holds. Tree restored byte-identical to HEAD.\n\n**Sibling callers** — all six nav entry points still land right. Five batch their setters → one history entry each. Only `Inbox onOpenTask` (`App.jsx:161`) splits across two commits → two entries, so Back from an inbox-opened task lands on the board, not the inbox.\n\n**Full run** — vitest 254 passed · eslint clean · tsc+build clean · task-url 2 passed. `app.spec.js:40` and `ux-views.spec.js:67` fail, **confirmed pre-existing** by re-running both on main's code: identical `modal-bg intercepts pointer events` (welcome dialog). They're serial suites, so ~30 downstream tests skip — worth its own task.\n\n**4 non-blocking notes**: (a) post-boot normalization uses `pushState`, so Back can bounce when switching projects; (b) inbox double-entry above; (c) malformed `%`-escape throws in `parseRoute` at mount → blank screen, no error boundary (dev server 500s first, so hard to hit); (d) `closeProject` leaves the pipeline in the URL on the Welcome screen.\n\n**Merge** — `git merge-tree --messages main HEAD` clean, exit 0. Since base `5de52f2`, main touched only `.bridza/plan.json` + `refs.json`; zero file overlap. Cleaned up all build artifacts.\n· done · 42 turns · 639s · $2.6815"
+        }
+      ]
+    }
+  }
+}

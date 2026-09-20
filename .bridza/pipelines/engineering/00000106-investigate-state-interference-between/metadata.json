@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "investigate-state-interference-between",
+  "pipeline": "engineering",
+  "title": "Investigate state interference between two different tasks in task details.",
+  "ref": 106,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/investigate-state-interference-between",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
