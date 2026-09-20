@@ -180,7 +180,8 @@
     "engineering/task-creation-write-path": true,
     "engineering/task-enumeration-read-path": true,
     "engineering/task-target-branch-selector": true,
-    "engineering/ui-ref-display": true
+    "engineering/ui-ref-display": true,
+    "engineering/plan-agent-categorize-backlog": true
   },
   "tags": {
     "complex": {
