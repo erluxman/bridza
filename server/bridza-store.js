@@ -6,7 +6,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { DATA_DIR, rel, safeRef, shortTitle, taskSlug, taskDirName, parseTaskDir, pipelineFlows, flattenFlows } from "../core/domain.js";
+import { DATA_DIR, rel, safeRef, shortTitle, taskSlug, taskDirName, parseTaskDir, pipelineFlows, flattenFlows, TAG_PALETTE } from "../core/domain.js";
 import { git, isGitRepo, branchExists, baseBranchName, ensureTaskBranch, taskBranchName, taskDirOn, taskDirAt, removeTaskWorktree, stopRuns, healTaskFlow, validRef } from "./bridza-run.js";
 
 const BEMAIL = "bridza@local";
@@ -379,7 +379,41 @@ export function readRefs(root) {
     // another computer. Explicit `false` is kept so that unarchiving also wins
     // over a legacy `archived: true` left in an old task metadata.json.
     archived: (j && j.archived && typeof j.archived === "object" && !Array.isArray(j.archived)) ? j.archived : {},
+    tags: (j && j.tags && typeof j.tags === "object" && !Array.isArray(j.tags)) ? j.tags : {},
+    taskTags: (j && j.taskTags && typeof j.taskTags === "object" && !Array.isArray(j.taskTags)) ? j.taskTags : {},
   };
+}
+
+export function createTag(root, { name, color }) {
+  // validRef, not a bare emptiness check: it also rejects a name with no letter
+  // or digit ("!!!", "???"), which safeRef would otherwise collapse onto the
+  // single slug "x" — two different tags silently becoming one.
+  const bad = validRef(name, "tag name");
+  if (bad) return { ok: false, error: bad };
+  if (!TAG_PALETTE.includes(color)) return { ok: false, error: "invalid color" };
+  // lowercased before slugging: "Billing" and "billing" are the SAME tag, so
+  // typing it again on another card reuses the entry instead of duplicating it
+  const id = safeRef(name.trim().toLowerCase());
+  const refs = readRefs(root);
+  if (refs.tags[id]) return { ok: true, id, created: false };
+  refs.tags[id] = { name: name.trim(), color };
+  writeJSON(refsFile(root), refs);
+  commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: create tag "${name.trim()}" (${id})`);
+  return { ok: true, id, created: true };
+}
+
+export function setTaskTags(root, pipeline, task, tagIds) {
+  const bad = validRef(pipeline, "pipeline") || validRef(task, "task");
+  if (bad) return { ok: false, error: bad };
+  if (!Array.isArray(tagIds)) return { ok: false, error: "tagIds must be an array" };
+  const key = safeRef(pipeline) + "/" + safeRef(task);
+  const refs = readRefs(root);
+  const validIds = [...new Set(tagIds)].filter((id) => refs.tags[id]);
+  if (validIds.length === 0) delete refs.taskTags[key];
+  else refs.taskTags[key] = validIds;
+  writeJSON(refsFile(root), refs);
+  commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: set tags on task ${key}`);
+  return { ok: true, tags: validIds };
 }
 
 // Archive/restore a task. Board-level display state → committed at the repo
@@ -534,13 +568,18 @@ export function readProject(root) {
         // root refs.json wins; a legacy flag in the task's own metadata (written
         // by the old branch-local archive) still counts when there's no entry
         archived: archivedFlags[pid + "/" + tid] === undefined ? !!meta.archived : !!archivedFlags[pid + "/" + tid],
-        stages, tracking: tr, branch: taskBranchName(pid, tid),
+        // readRefs normalises tags/taskTags to {}, so no guard is needed here; a
+        // slug with no registry entry drops out rather than rendering half a chip
+        tags: (refsAll.taskTags[pid + "/" + tid] || [])
+          .filter((id) => refsAll.tags[id])
+          .map((id) => ({ id, name: refsAll.tags[id].name, color: refsAll.tags[id].color })),
+        stages, tracking: tr, routing: meta.routing || {}, branch: taskBranchName(pid, tid),
         target: meta.target || base,
         progress: stages.length ? Math.round((done / stages.length) * 100) : 0,
         live: !!meta._live, onBranch: meta._onBranch || null,
       };
     });
-    return { id: def.id || pid, label: def.label || pid, workingDir: def.workingDir || ".", stages: allStages, flows, templates: def.templates || [], archived: !!def.archived, kanbanOrder: def.kanbanOrder || [], tasks };
+    return { id: def.id || pid, label: def.label || pid, workingDir: def.workingDir || ".", stages: allStages, flows, templates: def.templates || [], archived: !!def.archived, kanbanOrder: def.kanbanOrder || [], tags: refsAll.tags, tasks };
   });
   return { initialized: pipelines.length > 0, business, pipelines, inbox: readInbox(root) };
 }
@@ -935,6 +974,7 @@ function deleteTaskIn(root, { pipeline, task, deleteBranch = false }) {
   const refs = readRefs(root);
   delete refs.refs[key];
   delete refs.archived[key];
+  delete refs.taskTags[key];
   if (!refs.deleted.includes(key)) refs.deleted.push(key);
   writeJSON(refsFile(root), refs);
   commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: retire ${refNum ? "#" + refNum : "the #ref"} of deleted task ${key} — numbers are never reused`);

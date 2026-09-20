@@ -19,7 +19,7 @@ import {
   taskTimeline, branchExists, currentBranch, git, taskBranchName, parseDiff, commitDiff, branchDiff, workingDiff,
   resolveRunnableTool, DEFAULT_STAGE_PROMPT, readTaskFile, saveTaskFile,
   finishConflict, abortConflict, pendingConflict, conflictedFiles,
-  taskTarget, listBranches,
+  taskTarget, listBranches, setStageRouting, stageRouting,
 } from "../../../server/bridza-run.js";
 import { rel, CLI_TOOLS } from "../../../core/domain.js";
 
@@ -200,6 +200,39 @@ describe("runStage — one commit per stage", () => {
 
 // #4/#5 — the configured tool may not be installed; fall back to an installed
 // CLI agent rather than dying with ENOENT and stopping the Automate chain.
+describe("per-stage agent routing (the pick sticks to the stage)", () => {
+  const meta = () => JSON.parse(git(root, ["show", `bridza/marketing/task-506:${rel.taskMeta("marketing", "task-506")}`]));
+
+  it("round-trips a pick through the task metadata on the branch, with no run at all", () => {
+    const r = setStageRouting(root, "marketing", "task-506", "research", { tool: "claude", model: "opus" });
+    expect(r.ok).toBe(true);
+    expect(meta().routing).toEqual({ research: { tool: "claude", model: "opus" } });
+    expect(stageRouting(root, "marketing", "task-506", "research")).toEqual({ tool: "claude", model: "opus" });
+    // unknown stage ids read as "no pick", never a crash
+    expect(stageRouting(root, "marketing", "task-506", "gone")).toEqual({});
+  });
+
+  it("keeps stages and tasks independent, and overwrites the stage's own pick", () => {
+    setStageRouting(root, "marketing", "task-506", "research", { tool: "claude", model: "opus" });
+    setStageRouting(root, "marketing", "task-506", "planning", { tool: "opencode", model: "" });
+    setStageRouting(root, "marketing", "other-task", "research", { tool: "codex", model: "" });
+    setStageRouting(root, "marketing", "task-506", "research", { tool: "opencode", model: "" });
+    expect(meta().routing).toEqual({ research: { tool: "opencode", model: "" }, planning: { tool: "opencode", model: "" } });
+    expect(stageRouting(root, "marketing", "other-task", "research")).toEqual({ tool: "codex", model: "" });
+  });
+
+  it("runStage uses the saved agent when the request carries none, and the explicit one when it does", async () => {
+    setStageRouting(root, "marketing", "task-506", "research", { tool: "claude", model: "opus" });
+    stub("echo x > out.txt");
+    await run({ tool: undefined, prompt: "p" });
+    expect(meta().tracking.research.runs[0]).toMatchObject({ tool: "claude", model: "opus" });
+    await run({ tool: "opencode", prompt: "p" });
+    const runs = meta().tracking.research.runs;
+    expect(runs[runs.length - 1]).toMatchObject({ tool: "opencode", model: null });  // saved model belongs to claude
+    expect(meta().routing.research).toEqual({ tool: "opencode", model: "" });        // and the pick follows the run
+  });
+});
+
 describe("tool resolution + fallback", () => {
   afterEach(() => { delete process.env.BRIDZA_TOOL_OVERRIDE; });
 

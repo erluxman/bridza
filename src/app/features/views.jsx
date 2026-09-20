@@ -25,9 +25,14 @@ export function StageRunner({ dir, pipeline, task, def, track, tools = [], live,
   // the stage hint) — the same text auto-advance would send, so the intent the
   // user captured is there to edit instead of an empty box.
   const seed = () => lastPrompt || [task.title && ("Task: " + task.title), brief, def.hint].filter(Boolean).join("\n\n");
-  const remembered = () => lastRunTool(runs) || def.tool || (tools[0] && tools[0].id) || "opencode";
+  // the agent the user PICKED for this stage (task.routing, saved on the task)
+  // comes first — it survives windows, background runs and auto-advance; the
+  // last run and the stage default are the fallbacks for tasks without one.
+  const routed = () => (task.routing && task.routing[def.id]) || {};
+  const remembered = () => routed().tool || lastRunTool(runs) || def.tool || (tools[0] && tools[0].id) || "opencode";
+  const rememberedModel = () => routed().model || lastRunModel(runs);
   const [tool, setTool] = useState(remembered);
-  const [model, setModel] = useState(lastRunModel(runs));
+  const [model, setModel] = useState(rememberedModel);
   const [models, setModels] = useState([]);
   const [prompt, setPrompt] = useState(seed);
   const [out, setOut] = useState("");
@@ -36,7 +41,16 @@ export function StageRunner({ dir, pipeline, task, def, track, tools = [], live,
   const termRef = useRef(null);
   // switching task/stage re-seeds from that stage's last run: prompt, agent AND
   // model — so you resume with exactly what you last used, not the tool default.
-  useEffect(() => { setPrompt(seed()); setTool(remembered()); setModel(lastRunModel(runs)); setOut(""); }, [task.id, def.id]);
+  useEffect(() => { setPrompt(seed()); setTool(remembered()); setModel(rememberedModel()); setOut(""); }, [task.id, def.id]);
+  // saved at PICK time, not run time: a stage chosen and never run still keeps
+  // its agent, and every later execution of it — anywhere — uses that one.
+  // a no-op (the model box blurred untouched) must not write — saving a pick
+  // materialises the task's branch/worktree, so only a real change does it.
+  const persist = (t, m) => {
+    const r = routed();
+    if ((r.tool || "") === t && (r.model || "") === m) return;
+    api.setStageRouting(dir, { pipeline: pipeline.id, task: task.id, stage: def.id, tool: t, model: m });
+  };
   // the brief loads async, usually after this mounts — fill the box only while
   // it's still empty, so it never clobbers what the user is typing
   useEffect(() => { if (brief) setPrompt((p) => p || seed()); }, [brief]);
@@ -68,14 +82,14 @@ export function StageRunner({ dir, pipeline, task, def, track, tools = [], live,
   return (
     <div className="stage-run">
       <div className="row" style={{ marginBottom: 8 }}>
-        <select className="input" style={{ width: 150 }} value={tool} onChange={(e) => { setTool(e.target.value); setModel(""); }} title="Which agent runs this stage — remembered from its last run">
+        <select className="input" style={{ width: 150 }} value={tool} onChange={(e) => { setTool(e.target.value); setModel(""); persist(e.target.value, ""); }} title="Which agent runs this stage — saved on the task, used by every later run of it">
           {tools.map((t) => <option key={t.id} value={t.id} disabled={!t.available}>{t.label}{t.available ? "" : " (n/a)"}{t.stub ? " · stub" : ""}</option>)}
         </select>
         <input className="input mono model-pick" list={"models-run-" + def.id} placeholder="model · tool default"
           title="Leave empty to use the tool's own default model; pick or type to override for this run"
-          value={model} onChange={(e) => setModel(e.target.value)} />
+          value={model} onChange={(e) => setModel(e.target.value)} onBlur={() => persist(tool, model.trim())} />
         <datalist id={"models-run-" + def.id}>{models.map((m) => <option key={m} value={m} />)}</datalist>
-        {model.trim() && <button className="btn ghost sm" title="Back to the tool's default model" onClick={() => setModel("")}>×</button>}
+        {model.trim() && <button className="btn ghost sm" title="Back to the tool's default model" onClick={() => { setModel(""); persist(tool, ""); }}>×</button>}
         <button className="btn primary" onClick={run} disabled={running}>{running ? "Running…" : (runs.length ? "▸ Run again" : "▸ Run stage")}</button>
       </div>
       <button className="uxv-syslink" onClick={() => setSysOpen((o) => !o)} title="The stage's system prompt — applied automatically every run">{sysOpen ? "▾" : "▸"} system prompt</button>

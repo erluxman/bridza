@@ -1,0 +1,21 @@
+{
+  "v": 1,
+  "id": "make-the-git-history-and-files-less",
+  "pipeline": "engineering",
+  "title": "Make the git history and files less noisy so that we can see the details when we need to but the noise won't be…",
+  "ref": 108,
+  "type": "idea",
+  "flow": "ui-design",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/make-the-git-history-and-files-less",
+  "target": "main",
+  "stages": [
+    "design-spec",
+    "design"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}

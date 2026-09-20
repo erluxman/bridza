@@ -1,0 +1,115 @@
+{
+  "v": 1,
+  "id": "separate-tags-filled-for-each-org-item",
+  "pipeline": "engineering",
+  "title": "separate tags filled for each org item or task",
+  "ref": 104,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/separate-tags-filled-for-each-org-item",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {
+    "spec": {
+      "tool": "claude",
+      "model": ""
+    },
+    "build": {
+      "tool": "claude",
+      "model": ""
+    },
+    "review": {
+      "tool": "claude",
+      "model": ""
+    }
+  },
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {
+    "spec": {
+      "status": "done",
+      "seconds": 128,
+      "runs": [
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: separate tags filled for each org item or task",
+          "startedAt": "2026-09-20T15:31:17.266Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T15:33:24.886Z",
+          "exit": 0,
+          "files": [
+            "acceptance.md",
+            "spec.md"
+          ],
+          "sessionId": "1d8a0e9f-abc3-45a7-a19e-56d8df2702c8",
+          "error": null,
+          "log": "$ claude -p \"Task: separate tags filled for each org item or task\" --output-format stream-json --verbose --dangerously-skip-permissions --permission-mode acceptEdits --append-system-prompt \"You are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we'll know it works — n…\"\n· model: TOOL DEFAULT (no --model/-m flag — claude's own config decides)\n· claude ready · claude-opus-5 · 25 tools\nI'll look at the task context first.\n· Bash cat .bridza/pipelines/engineering/00000104-separate-tags-filled-for-each-org-item/metadat…\n· Bash cat .bridza/pipelines/engineering/00000104-separate-tags-filled-for-each-org-item/spec/pr…\n· Bash git show 749c981 -- .bridza/inbox.json | head -40\n· Bash ls -la && echo \"=== top-level dirs ===\" && find . -maxdepth 2 -type d -not -path \"./.git/…\n· Bash echo \"===== spec.md =====\" && cat spec.md && echo \"===== acceptance.md =====\" && cat acce…\n· Bash find src -type f | head -60 && echo \"=== docs ===\" && ls docs\n· Bash grep -rn \"key === 'l'\\|key === \\\"l\\\"\\|'L'\\|toLowerCase() === 'l'\" src/app --include=*.jsx…\n· Bash sed -n '1,140p' src/app/features/board.jsx\n· Bash sed -n '140,230p' src/app/features/board.jsx\n· Bash grep -n \"kanbanOrder\\|flows\\|readConfig\\|writeConfig\\|config.json\\|readTaskMeta\\|writeTas…\n· Bash sed -n '400,470p' server/bridza-store.js; echo \"=== setTaskArchived / setTaskReuse patter…\n· Bash ls -R .bridza/.metadata | head; echo \"=== refsFile/DATA_DIR ===\"; grep -n \"DATA_DIR\\s*=\\|…\n· Bash grep -n \"archived\" server/bridza-store.js | sed -n '1,40p'; echo \"=== bridge routes ===\";…\n· Bash grep -n \"refs.json\" docs/09-file-format.md | head; echo \"=== refs section ===\"; awk '/ref…\n· Bash grep -n \"^#\\|^##\" docs/09-file-format.md | head -30; echo \"=== archived mentions ===\"; gr…\n· Bash grep -n \"tref\\|task-head\\|<h1\\|<h2\\|spread\" src/app/features/task.jsx | head -20; echo \"=…\n· Bash git log --oneline -5 -- spec.md acceptance.md; echo \"=== who wrote outputs before ===\"; g…\nRoot `spec.md` / `acceptance.md` it is. Writing both.\n· Bash cat > spec.md <<'EOF'\n· Bash cat > acceptance.md <<'EOF'\nBoth written.\n\n**spec.md** — tags on task, hover+**L** picker.\n\nKey decisions, grounded in repo:\n- **Storage** → `.bridza/.metadata/refs.json` (`tags` registry + `taskTags` map), not task `metadata.json`. Reason already written in code at `server/bridza-store.js:376-381`: task meta lives on `bridza/*` branch tips, never pushed → can't cross machines. Tags = board-wide display state → follow `archived`, not `routing`.\n- **L collision** → **L** today opens flow menu (`board.jsx:88-94`). User wants L for tags. Flow menu → **F**. Flow retarget is rare + destructive; tagging is frequent → L is the right owner.\n- **Create inline only** → one creation path (picker's name+colour input), idempotent on slug. Colours are palette names not hex → theme-safe.\n- **Server** → `createTag` / `setTaskTags` modelled on `setTaskArchived`; two POST routes.\n\nOut of scope (stated explicitly): tag filtering/search, rename/delete/recolour, pipeline or inbox tags, agent use.\n\n**acceptance.md** — 16 checks: picker on any pipeline, inline create → chip no-reload, registry shared across cards, toggle off, multi-tag, slug idempotence, committed refs.json survives restart, F=flow intact, legacy refs.json + unknown-slug tolerance, delete-task cleanup, failed-save rollback, tests, doc, `pnpm test/lint/build`.\n\nNote: `refs.json` is not currently in `docs/09-file-format.md` at all — acceptance asks the new shape be added there.\n· done · 20 turns · 126s · $1.0349"
+        }
+      ]
+    },
+    "build": {
+      "status": "done",
+      "seconds": 352,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: separate tags filled for each org item or task\n\nThere should be a different field to a task or work item called tags and each tag can have different colors in them. Alright? And I can create tags in the app or when I'm assigning tags, I can also create new tags and I can select those tags from next time.\n And that L hovering over a card and pressing L should display me the pop-up to choose those tags, not the flow that I want for that task.\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-20T15:33:30.226Z",
+          "status": "running"
+        },
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: separate tags filled for each org item or task\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-20T16:02:17.737Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T16:08:09.864Z",
+          "exit": 0,
+          "files": [
+            "docs/09-file-format.md",
+            "server/bridge.js",
+            "server/bridza-store.js",
+            "src/app/__tests__/board-tags.test.jsx",
+            "src/app/__tests__/bridza-store.test.js",
+            "src/app/api/client.js",
+            "src/app/bridza.css",
+            "src/app/features/board.jsx",
+            "src/app/features/task.jsx"
+          ],
+          "sessionId": "028dd770-c7b3-4fb3-afb8-337dce5b7b9b",
+          "error": null,
+          "log": "chivedFlags\" server/bridza-store.js | head && echo \"=== docs 09 headi…\nNow implementing. Bridge routes + client:\n· Bash python3 - <<'PY'\nNow the board UI — key rebind, tag menu, chips:\n· Bash python3 - <<'PY'\nNow the card render — chips, hint line, tag menu:\n· Bash python3 - <<'PY'\n· Bash python3 - <<'PY'\nNow CSS, task header chips, and docs:\n· Bash python3 - <<'PY'\n· Bash python3 - <<'PY'\n· Bash sed -n '138,160p' docs/09-file-format.md\n· Bash python3 - <<'PY'\nNow tests. Checking the existing UI-test pattern first:\n· Bash sed -n '1,45p' src/app/__tests__/ux-views.test.jsx && echo \"=== grep Board ===\" && grep -…\n· Bash cat vite.config.ts && grep -n \"testing-library\\|jsdom\\|happy-dom\" package.json\n· Bash grep -rn \"jsdom\\|environment\" src/app/__tests__/*.jsx | head && echo \"=== task-auto head …\nGood pattern to follow. Writing the board test:\n· Bash cat > src/app/__tests__/board-tags.test.jsx <<'EOF'\n· Bash npx vitest run src/app/__tests__/board-tags.test.jsx 2>&1 | tail -50\n· Bash python3 - <<'PY'\nNow the store tests:\n· Bash python3 - <<'PY'\n· Bash npx vitest run src/app/__tests__/bridza-store.test.js -t \"task tags\" 2>&1 | tail -40\n· Bash grep -n \"refsFile\\s*=\\|function refsFile\" server/bridza-store.js\n· Bash sed -n '363,385p' server/bridza-store.js\n· Bash sed -i '' 's|path.join(r, \".bridza\", \".metadata\", \"refs.json\")|path.join(r, \".bridza\", \"r…\n· Bash npx vitest run src/app/__tests__/bridza-store.test.js -t \"task tags\" 2>&1 | sed -n '1,60p'\nReal bug — `safeRef` doesn't lowercase, so \"Billing\"/\"billing\" would be two tags. Fixing the slug:\n· Bash python3 - <<'PY'\nFull suite, lint, build:\n· Bash pnpm lint 2>&1 | tail -20 && echo \"=== BUILD ===\" && pnpm build 2>&1 | tail -12\n· Bash pnpm test 2>&1 | tail -30\n· Bash git diff --stat && git status --porcelain\nDone. Feature fits the \"Feature\" flow — single vertical slice, implemented in one go.\n\n**Shipped**\n\n| Layer | Change |\n|---|---|\n| `server/bridza-store.js` | `TAG_PALETTE`, `createTag`, `setTaskTags`; `readRefs` gains `tags`/`taskTags` (default `{}`); projection resolves `task.tags` + `pipeline.tags`; task delete drops `taskTags[key]` |\n| `server/bridge.js` | `POST /api/bridza/tag/create`, `POST /api/bridza/task/tags` |\n| `src/app/api/client.js` | `createTag`, `setTaskTags` |\n| `src/app/features/board.jsx` | **L** → `TagMenu` (any pipeline, no flow gate), **F** → flow menu (still `flows.length >= 2`), `Escape` closes either; chips on card; hint `press L to tag · F for flow` |\n| `src/app/features/task.jsx` | chips in task header |\n| `src/app/bridza.css` | `.tag.tag-<color>` × 8, `.tag-chips`, `.tag-dot` |\n| `docs/09-file-format.md` | new \"Board state — `.bridza/refs.json`\" section |\n\n**Two spec corrections, both grounded in the code**\n\n1. Spec said storage at `.bridza/.metadata/refs.json`; actual `refsFile` is `.bridza/refs.json` (`server/bridza-store.js:365`). Used the real path, documented it as such.\n2. Slug is `safeRef(name.trim().toLowerCase())`, not bare `safeRef` — `safeRef` preserves case, so \"Billing\" and \"billing\" would have become two tags, violating the idempotence criterion. Test caught it.\n\n**Prior run's leftovers**: the stalled opencode build had already written the server layer (uncommitted). I kept it, fixed the slug bug, and built the rest on top.\n\n**Verification**: `pnpm test` 254 passed (11 files), `pnpm lint` clean, `pnpm build` ok. New tests: `src/app/__tests__/board-tags.test.jsx` (6 — L/F bindings, toggle on/off, Escape, chips, hint) and a `task tags` block in `bridza-store.test.js` (4 — slug idempotence + colour validation, unknown-slug/dedupe/clear, projection resolution, legacy `refs.json` + delete cleanup).\n\n**One behavioural note not in the spec**: the picker stays open if the pointer leaves the card, and the `Escape` listener is bound to hover — so off-card you close it with the ✕ in the menu header rather than Escape. The flow menu had the same shape (it closed on `onMouseLeave`, which would fight a text input here).\n· done · 39 turns · 351s · $2.3218"
+        }
+      ]
+    },
+    "review": {
+      "status": "done",
+      "seconds": 208,
+      "runs": [
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: separate tags filled for each org item or task\n\nThere should be a different field to a task or work item called tags and each tag can have different colors in them. Alright? And I can create tags in the app or when I'm assigning tags, I can also create new tags and I can select those tags from next time.\n And that L hovering over a card and pressing L should display me the pop-up to choose those tags, not the flow that I want for that task.\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-20T16:08:15.472Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T16:11:43.378Z",
+          "exit": 0,
+          "files": [
+            "review.md"
+          ],
+          "sessionId": "3143b6c8-cf1d-47b9-8bce-5a136f4ba72f",
+          "error": null,
+          "log": "angerously-skip-permissions --permission-mode acceptEdits --append-system-prompt \"You are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, abstractions with one …\"\n· model: TOOL DEFAULT (no --model/-m flag — claude's own config decides)\n· claude ready · claude-opus-5 · 74 tools\nI'll start by finding the acceptance criteria and the implementation diff.\n· Bash ls -la && find . -name \"acceptance.md\" -not -path \"*/node_modules/*\" 2>/dev/null\n· Bash git log --oneline main...HEAD && echo \"--- DIFFSTAT ---\" && git diff main...HEAD --stat\n· Bash echo \"=== acceptance.md ===\" && cat acceptance.md && echo \"=== spec.md ===\" && cat spec.md\n· Bash echo \"=== existing review.md (head) ===\" && head -20 review.md && echo \"=== git log -1 re…\n· Bash git diff main...HEAD -- server/bridza-store.js server/bridge.js src/app/api/client.js\n· Bash git diff main...HEAD -- src/app/features/board.jsx src/app/features/task.jsx src/app/brid…\n· Bash cat src/app/__tests__/board-tags.test.jsx && echo \"=== store test diff ===\" && git diff m…\n· Bash sed -n 115,145p src/app/features/board.jsx\n· Bash (pnpm test 2>&1 | tail -25) && echo \"=== LINT ===\" && (pnpm lint 2>&1 | tail -15) && echo…\n· Bash echo \"=== merge-base ===\" && git merge-base main HEAD && echo \"=== merge-tree ===\" && git…\n· Bash cat > /tmp/stuck.test.jsx <<'EOF'\n· Bash grep -n \"function commitPaths\" -A 14 server/bridza-store.js && grep -n \"function safeRef\"…\n· Bash grep -rn \"safeRef\\s*=\\|export function safeRef\\|const safeRef\" server/ core/ | head && gr…\n· Bash sed -n 30,42p core/domain.js && echo \"--- validRef ---\" && grep -n \"export function valid…\n· Bash grep -rn \"change flow\\|press \\*\\*L\\*\\*\\|press L\\|hover.*\\bL\\b\" docs/ README.md e2e/ src/ …\n· Bash grep -rn \"keyboard\\|shortcut\" docs/*.md | head -20 && echo \"--- refs.json doc pre-existin…\n· Bash grep -rn \"DATA_DIR =\" core/domain.js && grep -rn \"refsFile\" server/bridza-store.js | head…\n· Bash find .bridza/pipelines/engineering/00000104-separate-tags-filled-for-each-org-item -type …\n· Write /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/separate-tags-filled-f…\n`review.md` written (overwrote prior task's review, per repo convention).\n\n**Verdict: approve with fixes.** 254 tests / lint / build pass. **Merge into `main`: clean** — `merge-tree` → tree `70f3df0`, zero conflicts, no touched file changed on `main` since base `a008119`.\n\nAcceptance: 12/15 ✅, 2 partial, 1 doc-only.\n\n**Blocking-ish:**\n- **A — no colour picker.** `board.jsx:150` auto-picks next unused colour; `TagMenu` has only a text input. Acceptance says user chooses colour. After 8 tags colour is modulo-assigned, and recolour is out of scope → no second chance.\n- **B — tag menu sticks, Escape dead.** `board.jsx:122` key effect early-returns on `!hover`; nothing closes `tagMenu` on mouseout (flow menu has `onMouseLeave`, TagMenu doesn't). Reproduced with a scratch render test: hover → `l` → mouseout → menu still in DOM, `Escape` inert, only ✕ works. Fix: key effect deps on `tagMenu || flowMenu`, not `hover`.\n\n**Low:** `F` can stack the flow menu over an open tag menu; `acceptance.md`/`spec.md` both name `.bridza/.metadata/refs.json` — real path is `.bridza/refs.json` (code is right, docs wrong); `createTag` hand-rolls name validation and misses `safeRef`'s `\"x\"` fallback → `\"!!!\"` and `\"???\"` collapse to one tag (use existing `validRef`).\n\n**Delete:**\n1. `TAG_PALETTE` retyped in `board.jsx:12` — import from `core/domain.js` if A gets fixed, else delete and default colour server-side.\n2. `board.jsx:154` `find(...) || modulo` — two strategies, modulo alone suffices.\n3. `bridza-store.js:569-571,578` — `refsAll.tags &&` / `|| {}` guards re-check what `readRefs` already normalizes. Three dead conditionals.\n4. `createTag`'s `tag` return field — zero consumers.\n\nServer side otherwise clean: mirrors `setTaskArchived` exactly, `commitPaths` already no-ops on no change.\n· done · 20 turns · 205s · $1.2154"
+        }
+      ]
+    }
+  }
+}

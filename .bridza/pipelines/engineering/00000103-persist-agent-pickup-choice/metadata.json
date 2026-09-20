@@ -1,0 +1,102 @@
+{
+  "v": 1,
+  "id": "persist-agent-pickup-choice",
+  "pipeline": "engineering",
+  "title": "persist agent pickup choice",
+  "ref": 103,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/persist-agent-pickup-choice",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {
+    "spec": {
+      "status": "done",
+      "seconds": 104,
+      "runs": [
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: persist agent pickup choice",
+          "startedAt": "2026-09-20T15:13:04.921Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T15:14:48.607Z",
+          "exit": 0,
+          "files": [
+            "acceptance.md",
+            "spec.md"
+          ],
+          "sessionId": "94a94266-2f9b-4f5d-8a4a-abac5fc9e356",
+          "error": null,
+          "log": "$ claude -p \"Task: persist agent pickup choice\" --output-format stream-json --verbose --dangerously-skip-permissions --permission-mode acceptEdits --append-system-prompt \"You are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we'll know it works — n…\"\n· model: TOOL DEFAULT (no --model/-m flag — claude's own config decides)\n· claude ready · claude-opus-5 · 74 tools\nI'll look at the task metadata + any captured intent first.\n· Bash ls -la && cat .bridza/pipelines/engineering/00000103-persist-agent-pickup-choice/metadata…\n· Bash echo \"=== context.md ===\" && cat .bridza/pipelines/engineering/00000103-persist-agent-pic…\n· Bash grep -rn \"opencode\" --include=*.js --include=*.jsx --include=*.ts -l . --exclude-dir=node…\n· Bash grep -rln \"opencode\" src server core electron docs 2>/dev/null | head -30 && echo \"---tre…\n· Bash grep -rn \"opencode\" src/app/features/task.jsx src/app/features/flow.jsx src/app/features/…\n· Bash sed -n 1,90p src/app/features/views.jsx\n· Bash sed -n 150,300p src/app/features/task.jsx\n· Bash grep -rn \"routing\" src server core docs --include=*.js --include=*.jsx --include=*.md | h…\n· Bash grep -rn \"routing\" src server core docs | head -30\n· Bash grep -n \"tool\" server/bridza-run.js | head -60 && echo \"=== bridge routes ===\" && grep -n…\n· Bash grep -n \"automateTask\" -A40 server/bridza-run.js | sed -n 1,70p\n· Bash grep -n \"readTaskMeta\\|writeTaskMeta\\|function saveTaskMeta\" server/bridza-run.js | head …\n· Bash sed -n 520,545p server/bridza-store.js && echo \"=== reuse endpoint (setTaskReuse pattern)…\nEnough context. Writing the spec.\n· Write /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/persist-agent-pickup-c…\n· Write /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/persist-agent-pickup-c…\nWrote `spec.md` + `acceptance.md` (replaced stale ones from task #10x at root).\n\n**Core finding:** agent pick lives only in `StageRunner` React state, seeded from `lastRunTool(runs)` (`src/app/features/views.jsx:28`) → exists only after a run, only in that window. Auto-advance rebuilds bodies from a client snapshot and falls back to `def.tool` → `opencode` (`src/app/features/task.jsx:235`).\n\n**Spec shape:**\n- Store in task `metadata.json` under the already-reserved `routing: {}` → `routing[\"<stageId>\"] = { tool, model }`, on the task branch next to `tracking`.\n- Write at *pick* time (new `setStageRouting` + `POST /api/bridza/task/routing`, modelled on `setTaskReuse`), plus `runStage` keeping it in step with what actually ran.\n- Read precedence: `routing[stage]` → last run → `def.tool` → `opencode`; server resolves `body.tool || routing[stage].tool` so window-less/background runs keep the choice.\n\nOut of scope: pipeline/global defaults, separate routing UI, back-filling existing tasks.\n· done · 16 turns · 100s · $0.9301"
+        }
+      ]
+    },
+    "build": {
+      "status": "done",
+      "seconds": 285,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: persist agent pickup choice\n\nWhen I select an agent for a step in a task, it should persist and use that model only to execute that step in that stage for that task or card. It should be stored somewhere and it should be read from there so that I don't have to go back and check every single time.\n\nif i chose opencode and exited that window, the background running task shall still use opencode to execute that task and same case for claude or any other model\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-20T15:14:54.098Z",
+          "status": "running"
+        },
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: persist agent pickup choice\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-20T15:21:19.278Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T15:26:04.534Z",
+          "exit": 0,
+          "files": [
+            "docs/09-file-format.md",
+            "server/bridge.js",
+            "server/bridza-run.js",
+            "server/bridza-store.js",
+            "src/app/__tests__/bridza-run.test.js",
+            "src/app/__tests__/ux-views.test.jsx",
+            "src/app/api/client.js",
+            "src/app/features/task.jsx",
+            "src/app/features/views.jsx"
+          ],
+          "sessionId": "4e1af95b-4d7d-4d96-9f52-25db3304e3a1",
+          "error": null,
+          "log": "\"=== readT…\n· Bash sed -n 400,440p server/bridza-store.js && echo \"=== 500,560 ===\" && sed -n 500,560p serve…\nNow the client side: `automate()` in task.jsx and the api client.\n· Bash sed -n 200,270p src/app/features/task.jsx && echo \"=== api client ===\" && sed -n 25,50p s…\n· Bash grep -rn \"StageRunner\" src | grep -v \"^src/app/features/views.jsx\" && echo \"=== tests ===…\n· Bash sed -n 780,815p src/app/features/task.jsx && echo \"=== bridza-model test head ===\" && sed…\n· Bash sed -n 1,80p src/app/__tests__/bridza-run.test.js && echo \"... grep describes ...\" && gre…\n· Bash sed -n 90,145p docs/09-file-format.md && echo \"=== ux-views test head ===\" && sed -n 1,60…\n· Bash sed -n 110,150p src/app/__tests__/ux-views.test.jsx && echo \"=== client post ===\" && sed …\nNow implementing. Server first:\n· Edit /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/persist-agent-pickup-c…\n· Edit /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/persist-agent-pickup-c…\n· Edit /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/persist-agent-pickup-c…\nNow the bridge route, api client, and store projection:\n· Bash python3 - <<'EOF'\nNow the picker in `views.jsx`:\n· Bash python3 - <<'PY'\n· Bash python3 - <<'PY'\n· Bash sed -i '' 's|import { buildStageRecords, lastRunTool } from \"../lib/record.js\";|import { …\nFixing indentation, then the docs:\n· Bash python3 - <<'PY'\nNow the tests — server round-trip/resolution plus the picker seed:\n· Bash sed -n 100,135p src/app/__tests__/bridza-run.test.js\n· Bash python3 - <<'PY'\n· Bash python3 - <<'PY'\n· Bash ls node_modules 2>/dev/null | head -3; echo \"exit $?\"; node -v\n· Bash pnpm install --prefer-offline 2>&1 | tail -15\n· Bash pnpm vitest run src/app/__tests__/ux-views.test.jsx 2>&1 | tail -30\nBehavior is right; only my attribute-order expectation was off.\n· Bash sed -i '' 's|<option selected=\"\" value=\"opencode\">|<option value=\"opencode\" selected=\"\">|…\nFull suite, lint, build:\n· Bash pnpm test 2>&1 | tail -20\n· Bash pnpm lint 2>&1 | tail -15 && echo \"=== BUILD ===\" && pnpm build 2>&1 | tail -15\nAdding a guard so an untouched model box doesn't write:\n· Bash python3 - <<'PY'\n· Bash git status --porcelain && git diff --stat\nFit check: **fits Feature flow** — single-surface change (one store field + one picker + one resolve path), no breakdown needed. Implemented.\n\n## What changed\n\n**Store** — pick lives on task branch in `metadata.json` `routing[\"<stage>\"] = { tool, model }`:\n- `server/bridza-run.js:1132` `stageRouting()` reads branch tip; `setStageRouting()` writes+commits (modelled on `setTaskReuse`).\n- `runStage` now resolves `body.tool || routing[stage].tool` (`server/bridza-run.js:757`) and records `{tool, model}` of what actually ran (incl. fallback agent) into `routing` on the prompt commit.\n- Saved model applies only when resolved tool == saved tool → stale model never carried onto another agent.\n\n**Wiring** — `POST /api/bridza/task/routing` (`server/bridge.js:236`), `api.setStageRouting` (client.js), `routing` surfaced on tasks in `readProject` (`server/bridza-store.js:537`).\n\n**UI** — `StageRunner` seeds `routing[def.id]` → last run → `def.tool` → `opencode`; persists at **pick** time (tool change, model blur, `×` clear), no-op guard so untouched blur doesn't materialise a worktree. `automate()` builds bodies from routing first and now passes `model` (previously never passed).\n\n**Docs** — `docs/09-file-format.md` shows populated `routing` shape.\n\n**Tests** — `bridza-run.test.js`: round-trip w/ zero runs, stage+task independence + overwrite, `runStage` resolving from routing when body omits tool and explicit tool winning. `ux-views.test.jsx`: picker seeds agent+model from routing ahead of run history.\n\n## Verify\n\n`pnpm test` 244 passed (10 files) · `pnpm lint` clean · `pnpm build` ok.\n\nNote: worktree had no `node_modules` — ran `pnpm install` (node v24 vs engines `>=25` warns, harmless). Changes left uncommitted in the worktree.\n· done · 37 turns · 282s · $2.3722"
+        }
+      ]
+    },
+    "review": {
+      "status": "done",
+      "seconds": 84,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: persist agent pickup choice\n\nWhen I select an agent for a step in a task, it should persist and use that model only to execute that step in that stage for that task or card. It should be stored somewhere and it should be read from there so that I don't have to go back and check every single time.\n\nif i chose opencode and exited that window, the background running task shall still use opencode to execute that task and same case for claude or any other model\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-20T15:26:09.287Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T15:27:33.614Z",
+          "exit": 0,
+          "files": [
+            "review.md"
+          ],
+          "sessionId": "ses_f40934250ffeJz0EKlxieXrv0L",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, a…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n· step · 14389 tokens\n· step · 18763 tokens\n· step · 36404 tokens\n· step · 36653 tokens\n· step · 37014 tokens\n· step · 37334 tokens\n· step · 37902 tokens\n· step · 40461 tokens\nApproved. All acceptance criteria pass, tests, lint, and build succeed, and merge into `main` will be clean with zero conflicts. `review.md` has been written.\n· step · 40840 tokens"
+        }
+      ]
+    }
+  }
+}
