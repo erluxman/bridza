@@ -1,7 +1,7 @@
 // features/board.jsx — the per-pipeline kanban. Columns are the union of every
 // stage used by any task; each task sits in its first not-yet-done stage, or a
 // terminal "Delivered" column when finalized.
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import * as api from "../api/client.js";
 import { Hamburger } from "../ui.jsx";
 import { TermDrawer } from "./term.jsx";
@@ -96,6 +96,7 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
   const [termOpen, setTermOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const searchRef = useRef(null);
   const byCol = {}; columns.forEach((c) => (byCol[c] = []));
   (pipeline.tasks || []).forEach((t) => { const c = currentStage(t); (byCol[c] || byCol[DONE_COL]).push(t); });
   const q = searchQuery.toLowerCase();
@@ -120,6 +121,9 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
       if ((e.key === "/" || (e.key === "k" && (e.metaKey || e.ctrlKey))) && !/^(input|textarea|select)$/i.test(e.target.tagName || "")) {
         e.preventDefault();
         setSearchOpen(true);
+        // already open but the caret is elsewhere — the shortcut still means
+        // "put me in the box", and no mount is coming to do it for us
+        if (searchRef.current) searchRef.current.focus();
       }
       else if (e.key === "Escape" && searchOpen) {
         setSearchOpen(false);
@@ -128,6 +132,13 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, [searchOpen]);
+  // Focus on the INTENT to open (the 🔍 click or the shortcut flipping
+  // searchOpen), not on every commit: the board re-renders on each 4s poll and
+  // on every card hover, and a focus() tied to render steals the caret back
+  // from wherever the user put it.
+  useEffect(() => {
+    if (searchOpen && searchRef.current) searchRef.current.focus();
   }, [searchOpen]);
   useEffect(() => {
     if (!hover) return;
@@ -188,7 +199,7 @@ const changeFlow = async (t, nf) => {
           <button className={"btn ghost" + (termOpen ? " on" : "")} onClick={() => setTermOpen((o) => !o)} title="Terminal at the repo root">⌨ Terminal</button>
           {searchOpen ? (
             <input
-              ref={(el) => el && setTimeout(() => el.focus(), 0)}
+              ref={searchRef}
               className="search-input"
               placeholder="Search tasks..."
               value={searchQuery}

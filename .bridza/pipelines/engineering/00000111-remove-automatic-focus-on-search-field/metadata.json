@@ -55,8 +55,8 @@
       ]
     },
     "fix": {
-      "status": "running",
-      "seconds": 0,
+      "status": "done",
+      "seconds": 117,
       "runs": [
         {
           "tool": "opencode",
@@ -70,7 +70,17 @@
           "model": null,
           "prompt": "Task: Remove automatic focus on search field in Kanban View.\n\nAlright, so, when I do not focus  search text field in dashboard (pipeline kanban view ) with shortcut or click, the focus should stay on whichever element is it at . it should not automatically focus on it (search field) , But to focus on that search either we click on it, or press a shortcut like command + K to to focus on it\n\nFit check — this task was filed under the \"Bugfix\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Bugfix\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Feature\" (Spec → Build → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
           "startedAt": "2026-09-20T17:18:30.453Z",
-          "status": "running"
+          "status": "done",
+          "finishedAt": "2026-09-20T17:20:27.762Z",
+          "exit": 0,
+          "files": [
+            "fix.md",
+            "src/app/__tests__/board-search-focus.test.jsx",
+            "src/app/features/board.jsx"
+          ],
+          "sessionId": "9610f7d1-9cd8-4da9-bac8-d950eeb1b672",
+          "error": null,
+          "log": "$ claude -p \"Task: Remove automatic focus on search field in Kanban View.\\n\\nAlright, so, when I do not focus  search text field in dashboard (pipeline kanban view ) with s…\" --output-format stream-json --verbose --dangerously-skip-permissions --permission-mode acceptEdits --append-system-prompt \"You are an implementer. Read repro.md and fix the root cause with the smallest correct change — check every caller of the code you touch and fix at the share…\"\n· model: TOOL DEFAULT (no --model/-m flag — claude's own config decides)\n· claude ready · claude-opus-5[1m] · 26 tools\nI'll start by reading the repro and earlier stage outputs.\n· Bash ls -la && find .bridza/pipelines/engineering/00000107-remove-automatic-focus-on-search-fi…\n· Bash cat repro.md\nClear single bugfix — fits the \"Bugfix\" flow. Proceeding.\n· Bash sed -n 1,70p src/app/features/board.jsx && echo ---- && sed -n 100,235p src/app/features/…\n· Bash sed -n 66,100p src/app/features/board.jsx && echo ==== && cat src/app/__tests__/board-sea…\n  ✖ Exit code 1\n· Bash cat src/app/__tests__/board-search-focus.test.jsx\n· Bash grep -rn \"ref={(el)\" src/ core/ server/ 2>/dev/null; echo ---; grep -rn \"\\.focus()\" src/ …\n· Bash grep -rn \"useRef\" src/app/features/*.jsx | head; echo ---; grep -rno \"?\\.\" src/app/featur…\n· Bash python3 - <<'PY'\nNow add a regression test for the ⌘K-while-open case and run the suite.\n· Bash python3 - <<'PY'\n· Bash python3 - <<'PY'\n· Bash ./node_modules/.bin/eslint src/app/features/board.jsx src/app/__tests__/board-search-focu…\n· Bash cat .bridza/pipelines/engineering/00000107-remove-automatic-focus-on-search-field/fix/pro…\n  ✖ Exit code 1\n· Bash head -25 fix.md; echo \"-----\"; git status --short\n· Bash cat > fix.md <<'MD'\nFit check: this is a genuine single **Bugfix** — one root cause, one line, one file. Proceeded with the fix.\n\n## Root cause\n\n`src/app/features/board.jsx:191` used an inline ref callback:\n\n```jsx\nref={(el) => el && setTimeout(() => el.focus(), 0)}\n```\n\nReact re-invokes an inline ref on every commit, so this was `focus()` **per render**, not per mount. `<Board>` re-renders on the 4s poll (`App.jsx:78`) and on every card hover (`setHover`), so the caret got yanked back into the search box constantly.\n\n## The fix (board.jsx only)\n\n- **Stable ref** — `useRef` + `ref={searchRef}`, so rendering the board no longer touches focus.\n- **Focus on the intent to open** — a `useEffect` keyed on `searchOpen` fires only on the `false → true` transition (🔍 click, `/`, ⌘K). The `setTimeout(…, 0)` is gone, so focus lands inside the commit instead of a macrotask later.\n- **⌘K while already open** — a state the fix newly makes reachable: `setSearchOpen(true)` is then a no-op with no mount to piggyback on, so the shortcut handler focuses the ref directly. That's the report's explicit requirement.\n\nI checked the shared path rather than patching call sites: `grep -rn \"ref={(el)\" src/` finds no other render-coupled focus, and the remaining `autoFocus` uses (`nav.jsx:206`, `task.jsx:587`, `onboarding.jsx:192`/`269`, `board.jsx:62`) are React's mount-only declarative prop inside modals the user just opened — correct as-is.\n\n## Tests\n\n`src/app/__tests__/board-search-focus.test.jsx` — the repro stage's 4 cases now pass, and I added 2 for the shortcut path (⌘K opens-and-focuses; ⌘K re-focuses an already-open box). 6/6 passing.\n\nFull suite: 285 tests, 284 passed, 1 failed — `create-pr.test.js > falls back with the compose URL when gh is not on PATH`, the pre-existing failure `repro.md` flagged (it asserts behaviour for a machine without `gh`, which is installed here). Unrelated, untouched.\n\nWrote `fix.md`; removed the borrowed `node_modules` symlink, so the tree is clean apart from the three changed files.\n· done · 15 turns · 117s · $1.0530"
         }
       ]
     }

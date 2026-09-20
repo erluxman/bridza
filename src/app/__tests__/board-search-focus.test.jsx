@@ -1,16 +1,18 @@
 // @vitest-environment jsdom
 //
-// REPRO (task #107) — the kanban search field steals focus.
+// REGRESSION (task #107) — the kanban search field must not steal focus.
 //
-// The board's search <input> mounts with an INLINE ref callback:
-//     ref={(el) => el && setTimeout(() => el.focus(), 0)}   (board.jsx:191)
+// The search <input> used to mount with an INLINE ref callback:
+//     ref={(el) => el && setTimeout(() => el.focus(), 0)}
 // React re-invokes an inline ref callback on EVERY commit (old ref ← null, new
-// ref ← element), so this is not a mount-time focus — it is a focus() on every
-// single render of <Board>. The app polls the bridge every 4s (App.jsx:78) and
-// re-renders the board, so once the search box is open the caret is yanked back
-// into it roughly every 4 seconds no matter what the user is doing.
+// ref ← element), so that was not a mount-time focus — it was a focus() on
+// every single render of <Board>. The app polls the bridge every 4s
+// (App.jsx:78) and re-renders the board, so once the search box was open the
+// caret got yanked back into it roughly every 4 seconds no matter what the
+// user was doing.
 //
-// These tests assert the WANTED behaviour and therefore FAIL on current main.
+// Focus now follows the intent to open — the 🔍 click or the ⌘K / "/"
+// shortcut — and nothing else.
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -47,7 +49,7 @@ const render = (props) =>
     );
   });
 
-// the ref callback focuses inside setTimeout(…, 0) — let the macrotask land
+// focus used to land inside a setTimeout(…, 0) — let any macrotask settle
 const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 5)); });
 
 // React tracks the input's value on the DOM node, so a bare `el.value = x`
@@ -78,7 +80,6 @@ describe("kanban search field focus", () => {
     await render({ pipeline });
     await act(async () => searchButton().click());
     await settle();
-    // this half is the intended behaviour and already holds
     expect(document.activeElement).toBe(searchInput());
   });
 
@@ -103,13 +104,13 @@ describe("kanban search field focus", () => {
     await render({ pipeline: { ...pipeline, tasks: [...pipeline.tasks] } });
     await settle();
 
-    // 4. focus must have stayed put. On current main it is back in the search box.
+    // 4. focus must have stayed put.
     expect(document.activeElement).toBe(btn);
   });
 
   it("does NOT re-steal focus when the pointer merely crosses a card", async () => {
-    // the cards' onMouseEnter sets Board-local `hover` state — another render,
-    // another unwanted focus(). No polling needed to hit this one.
+    // the cards' onMouseEnter sets Board-local `hover` state — another render.
+    // No polling needed to hit this one.
     await render({ pipeline });
     await act(async () => searchButton().click());
     await settle();
@@ -124,6 +125,32 @@ describe("kanban search field focus", () => {
     await settle();
 
     expect(document.activeElement).toBe(btn);
+  });
+
+  it("focuses the search box when the user presses the shortcut", async () => {
+    await render({ pipeline });
+    await act(async () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true })));
+    await settle();
+    expect(document.activeElement).toBe(searchInput());
+  });
+
+  it("re-focuses an already-open search box when the shortcut is pressed again", async () => {
+    // the box can sit open while focus lives elsewhere, so the shortcut has to
+    // pull the caret back in without a remount to do it
+    await render({ pipeline });
+    await act(async () => searchButton().click());
+    await settle();
+    await type(searchInput(), "alpha");
+    await settle();
+
+    const btn = newTaskButton();
+    await act(async () => btn.focus());
+    expect(document.activeElement).toBe(btn);
+
+    await act(async () => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true })));
+    await settle();
+    expect(document.activeElement).toBe(searchInput());
+    expect(searchInput().value).toBe("alpha");
   });
 
   it("does not grab focus when the board first renders", async () => {
