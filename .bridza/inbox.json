@@ -1,4 +1,11 @@
 {
   "v": 1,
-  "items": []
+  "items": [
+    {
+      "id": "in-s5fj9w",
+      "kind": "idea",
+      "text": "I should be able to change the color of the tag that I have for card on the plan board or kan ban and also the tags should be displayed on the tags detail page as well",
+      "time": "2026-09-20T18:08:01.744Z"
+    }
+  ]
 }
