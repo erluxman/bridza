@@ -1,15 +1,93 @@
-# Acceptance — The agent picked for a stage sticks to that stage
+# Acceptance — Change a tag's colour
 
-- [ ] Picking an agent for a stage and running nothing, then closing and reopening the task (or opening it in a second window), shows that agent still selected for that stage.
-- [ ] The pick is stored in the task's `metadata.json` as `routing["<stageId>"] = { tool, model }` on the task branch, and is committed — visible in `git show` of the task branch tip.
-- [ ] Two stages of the same task can hold different agents at once, and picking for one never changes the other; two tasks using the same stage id keep independent picks.
-- [ ] ▸ Run on a stage with a saved pick runs on that agent — the run record in `tracking[stage].runs` and the run's commit message name it.
-- [ ] Auto-advance into a stage that was never run uses that stage's saved agent and model, not `def.tool`/`opencode`.
-- [ ] A run whose request reaches the server with no `tool` uses the saved `routing[stage].tool`; with an explicit `tool`, the explicit one wins.
-- [ ] Choosing an agent for a later stage, starting the task, then closing the window: the run that continues in the background executes that stage on the chosen agent.
-- [ ] A saved model is reapplied on the next run; clearing it with `×` stores "tool default" and the next run passes no model.
-- [ ] Changing the agent for a stage overwrites the previous pick and clears the stored model for that stage.
-- [ ] A task with no `routing` (existing tasks, `routing: {}`) behaves exactly as before: last-run agent, then stage default, then `opencode` — no crash on a `routing` entry naming a stage that no longer exists or an agent that is not installed (falls back as today).
-- [ ] `docs/09-file-format.md` documents the populated `routing` shape.
-- [ ] Tests cover: routing round-trips through read/write of task metadata; `runStage` resolving the agent from routing when the body omits it; the picker seeding from routing ahead of run history.
-- [ ] `pnpm test`, `pnpm lint`, `pnpm build` pass.
+## Reach — the picker is on all three surfaces
+
+- [x] **Kanban card**: hover, press **L**, the picker opens as before.
+- [x] **Plan board**: selecting a task shows its chips in the panel and a 🏷
+      button that opens the same picker.
+- [x] **Task detail rail**: the Task card carries a `Tags` row beside `Status`,
+      `Branch` and `Target`, showing the task's chips and an add/edit button.
+- [x] A task can carry any number of tags, and the row grows to fit them.
+- [x] The detail page shows its tags in that rail row **only** — no chips beside
+      the title, which stays a single ellipsised line.
+- [x] The plan board's picker is scoped to the **selected task's own pipeline** —
+      the registry is per-pipeline and the board spans all of them — and writes
+      its assignment against that pipeline id.
+
+## Colour is a free value
+
+- [x] Each tag row's dot expands the eight presets **and a full colour input**;
+      the preset matching the current colour reads as selected.
+- [x] An off-palette colour (`#123456`) is accepted, stored and rendered exactly
+      as picked — no class, no rounding to a preset.
+- [x] Shorthand expands (`#0FA` → `#00ffaa`) and case folds down, so one colour
+      has one spelling on disk.
+- [x] A colour that is neither hex nor a legacy name (`chartreuse`, `#gg0000`,
+      `#12345`, `rgb(1,2,3)`, `""`, `null`, `7`) → `{ ok: false, error:
+      "invalid color" }`, nothing written.
+- [x] The colour input commits on the OS picker's **`change`**, not on the
+      `input` events fired throughout a drag — one write per colour chosen.
+
+## The ⚙ dialog
+
+- [x] The picker's ⚙ opens a dialog listing every tag in the registry with its
+      colour control.
+- [x] Recolouring from the dialog goes through the same `updateTag` path.
+- [x] The dialog is portalled to `<body>` — rendered inside the z-indexed picker
+      it would be trapped in that stacking context.
+- [x] `Esc` closes the dialog.
+
+## Recolouring
+
+- [x] A recolour repaints the row's dot, the chips on every card carrying the
+      tag, the task detail chips and the plan board's dots and chips, with no
+      manual reload.
+- [x] Recolouring never tags or untags the task the picker is open on; the tag's
+      **name** still toggles assignment.
+- [x] Only one tag's swatch row is expanded at a time; `Esc` closes the picker.
+- [x] The colour survives a reload: `.bridza/refs.json` holds it for that tag id,
+      with `name` and `taskTags` intact, committed at the repo root.
+- [x] Creating a tag still works, and the "new tag…" row still preselects the
+      next preset.
+
+## Server
+
+- [x] `updateTag` with a known id and any valid colour → `{ ok: true }`, written
+      and committed.
+- [x] `updateTag` with an unknown id → `{ ok: false, error }`, nothing on disk.
+- [x] `updateTag` with an `Object.prototype` key (`constructor`, `__proto__`,
+      `toString`, `hasOwnProperty`) is an **unknown tag**, not a silent write.
+      `createTag`, `setTaskTags` and the project projection share the guard.
+- [x] `POST /api/bridza/tag/update` reaches `updateTag` and returns its JSON.
+
+## Legacy data
+
+- [x] A `refs.json` holding a palette **name** (`"emerald"`) reads back as that
+      name's hex, through both `tagsOf` and the project projection — no migration
+      pass, nothing renders colourless.
+
+## Plan board
+
+- [x] A tagged task shows one dot per tag on its node; an untagged task is
+      unchanged.
+- [x] More than four tags → four dots, with every name still in the tooltip.
+- [x] The tooltip is on the node's own `<g>`, so the whole card is the hit area
+      rather than a 7px dot.
+- [x] The pipeline label truncates harder when tags are present, so the dots do
+      not land on the sub-text at the minimum node width.
+
+## Regression
+
+- [x] `pnpm lint` and `pnpm build` clean.
+- [x] `pnpm test` — 306 passed. The one failure, `create-pr.test.js > falls back
+      with the compose URL when gh is not on PATH`, is pre-existing and
+      environment-dependent (a real `gh` is on this machine's PATH, so the "not
+      installed" branch never runs). That file is untouched by this branch.
+
+## Known gaps
+
+- [ ] **No contrast floor.** A freely picked near-black renders as an
+      unreadable chip on the dark `--bg-2` background. Deliberate: the result is
+      visible the moment it is picked, and clamping would silently change the
+      colour the user chose. A lightness floor is a ~15-line follow-up if wanted.
+- [ ] Renaming and deleting a tag are still not possible anywhere.

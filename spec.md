@@ -1,31 +1,82 @@
-# The agent picked for a stage sticks to that stage
+# Change a tag's colour
 
 ## What
 
-Picking an agent (and model) for a stage of a task **saves that choice on the task**, keyed by stage. Every later execution of that stage — reopening the task in any window, ▸ Run, auto-advance, a run the server continues after the window is gone — uses the saved agent, until the user picks a different one for that stage.
+A tag's colour is editable after creation, from **every place a task is drawn**,
+and it is a free colour rather than one of eight.
+
+Three surfaces, all carrying the same picker:
+
+- **Kanban card** — hover, press **L**, as today.
+- **Plan board** — the task panel gains its chips and a 🏷 button.
+- **Task detail rail** — a `Tags` row in the Task card, beside `Status`,
+  `Branch` and `Target`.
+
+In the picker, each existing tag's dot expands a row holding the eight presets
+**and a full colour input**; the picker's **⚙** opens a manage-tags dialog
+listing every tag in the registry with the same control on each. A change is
+registry-wide and immediate: every chip and dot for that tag repaints. Tag name,
+id, and which tasks carry the tag are untouched.
+
+Tags also become visible on the plan board — colour dots on the task node, full
+chips in the panel — the one place a task was drawn without them.
+
+Out of scope: renaming a tag, deleting a tag, and a tags screen under Settings
+(the ⚙ dialog is reachable from any picker instead).
 
 ## Why
 
-The choice currently lives only in `StageRunner`'s React state, seeded from `lastRunTool(runs)` (`src/app/features/views.jsx:28`). So it exists only *after* a run, only for that stage's own run history, and only in the window that is open: a stage picked as `claude` but not yet run, or re-entered from another window, or chained into by auto-advance building bodies from a stale snapshot (`src/app/features/task.jsx:235`), silently falls back to `def.tool` → `opencode`. The user has to re-check the picker every time, and a background run can execute on an agent they did not choose.
+Colour was assigned once and then permanent, and it was one of eight names.
+`createTag` (`server/bridza-store.js`) early-returns the existing entry when the
+slugged name already exists, ignoring the colour it was handed — so retyping a
+name with a different swatch did nothing, and the only escape was a second,
+differently-named tag. That is how a registry accumulates `billing` and
+`billing-2`.
+
+Editing from one surface only is the other half. `TagMenu` was private to
+`board.jsx` and mounted on the kanban card alone, so a task looked at on the plan
+board or on its own detail page could not be tagged or recoloured without
+navigating back to the board.
 
 ## How
 
-**Where it lives.** The task's `metadata.json` already reserves an empty `routing: {}` (written at `server/bridza-store.js:801`, documented in `docs/09-file-format.md`). It becomes the store for this:
+**Colour becomes a value.** `TAG_PALETTE` (`core/domain.js`) turns from eight
+names into eight `#rrggbb` presets — the same values the old `.tag-<name>` CSS
+rules resolved to — and `normalizeTagColor` accepts any hex (expanding `#abc`,
+folding case) plus the legacy names through `LEGACY_TAG_COLORS`. `readRefs`
+normalizes on the way out, so a `refs.json` written before this change needs no
+migration pass: it reads as hex, and the next write persists hex.
 
-```json
-"routing": { "<stageId>": { "tool": "claude", "model": "opus" } }
-```
+**Rendering.** The eight `.tag-<name>` rules are gone. `tagStyle(color)` in
+`features/tags.jsx` returns `{ color, borderColor: color + "55" }` — the same
+~33% border alpha the palette rules used — and chips, dots, swatches and the
+plan-board circles carry it inline.
 
-`model: ""` (or absent) keeps meaning *the tool's own default* — the same meaning the model box already has. Unknown stage ids are ignored on read, never pruned on write. It is written on the task branch alongside `tracking`, via `readTaskMeta`/`writeTaskMeta`, so it travels with the task like every other per-task fact.
+**Store.** `updateTag(root, { id, color })` beside `createTag`: unknown id →
+`{ ok: false, error }`, unparseable colour → `{ ok: false, error: "invalid
+color" }`, otherwise set `refs.tags[id].color`, write and commit
+(`bridza: recolor tag "<name>" (<id>) → <hex>`). Existence is checked with
+`hasOwnProperty`, not truthiness — `refs.tags["constructor"]` is a function off
+`Object.prototype`, and a bare truthiness check wrote a nameless tag to disk.
+`createTag`, `setTaskTags` and the project projection share the same guard.
 
-**Writing it.** A new `setStageRouting(root, pipeline, task, stage, { tool, model })` in `server/bridza-run.js`, modelled on `setTaskReuse` (validate refs → `ensureTaskWorktree` → read/merge/write meta → `commitWorktree`), exposed as `POST /api/bridza/task/routing` in `server/bridge.js` and `api.setStageRouting` in the client. The `StageRunner` picker calls it when the agent or the model changes — at pick time, not at run time — so a choice made and never run still persists. `runStage` also records `{ tool: toolId, model }` into `routing[stage]` as part of the prompt-commit metadata write it already does (`server/bridza-run.js:787`), keeping the saved choice in step with what actually ran, including a fallback to another agent.
+**Shared module.** `TagMenu` moves out of `board.jsx` into
+`src/app/features/tags.jsx`, together with `TagChips`, the `TagManager` dialog,
+and `useTagActions(dir, onChange, flash)` — the four writes the three surfaces
+would otherwise each copy. Pipeline id is a per-call argument, not a hook
+argument, because the plan board spans every pipeline at once and the registry
+is per-pipeline.
 
-**Reading it.** `readTask`'s projection in `server/bridza-store.js` surfaces `routing: meta.routing || {}` on the task, next to `tracking`. Then:
+`TagManager` is portalled to `document.body`: the picker that opens it is an
+absolutely positioned, z-indexed menu, which is a stacking context that would
+otherwise pin the modal underneath the app.
 
-- `StageRunner.remembered()` resolves `routing[def.id].tool` → `lastRunTool(runs)` → `def.tool` → first available tool → `"opencode"`; the model seed resolves `routing[def.id].model` → `lastRunModel(runs)` → `""`.
-- `automate()` in `src/app/features/task.jsx` builds each stage body from `routing[def.id]` first (same precedence), and passes its `model` — instead of today's "no model is ever passed".
-- `runStage` on the server resolves the agent as `body.tool || routing[stage].tool || <stage default>` (and the model likewise) before `resolveRunnableTool`, so any path that reaches the server without an explicit tool — a chain continued after the window closed, a stale client snapshot, another window — still runs the agent the user chose. The client's explicit pick always wins over the stored one.
+The colour input listens for the **native `change`** event, not React's
+`onChange` — a colour input fires `input` continuously while the OS picker is
+dragged, which would be one API round-trip and one git commit per pixel.
 
-**Changing it.** Picking a different agent for that stage overwrites the entry; picking a tool clears the stored model (mirroring the picker's existing `setModel("")` on tool change), and the `×` next to the model box stores `""` = tool default. Nothing clears routing on its own — not finalize, not reopening a stage.
-
-Out of scope: per-pipeline or global agent defaults, a routing editor outside the existing per-stage pickers, changing which agents exist or how they are detected, and back-filling `routing` for tasks that already have run history (their `lastRunTool` fallback already covers them).
+**Plan board** (`src/app/features/plan.jsx`) — `tags` carries into the task
+model. On a node, a right-aligned row of `<circle>`s on the sub-text line
+(`y ≈ 33`), capped at 4; the `<title>` naming all of them lives on the node's own
+`<g>`, so the whole card is the hit area rather than a 7px dot. The pipeline
+label truncates harder when tags are present, so the dots do not sit on it.

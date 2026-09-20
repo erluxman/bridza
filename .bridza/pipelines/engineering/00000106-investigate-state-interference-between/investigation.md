@@ -12,7 +12,7 @@ Task #106 · `engineering/investigate-state-interference-between` · stage `fix`
 | localStorage | `bridza.taskView`, `railHidden`, `canvasLayout` keyed `:<pipeline>/<task>`; `plannerLayout` keyed `:<pipeline>`; a `storage` listener follows another window's auto-advance flip |
 | `plan.json` | client sends only the changed keys with `merge: true`; server patches the per-task maps key-wise (`null` clears) — lists (milestones, pipeDeps) still replace whole |
 | `time.json` | server keeps the **max** per stage — a second window can never wind a clock back |
-| runs | ▸ Run honours `live`; `ACTIVE_RUNS` / `stopRuns` / `/run/stop` carry the repo root |
+| runs | a tab mounting on a stage live elsewhere attaches to it (#110) and holds ▸ Run; `ACTIVE_RUNS` / `attachRun` / `stopRuns` / `/run/stop` carry the repo root |
 | two repos | every browser-side key is prefixed with the repo path (`<dir>\|<pipeline>/<task>`) — same task id in two repos = two keys; the open project rides in the tab's own URL (`?dir=`), localStorage only seeds a fresh tab |
 | paused merge | `_finalize.owner` records the task that parked it; another task's finalize / finish / abort is refused by name instead of being handed the conflict |
 

@@ -90,6 +90,36 @@ export function taskSlug(title, max = 40) {
 // 8 digits covers 1 … 99,999,999, comfortably past the ~10 million target.
 export const REF_WIDTH = 8;
 
+// ── task tags ────────────────────────────────────────────────────────────────
+// Colour VALUES (#rrggbb), not names. A tag's colour is freely pickable, so it
+// cannot be a CSS class any more — chips, dots and plan-board circles carry it
+// inline. These eight stay as the picker's presets, and they are exactly the
+// values the old .tag-<name> rules used, so a tag created before the switch
+// keeps the colour it had. Shared because both the server (validating a write)
+// and the picker (drawing presets) need the list.
+export const TAG_PALETTE = ["#a78bfa", "#818cf8", "#4f9cf2", "#1f9d6b", "#d8a03a", "#e0625f", "#38bdf8", "#f08a3c"];
+
+// A refs.json written before free colours holds a palette NAME. It is mapped on
+// read (readRefs), so old data needs no migration pass — the next write to that
+// file persists the hex, and a repo that is never touched again still renders.
+export const LEGACY_TAG_COLORS = {
+  violet: "#a78bfa", indigo: "#818cf8", blue: "#4f9cf2", emerald: "#1f9d6b",
+  amber: "#d8a03a", rose: "#e0625f", cyan: "#38bdf8", orange: "#f08a3c",
+};
+
+// A stored or submitted colour → "#rrggbb", or "" when it is neither a legacy
+// name nor a hex value. Shorthand expands and case folds down, so the two
+// spellings of one colour compare equal — the picker marks a preset selected by
+// string match, and "#FFF" typed into the colour input must match "#ffffff".
+export function normalizeTagColor(c) {
+  if (typeof c !== "string") return "";
+  const s = c.trim().toLowerCase();
+  if (LEGACY_TAG_COLORS[s]) return LEGACY_TAG_COLORS[s];
+  if (/^#[0-9a-f]{3}$/.test(s)) return "#" + s[1] + s[1] + s[2] + s[2] + s[3] + s[3];
+  return /^#[0-9a-f]{6}$/.test(s) ? s : "";
+}
+
+
 // 17 → "00000017". A ref too wide for REF_WIDTH is NOT truncated — it grows
 // past the width (sorting degrades, identity survives), which is the safe
 // failure for a number that must never collide.

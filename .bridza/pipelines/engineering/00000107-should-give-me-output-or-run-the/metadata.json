@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "should-give-me-output-or-run-the",
+  "pipeline": "engineering",
+  "title": "should give me output or run the application in that branch separately so that I can test it before I merge it.",
+  "ref": 107,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/should-give-me-output-or-run-the",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}

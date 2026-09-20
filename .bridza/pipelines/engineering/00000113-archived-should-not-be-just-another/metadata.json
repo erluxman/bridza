@@ -1,0 +1,99 @@
+{
+  "v": 1,
+  "id": "archived-should-not-be-just-another",
+  "pipeline": "engineering",
+  "title": "archived should not be just another section in the Kanban , It should be hidden and appear when we intentionally want…",
+  "ref": 113,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/archived-should-not-be-just-another",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {
+    "spec": {
+      "tool": "claude",
+      "model": ""
+    },
+    "build": {
+      "tool": "opencode",
+      "model": ""
+    },
+    "review": {
+      "tool": "opencode",
+      "model": ""
+    }
+  },
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {
+    "spec": {
+      "status": "done",
+      "seconds": 77,
+      "runs": [
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: archived should not be just another section in the Kanban , It should be hidden and appear when we intentionally want…",
+          "startedAt": "2026-09-20T19:44:10.061Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T19:45:27.162Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/00000113-archived-should-not-be-just-another/spec/outputs/acceptance.md",
+            ".bridza/pipelines/engineering/00000113-archived-should-not-be-just-another/spec/outputs/spec.md"
+          ],
+          "sessionId": "26f2848b-b40b-4bff-b81c-6d230ac72209",
+          "error": null,
+          "log": "$ claude -p \"Task: archived should not be just another section in the Kanban , It should be hidden and appear when we intentionally want…\" --output-format stream-json --verbose --dangerously-skip-permissions --permission-mode acceptEdits --append-system-prompt \"You are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we'll know it works — n…\"\n· model: TOOL DEFAULT (no --model/-m flag — claude's own config decides)\n· claude ready · claude-fable-5-1 · 74 tools\nWriting spec.md + acceptance.md for task #113. First checking task folder for full intent and where spec goes.\n· Bash D=.bridza/pipelines/engineering/00000113-archived-should-not-be-just-another && ls -la $D…\n· Bash D=.bridza/pipelines/engineering/00000113-archived-should-not-be-just-another && cat $D/co…\n· Bash for t in 00000095-on-the-plan-board-archived-cards-should 00000112-i-should-be-able-to-ch…\n  ✖ Exit code 1\n· Bash B=.bridza/pipelines/engineering; cat $B/00000095-on-the-plan-board-archived-cards-should/…\n· Bash grep -niE \"archiv\" src/app/features/board.jsx | head -40; echo \"--- App.jsx\"; grep -niE \"…\n· Bash O=.bridza/pipelines/engineering/00000113-archived-should-not-be-just-another/spec/outputs…\nDone. Both files written, no commit (bridge owns stage commits).\n\n**Wrote** to `.bridza/pipelines/engineering/00000113-.../spec/outputs/`:\n\n- `spec.md` — what/why/behaviour. Core: drop the `__archived__` column from Kanban (currently appended after Done in `src/app/features/board.jsx:21`), add `🗄 Archive · N` button in board top bar, right-side floating panel lists archived tasks for active pipeline with Restore. Reuses existing `setTaskArchived` API + flashes. Session-only open state. Out of scope: plan-board archive box (#95), pipeline archiving, bulk ops, storage changes.\n- `acceptance.md` — checklist grouped Board / Button / Panel / Regression. Notably flags `kanban-empty-columns.test.jsx` which currently expects an `\"Archived\"` column → must change.\n\n**One assumption flagged in spec:** sort order in panel = most-recently-archived first if timestamp exists, else `ref` desc. Build stage decides based on what store actually records.\n\nNext: build stage.\n· done · 7 turns · 74s · $0.8565"
+        }
+      ]
+    },
+    "build": {
+      "status": "done",
+      "seconds": 495,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: archived should not be just another section in the Kanban , It should be hidden and appear when we intentionally want…\n\narchived should not be just another section in the Kanban view it should be a button on the top bar or title bar where it will open these items from like floating\n dialog from the right but they won't be visible on the pipeline's Kanban view\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-20T19:45:32.641Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T19:53:48.014Z",
+          "exit": 0,
+          "files": [
+            "src/app/__tests__/kanban-empty-columns.test.jsx",
+            "src/app/features/board.jsx"
+          ],
+          "sessionId": "ses_f3fa5c805ffezetqi0J4Dt4Eva",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are an implementer. Implement strictly to the spec; the shortest working diff wins. Reuse what the codebase already has, prefer the …\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n· step · 14569 tokens\n· step · 19605 tokens\n· step · 21264 tokens\n· step · 21819 tokens\n· step · 21860 tokens\n· step · 29175 tokens\n· step · 39100 tokens\n· step · 51903 tokens\n· step · 57641 tokens\n· step · 59405 tokens\n· step · 84677 tokens\n· step · 88321 tokens\n· step · 88506 tokens\n· step · 90604 tokens\n· step · 90849 tokens\n· step · 96500 tokens\nThe implementation is complete, consistent with the specified Kanban board changes and the top-bar archiving mechanism. No additional changes are necessary changes were identified.\n· step · 96555 tokens"
+        }
+      ]
+    },
+    "review": {
+      "status": "done",
+      "seconds": 360,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: archived should not be just another section in the Kanban , It should be hidden and appear when we intentionally want…\n\narchived should not be just another section in the Kanban view it should be a button on the top bar or title bar where it will open these items from like floating\n dialog from the right but they won't be visible on the pipeline's Kanban view\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-20T19:53:48.189Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T19:59:48.614Z",
+          "exit": 0,
+          "files": [],
+          "sessionId": "ses_f3f9e3846ffes8nzFk9LDuS3zT",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, a…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n· step · 14150 tokens\n· step · 15140 tokens\n· step · 16827 tokens\n· step · 21104 tokens\n· step · 26614 tokens\n· step · 27062 tokens\n· step · 27126 tokens\n· step · 29344 tokens\n· step · 29810 tokens\n· step · 30030 tokens\n· step · 37620 tokens\n· step · 37800 tokens\nDone.\n· step · 49699 tokens"
+        }
+      ]
+    }
+  }
+}

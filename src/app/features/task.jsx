@@ -8,6 +8,7 @@ import { slug, runPrompt, fmt, workFiles, base, ago } from "../lib/format.js";
 import { buildStageRecords, lastRunTool, lastRunModel } from "../lib/record.js";
 import { logKey, readLog, appendLog as storeLog } from "../lib/autolog.js";
 import { InspectorView, CanvasView, ChatView, StageRunner } from "./views.jsx";
+import { TagMenu, TagChips, useTagActions } from "./tags.jsx";
 import { Hamburger, ColGrip, useColWidth, Kv, Expandable } from "../ui.jsx";
 import { DiffView, FileModal } from "./diff.jsx";
 import { TermDrawer } from "./term.jsx";
@@ -51,6 +52,7 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   const [resolveOpen, setResolveOpen] = useState(false);
   const [conflict, setConflict] = useState(null);   // #15 — paused merge conflict { files, dir, target }
   const [fileOpen, setFileOpen] = useState(null);   // #7 — path of a file opened in the editor
+  const [creatingPr, setCreatingPr] = useState(false);
   const [automating, setAutomating] = useState(false);   // a chained run is live right now
   // …distinct from the auto-advance SETTING: on by default, per task, remembered
   // across navigation/reload. It only says whether a finished stage may carry the
@@ -78,6 +80,8 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   const toggleRail = () => setRailHidden((h) => { const n = !h; try { localStorage.setItem("bridza.railHidden:" + skey, n ? "1" : "0"); } catch (e) { /* ignore */ } return n; });
   const [plan, setPlan] = useState(null);   // project plan: deps (blocks/needs) + focused-context links
   const [branches, setBranches] = useState([]);   // local branches — the menu for the task's target
+  const [tagPick, setTagPick] = useState(false);   // the rail's Tags row picker
+  const { toggleTag, recolorTag, createAndAssign } = useTagActions(dir, onChange, flash);
   const autoRef = useRef(null);
   const timeRef = useRef({}); const dirtyRef = useRef(false);
   // changing task: restore THIS task's background-run log from the module store
@@ -145,6 +149,31 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
     return () => { on = false; };
   }, [dir, pipeline.id, task.id]);
   useEffect(() => { timeRef.current = stageTime; }, [stageTime]);
+  // the clock never runs behind what the server knows: a stage's committed
+  // run-seconds (a run that finished while the page was away) lift it…
+  useEffect(() => {
+    setStageTime((p) => {
+      let changed = false; const n = { ...p };
+      for (const s of task.stages) { const sec = (task.tracking[s] || {}).seconds || 0; if (sec > (n[s] || 0)) { n[s] = sec; changed = true; } }
+      return changed ? n : p;
+    });
+  }, [task]);
+  // …and so does a live run we re-attached to: the clock it started from plus
+  // the time it has been running since (the page may have been closed for it)
+  const onAttach = useCallback((stageId, r) => {
+    const since = Math.max(0, Math.floor((Date.now() - Date.parse(r.startedAt || 0)) / 1000));
+    const atLeast = (Math.floor(Number(r.wallSeconds) || 0)) + since;
+    setStageTime((p) => (atLeast > (p[stageId] || 0) ? { ...p, [stageId]: atLeast } : p));
+    dirtyRef.current = true;
+  }, []);
+  // follow the work: when the live stage changes (auto-advance moved on while
+  // the page was away, or just now), open that stage so its run is on screen
+  const liveStage = task.stages.find((s) => runningStages && runningStages.has(pipeline.id + "/" + task.id + "/" + s)) || "";
+  const prevLiveRef = useRef("");
+  useEffect(() => {
+    if (liveStage && liveStage !== prevLiveRef.current) setOpenStage(liveStage);
+    prevLiveRef.current = liveStage;
+  }, [liveStage]);
   useEffect(() => { idleRef.current = stageIdle; }, [stageIdle]);
   useEffect(() => { runningRef.current = runningStages; }, [runningStages]);
   useEffect(() => { if (autoRef.current) autoRef.current.scrollTop = autoRef.current.scrollHeight; }, [taskLog, showTerm]);
@@ -194,11 +223,24 @@ setResolveOpen(false);
     else flash(r.error, 4800);
   };
   const createPR = async () => {
+    if (creatingPr) return;
+    setCreatingPr(true);
     flash("creating PR…", 6000);
-    const r = await api.createPR(dir, { pipeline: pipeline.id, task: task.id, target: targetName });
-    if (!r.ok) { flash(r.error, 5000); return; }
-    flash(r.existing ? `PR already exists` : `PR created`, 4000);
-    if (r.url) window.open(r.url, "_blank");
+    try {
+      const r = await api.createPR(dir, { pipeline: pipeline.id, task: task.id, target: targetName });
+      if (r.fallback) {
+        flash(r.error, 5000);
+        if (r.url) window.open(r.url, "_blank");
+        return;
+      }
+      if (!r.ok) { flash(r.error, 5000); return; }
+      flash(r.existing ? `PR already exists · ${r.url}` : `PR created · ${r.url}`, 5000);
+      if (r.url) window.open(r.url, "_blank");
+    } catch (e) {
+      flash("could not reach the server: " + (e && e.message || e), 5000);
+    } finally {
+      setCreatingPr(false);
+    }
   };
   const openVscode = async () => {
     flash("opening VS Code…");
@@ -232,12 +274,9 @@ setResolveOpen(false);
   // stage passes the NEXT index, so an earlier (or never-started) stage is never
   // pulled into the run — you can't auto-advance backwards, least of all into
   // the first stage.
-  const automate = async (from = 0) => {
-    if (automating) return;
-    // Send every stage from `from` on, in order — the SERVER resumes from the
-    // first incomplete one by re-checking the branch tip per stage (this client
-    // snapshot can be stale).
-    const bodies = stageObjs.slice(from).map((def) => {
+  // the run bodies for every stage from `from` on, in order — what Automate
+  // sends, and what a manual ▸ Run hands the server as its `advance` chain
+  const bodiesFrom = (from) => stageObjs.slice(from).map((def) => {
       // the agent+model saved for the stage (task.routing) wins, then the one it
       // last ran on, then the stage default — so auto-advance never resets a pick
       const routed = (task.routing && task.routing[def.id]) || {};
@@ -251,6 +290,23 @@ setResolveOpen(false);
         stageName: def.name || def.id, taskTitle: task.title,
       };
     });
+  // What a stage started by hand should carry on to when it ends done: the
+  // stages AFTER it (never backwards, never into an untouched first stage),
+  // only while auto-advance is on and the task isn't finalized. The server runs
+  // that chain itself — this page can refresh, close, or be one of many.
+  const advanceFor = (stageId) => {
+    if (!autoAdvance || task.finalized) return [];
+    const next = task.stages.indexOf(stageId) + 1;
+    if (next <= 0 || next >= task.stages.length) return [];
+    if (task.stages.slice(next).every((s) => (task.tracking[s] || {}).status === "done")) return [];
+    return bodiesFrom(next);
+  };
+  const automate = async (from = 0) => {
+    if (automating) return;
+    // Send every stage from `from` on, in order — the SERVER resumes from the
+    // first incomplete one by re-checking the branch tip per stage (this client
+    // snapshot can be stale).
+    const bodies = bodiesFrom(from);
     if (!bodies.length) { flash("This task has no stages.", 4000); return; }
     setAutomating(true);
     const append = appendLog;
@@ -276,18 +332,11 @@ setResolveOpen(false);
   // Once a stage the user started finishes, this carries the task FORWARD
   // through the stages after it (#39). So the first stage of a task always waits
   // for a person, and a failed/stopped stage doesn't silently chain on.
-  const stageDone = (end, stageId) => {
+  // The chain itself runs on the server (see advanceFor): here we only refresh
+  // what's on screen and say that the task is carrying on.
+  const stageDone = (end) => {
     onChange(); loadTimeline();
-    if (!autoAdvance || automating || task.finalized) return;
-    if (!end || end.status !== "done") return;
-    const next = task.stages.indexOf(stageId) + 1;
-    if (next <= 0 || next >= task.stages.length) return;   // unknown stage, or the last one
-    if (task.stages.slice(next).every((s) => (task.tracking[s] || {}).status === "done")) return;
-    // another stage of this task already running (another window) → let it be.
-    // The stage that just finished doesn't count: this snapshot of the live set
-    // can still list it, the run is over.
-    const liveHere = runningStages && [...runningStages].some((k) => k.startsWith(key + "/") && k !== key + "/" + stageId);
-    if (!liveHere) automate(next);
+    if (end && end.advancing) flash(`Auto-advancing — ${end.advancing} stage(s) continue on the server`, 5000);
   };
 
   // #15 — commit history (the timeline) leads the rail, ahead of blast radius.
@@ -385,7 +434,7 @@ setResolveOpen(false);
               → {handoff.tf.name}
             </button>
           )}
-          <button className="btn primary" onClick={createPR} title={`Create a PR for ${task.branch} → ${targetName}`}>Create PR</button>
+          <button className="btn primary" onClick={createPR} disabled={creatingPr} title={`Create a PR for ${task.branch} → ${targetName}`}>{creatingPr ? "Creating PR…" : "Create PR"}</button>
           <button className="btn" onClick={() => finalize()} disabled={task.finalized} title={`Merge this task's branch into ${targetName}`}>{task.finalized ? "Finalized" : `Finalize → ${targetName}`}</button>
         </div>
       </div>
@@ -405,7 +454,7 @@ setResolveOpen(false);
             {runLogCard}
             {(() => {
               const records = buildStageRecords(pipeline, task, timeline, runningStages, stageTime);
-              const runner = { dir, pipeline, task, tools, flash, brief: briefBody, onLog: appendLog, onActivity: markActivity, onDone: stageDone, runningStages };
+              const runner = { dir, pipeline, task, tools, flash, brief: briefBody, onLog: appendLog, onActivity: markActivity, onDone: stageDone, onAttach, advanceFor, runningStages };
               const shared = { onDiff: setDiffCommit, onOpenFile: setFileOpen, runner };
               const activeId = activeStage || openStage || (records[0] && records[0].id);
               if (view === "inspector") return <InspectorView records={records} activeId={activeId} setActiveId={setActiveStage} {...shared} />;
@@ -427,7 +476,7 @@ setResolveOpen(false);
               live={runningStages && runningStages.has(pipeline.id + "/" + task.id + "/" + def.id)} brief={briefBody}
               tools={tools} seconds={stageTime[def.id] || 0} open={openStage === def.id} inputFiles={inputFiles} onOpenFile={setFileOpen} onActivity={markActivity}
               onToggle={() => setOpenStage(openStage === def.id ? "" : def.id)}
-              onDone={stageDone} flash={flash} onDiff={setDiffCommit} resultFor={resultFor} onLog={appendLog} />
+              onDone={stageDone} flash={flash} onDiff={setDiffCommit} resultFor={resultFor} onLog={appendLog} onAttach={onAttach} advanceFor={advanceFor} />
             );
           })}
         </div>
@@ -444,6 +493,21 @@ setResolveOpen(false);
             {task.ref && <Kv k="Ref" v={<span className="mono">#{task.ref}</span>} />}
             <Kv k="Status" v={task.finalized ? "finalized" : task.status} />
             <Kv k="Branch" v={<span className="mono" style={{ fontSize: 11 }}>{task.branch}</span>} />
+            <div className="kv" style={{ alignItems: "flex-start", flexWrap: "wrap" }}>
+              <span>Tags</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, flexWrap: "wrap" }}>
+                <TagChips tags={task.tags} style={{ marginTop: 0, justifyContent: "flex-end" }} />
+                <button className="btn ghost sm" disabled={task.finalized} title="Add, remove or recolour this task's tags"
+                  onClick={() => setTagPick((v) => !v)}>{(task.tags || []).length ? "edit" : "add"}</button>
+              </div>
+              {tagPick && (
+                <TagMenu task={task} registry={pipeline.tags || {}}
+                  style={{ position: "static", right: "auto", top: "auto", minWidth: 0, width: "100%", marginTop: 8 }}
+                  onToggle={(id) => toggleTag(pipeline.id, task.id, task.tags, id)}
+                  onCreate={(name, color) => createAndAssign(pipeline.id, task.id, task.tags, name, color)}
+                  onRecolor={recolorTag} onClose={() => setTagPick(false)} />
+              )}
+            </div>
             <div className="kv" title="The branch this task's work lands on — forks from it, reviews diff against it, finalize merges into it">
               <span>Target</span>
               <select className="input" style={{ height: 26, fontSize: 12, width: 130 }} value={targetName} disabled={task.finalized}
@@ -771,9 +835,13 @@ function BlastRadius({ dir, pipeline, task, refreshKey, onOpen }) {
   );
 }
 
-function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle, onDone, flash, onDiff, resultFor, live, onLog, inputFiles = [], onOpenFile, onActivity, brief = "" }) {
+function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle, onDone, flash, onDiff, resultFor, live, onLog, inputFiles = [], onOpenFile, onActivity, onAttach, advanceFor, brief = "" }) {
   const runs = track.runs || [];
   const [running, setRunning] = useState(false);   // lifted from StageRunner for the header (stop/tag)
+  // how the stage's last run ENDED, from the runner: failed/stopped runs are
+  // never committed, so without this the header would say "idle" right after
+  // a failure — or after a failure that happened while the page was away
+  const [ended, setEnded] = useState(null);
   const [histOpen, setHistOpen] = useState(false);
 
   // Roll the BRANCH back to before this stage: its commit and every later
@@ -802,7 +870,8 @@ function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle
           {(() => {
             // committed metadata can say "running" after a crashed/killed run —
             // without a live server run that's "interrupted", not running.
-            const status = running || live ? "running" : track.status === "running" ? "interrupted" : (track.status || "idle");
+            const lastFailed = ended && ended.status && !["done", "busy"].includes(ended.status) && track.status !== "done" ? ended.status : null;
+            const status = running || live ? "running" : lastFailed ? lastFailed : track.status === "running" ? "interrupted" : (track.status || "idle");
             return <span className={"tag " + status}>{status}</span>;
           })()}
         </div>
@@ -810,7 +879,7 @@ function Stage({ dir, pipeline, task, def, track, tools, seconds, open, onToggle
       {open && (
         <div className="stage-body">
           <StageRunner dir={dir} pipeline={pipeline} task={task} def={def} track={track} tools={tools} live={live} seconds={seconds} brief={brief}
-            onDone={onDone} flash={flash} onLog={onLog} onActivity={onActivity} onRunning={setRunning} />
+            onDone={onDone} flash={flash} onLog={onLog} onActivity={onActivity} onRunning={(on) => { setRunning(on); if (on) setEnded(null); }} onEnded={setEnded} onAttach={onAttach} advanceFor={advanceFor} />
           {def.specs && def.specs.filter((v) => v.key && String(v.value || "").trim()).length > 0 && (
             <div className="muted" style={{ fontSize: 12, marginTop: 8 }} title="Appended to every run's prompt as hard requirements">
               specs: {def.specs.filter((v) => v.key && String(v.value || "").trim()).map((v, k) => <code key={k} className="iochip" style={{ marginRight: 4 }}>{specLabel(v.key)}: {v.value}</code>)}

@@ -15,8 +15,87 @@
     "build",
     "review"
   ],
-  "routing": {},
+  "routing": {
+    "build": {
+      "tool": "claude",
+      "model": ""
+    },
+    "review": {
+      "tool": "opencode",
+      "model": ""
+    }
+  },
   "status": "in-progress",
   "finalized": false,
-  "tracking": {}
+  "tracking": {
+    "spec": {
+      "status": "done",
+      "seconds": 99,
+      "runs": [
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: terminal state restoration in task details",
+          "startedAt": "2026-09-20T15:09:20.818Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T15:10:59.730Z",
+          "exit": 0,
+          "files": [
+            "acceptance.md",
+            "spec.md"
+          ],
+          "sessionId": "d4b4fae2-4fa5-40ac-84c3-d34ce562c4ca",
+          "error": null,
+          "log": "$ claude -p \"Task: terminal state restoration in task details\" --output-format stream-json --verbose --dangerously-skip-permissions --permission-mode acceptEdits --append-system-prompt \"You are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we'll know it works — n…\"\n· model: TOOL DEFAULT (no --model/-m flag — claude's own config decides)\n· claude ready · claude-opus-5 · 25 tools\nI'll look at the task metadata first to get the actual intent.\n· Bash ls -la .bridza/pipelines/engineering/00000102-terminal-state-restoration-in-task/ && cat …\n· Bash cat .bridza/pipelines/engineering/00000102-terminal-state-restoration-in-task/context.md …\n· Bash cat .bridza/pipelines/engineering/00000102-terminal-state-restoration-in-task/spec/prompt…\n· Bash wc -l spec.md acceptance.md && head -40 spec.md && echo \"=== ACC ===\" && head -20 accepta…\nStale artifacts from task #95. Need to explore the terminal impl before writing.\n· Bash grep -ril \"terminal\\|xterm\\|node-pty\" --include=\"*.js\" --include=\"*.jsx\" --include=\"*.ts\"…\n· Bash wc -l src/app/features/term.jsx && cat src/app/features/term.jsx\n· Bash grep -n \"pty\\|Pty\\|PTY\" server/bridge.js | head -60\n· Bash sed -n '100,175p' server/bridge.js\n· Bash grep -n \"TermDrawer\\|term\\b\\|Term\\|⌨\" src/app/features/task.jsx src/app/features/board.js…\n· Bash grep -n \"listActiveRuns\\|const runs\\|Map()\" server/bridza-run.js | head -20 && echo \"=== …\n  ✖ Exit code 1\n· Bash node -e \"console.log(JSON.stringify(require('./package.json').scripts,null,1))\" && sed -n…\nFull picture. Writing the spec now — replacing the stale task-#95 artifacts.\n· Write /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/terminal-state-restora…\n· Write /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/terminal-state-restora…\nWrote `spec.md` + `acceptance.md` (overwrote stale task-#95 artifacts that were sitting in the worktree root).\n\n**Root cause found:** `server/bridge.js:149` — `ws.on(\"close\", () => p.kill())`. `TermDrawer`'s effect cleanup closes the socket on unmount, so every tab switch kills the shell. Client-side bug, server-side fix.\n\n**Key spec decision:** intent said *\"if possible restore in UI, otherwise pop out native terminal (kitty)\"*. It is possible — the PTY already lives in the long-lived bridge process, only the close→kill wiring binds it to a browser tab. So: in-app restoration, native popout dropped. Keeps existing font/ligature settings, cwd header, worktree resolution.\n\n**Shape:** `SESSIONS` map in bridge.js keyed by resolved cwd (already distinguishes repo root vs. each task worktree). Detach clears the socket, leaves the PTY. 256 KB rolling output buffer replayed on reattach. ✕ sends a new `{t:\"kill\"}` frame so explicit close still kills.\n\nTwo things I added that weren't in the intent, both load-bearing:\n- **30-min idle reaping of detached sessions** — without it, not killing on detach leaks one shell per terminal ever opened, for the bridge's lifetime. That's a defect the fix would introduce, not a nice-to-have.\n- **Explicit kill frame** — otherwise removing the kill leaves no way to end a shell at all.\n\nScoped out and stated: surviving a dev-server restart, any \"running terminals\" UI, two panes sharing one session.\n\nOne honest limit in the spec: replay is scrollback bytes, not terminal-state emulation. A full-screen TUI (vim, htop) repaints on its next frame or the reattach resize rather than restoring pixel-exact.\n· done · 14 turns · 97s · $0.6985"
+        }
+      ]
+    },
+    "build": {
+      "status": "done",
+      "seconds": 286,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: terminal state restoration in task details\n\nwhen we press on terminal on a card/task details it should pop out a terminal in that particular directory/branch  instead of showing it as a react component because it does not persist when i make it away from it, when i come back to  terminal after going to different part of the app, that terminal session is already closed . If it is possible to restore the terminal, then keep it in the UI behind that terminal button, otherwise, pop that terminal out in a native terminal window  (like kitty)\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-20T15:11:05.283Z",
+          "status": "running"
+        },
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: terminal state restoration in task details\n\nwhen we press on terminal on a card/task details it should pop out a terminal in that particular directory/branch  instead of showing it as a react component because it does not persist when i make it away from it, when i come back to  terminal after going to different part of the app, that terminal session is already closed . If it is possible to restore the terminal, then keep it in the UI behind that terminal button, otherwise, pop that terminal out in a native terminal window  (like kitty)\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-20T16:00:24.341Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T16:05:10.787Z",
+          "exit": 0,
+          "files": [],
+          "sessionId": "8ef00d4b-30fa-4987-bf30-a294d76d45d8",
+          "error": null,
+          "log": "ier pipeline stages to judge flow fit.\n· Bash ls -la /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/terminal-state-…\n· Bash for f in spec.md acceptance.md repro.md review.md; do echo \"=====$f=====\"; cat $f; done\nSpec + acceptance are for this task (repro.md/review.md are leftovers from other tasks). Single bounded change — fits \"Feature\". Proceeding.\n· Bash cat -n server/bridge.js && echo \"=====TERM=====\" && cat -n src/app/features/term.jsx\n· Bash grep -n \"pty\\|Pty\\|PTY\\|upgrade\\|Upgrade\" server/bridge.js | head -60\n· Bash git status --short && echo \"---DIFF main---\" && git diff main...HEAD --stat && echo \"---S…\nServer side is already implemented on this branch. Checking client + tests.\n· Bash git diff main...HEAD -- src/app/features/term.jsx && echo \"=====TESTS=====\" && ls src/app…\n· Bash sed -n '1,80p' src/app/__tests__/bridza-store.test.js && echo \"=====PKG=====\" && cat pack…\n· Bash grep -n \"function repoRoot\" -A 12 server/bridge.js\n· Bash grep -n \"function resolveDir\" -A 8 server/bridge.js\nNow the missing piece per acceptance: the server-side session test.\n· Write /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/terminal-state-restora…\n· Bash pnpm vitest run src/app/__tests__/pty-session.test.js 2>&1 | tail -50\n· Bash python3 - <<'EOF'\n· Bash pnpm vitest run src/app/__tests__/pty-session.test.js 2>&1 | tail -40\n3/4 pass. The first-attach failure is a real race in the server, not the test: `ws.on(\"message\")` is registered only after `await import(\"node-pty\")`, so frames sent in that window are dropped.\n· Bash python3 - <<'PYEOF'\nNow simplify the client's empty `onclose` and re-run.\n· Bash python3 - <<'PYEOF'\nAll four pass, and the suite dropped from 11s to 1.7s — the race was the whole delay. Now the full gate:\n· Bash pnpm test 2>&1 | tail -15 && echo \"=====LINT=====\" && pnpm lint 2>&1 | tail -15 && echo \"…\nOne cleanup: a `kill` (or self-exit) followed by socket close still arms a 30-minute reap timer for a session already dropped from the map.\n· Bash python3 - <<'PYEOF'\n· Bash git add -A server src && git commit -q -m \"$(cat <<'EOF'\n**Flow fit: Feature — correct.** Single bounded change, one module + one component. No flow-fit.md needed.\n\n## State found\n\nServer session map + client kill frame already on branch from build stage. Missing: the test acceptance requires. Writing it surfaced a real bug.\n\n## Bug found + fixed\n\n`server/bridge.js:124` — first attach registered `ws.on(\"message\")` only *after* `await import(\"node-pty\")`. `message` with no listener → dropped. So client's opening `resize` + early keystrokes vanished on every fresh terminal; pane sat unresponsive until next ResizeObserver tick. Test hung 10s on first command, 1.5s after fix — that delay *was* the bug.\n\nFix: listen immediately, queue frames into `pending`, flush once PTY exists. Client closing mid-spawn → detach applied after session lands.\n\nTwo smaller ones:\n- `detach()` armed a 30-min reap timer for sessions already killed/exited. Guard added.\n- Dropped empty `ws.onclose` in `term.jsx` — detach needs no handler, only `err`/`exit` retire pane.\n\n## Test added\n\n`src/app/__tests__/pty-session.test.js` — real shell, real socket, no internals poked:\n- attach → detach → reattach: same process, same env vars, plus background output printed *while detached* replays\n- explicit `kill` → next attach is fresh shell, empty buffer\n- `exit 3` → exit frame w/ code, next attach fresh\n- two cwds → two sessions, neither kills the other\n\n## Gate\n\n`pnpm test` 244/244 (240 → +4) · `pnpm lint` clean · `pnpm build` ok.\n\n## Not machine-verified\n\nAcceptance items needing a browser: font/ligature settings surviving reattach, cwd header after reattach, no leftover \"disconnected\" banner, 30-min reap window (code-level only), buffer cap behavior. Code paths unchanged for the font/header ones, but they want an eyeball before sign-off.\n\nCommitted `8caf513`. Pipeline metadata + `build/` left uncommitted as found.\n· done · 19 turns · 283s · $1.4856"
+        }
+      ]
+    },
+    "review": {
+      "status": "done",
+      "seconds": 286,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: terminal state restoration in task details\n\nwhen we press on terminal on a card/task details it should pop out a terminal in that particular directory/branch  instead of showing it as a react component because it does not persist when i make it away from it, when i come back to  terminal after going to different part of the app, that terminal session is already closed . If it is possible to restore the terminal, then keep it in the UI behind that terminal button, otherwise, pop that terminal out in a native terminal window  (like kitty)\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-20T16:05:16.346Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T16:10:02.441Z",
+          "exit": 0,
+          "files": [
+            "review.md"
+          ],
+          "sessionId": "ses_f406f71f9ffevoQ1uNO4S0qk1L",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a reviewer. Check the implementation against acceptance.md. Also flag over-engineering: unused flexibility, reinvented stdlib, a…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n· step · 14185 tokens\n· step · 14359 tokens\n· step · 15017 tokens\n· step · 15497 tokens\n· step · 16588 tokens\n· step · 16802 tokens\n· step · 26026 tokens\n· step · 28025 tokens\n· step · 28988 tokens\n· step · 31362 tokens\nThe terminal state restoration is implemented and ready for merge. I have verified the implementation against `acceptance.md`, ensured it is merge-ready into `main`, and reviewed it for potential over-engineering (none found). `found`). `review.md` details the findings.\n· step · 31436 tokens"
+        }
+      ]
+    }
+  }
 }

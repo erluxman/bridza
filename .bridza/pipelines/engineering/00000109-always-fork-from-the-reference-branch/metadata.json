@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "always-fork-from-the-reference-branch",
+  "pipeline": "engineering",
+  "title": "Always fork from the reference branch that will finally be merged into if you are going to change the code or any…",
+  "ref": 109,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/always-fork-from-the-reference-branch",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}

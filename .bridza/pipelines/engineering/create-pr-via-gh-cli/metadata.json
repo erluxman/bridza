@@ -6,6 +6,43 @@
   "type": "subtask",
   "status": "in-progress",
   "finalized": false,
-  "stages": ["spec", "build", "review"],
-  "tracking": {}
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "tracking": {
+    "spec": {
+      "status": "done",
+      "seconds": 87,
+      "runs": [
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: Create PR button — direct GitHub CLI (gh) path\n\n## Intent\n\nSecond half of the \"Create PR button in task detail alongside merge with main.\"\nfeature. Reuses the **Create PR** button and remote-resolution helper from\n`create-pr-browser-compose-link` and upgrades it: when the GitHub CLI (`gh`)\nis installed AND authenticated, clicking the button CREATES the PR directly\n(non-interactive, no browser round trip) and flashes the resulting PR URL.\n\nServer (reuse `toolAvailable(\"gh\")` in `server/bridza-run.js`, and the resolution\nhelper / `taskTarget` / `taskBranchName` from the sibling subtask):\n\n- `gh` present + authenticated → push the task branch to origin if it has no\n  upstream, then run non-interactively\n  `gh pr create --base <target> --head <task-branch> --title \"<task title>\" --body \"<brief>\"`,\n  return `{ ok: true, url }`.\n- `gh` missing OR `gh auth status` failing → `{ ok: false, fallback: true }`\n  and a clear message; the UI then falls back to the browser compose link, so\n  the user is never left without a path.\n\nUI (`src/app/features/task.jsx`): while creating, the button shows a busy state;\non success flash the PR URL; on fallback open the compose link.\n\n## Acceptance Criteria\n\n- [ ] Bridge route detects `gh`; missing gh returns `{ ok:false, fallback:true }`\n      and the button falls back to the compose link (never a dead click).\n- [ ] `gh auth status` failure is caught and also falls back with a readable\n      message (\"not logged in to GitHub CLI\").\n- [ ] With gh available, calling creates the PR for `<task-branch>` →\n      `<target>` with the task title, and returns the real PR URL.\n- [ ] Branch is pushed to origin before `gh pr create` when it has no upstream;\n      push failure is surfaced as a clear error.\n- [ ] vitest coverage in `src/app/__tests__/` with a stubbed `gh` on PATH\n      (existing `BRIDZA_TOOL_OVERRIDE` / execFileSync pattern): happy path args,\n      missing-gh fallback, unauthenticated fallback.\n- [ ] `pnpm test`, `pnpm lint`, `pnpm build` pass.",
+          "startedAt": "2026-09-20T15:58:57.241Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T16:00:23.990Z",
+          "exit": 0,
+          "files": [
+            "acceptance.md",
+            "spec.md"
+          ],
+          "sessionId": "f3029c89-d47d-4d32-a0a2-dcdc0ee0a98b",
+          "error": null,
+          "log": "$ claude -p \"Task: Create PR button — direct GitHub CLI (gh) path\\n\\n## Intent\\n\\nSecond half of the \\\"Create PR button in task detail alongside merge with main.\\\"\\nfeature. Reu…\" --output-format stream-json --verbose --dangerously-skip-permissions --permission-mode acceptEdits --append-system-prompt \"You are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we'll know it works — n…\"\n· model: TOOL DEFAULT (no --model/-m flag — claude's own config decides)\n· claude ready · claude-opus-5 · 25 tools\n· Bash ls -la .bridza/pipelines/engineering/create-pr-via-gh-cli/ 2>/dev/null && echo \"--- spec …\n· Bash ls && echo \"--- server ---\" && ls server 2>/dev/null | head -30 && echo \"--- tests ---\" &…\n· Bash echo \"===== spec.md =====\" && cat spec.md && echo \"===== acceptance.md =====\" && cat acce…\n· Bash echo \"===== context.md =====\" && cat .bridza/pipelines/engineering/create-pr-via-gh-cli/c…\n· Bash grep -n \"toolAvailable\\|BRIDZA_TOOL_OVERRIDE\" server/*.js | head -40 && echo \"=== compose…\n· Bash grep -n \"mergeMain\\|merge-main\\|merge_with_main\\|mergeWithMain\" -r server src/app --inclu…\n· Bash sed -n '1500,1620p' server/bridza-run.js\n· Bash grep -n \"createPR\\|create-pr\" server/bridge.js src/app/features/task.jsx src/app/*.js* 2>…\n· Bash sed -n '170,215p' src/app/features/task.jsx && echo \"=== btn area ===\" && sed -n '365,385…\n· Bash sed -n '325,345p' server/bridge.js && echo \"=== push refs ===\" && grep -n \"\\\"push\\\"\\|upst…\n· Bash head -40 src/app/__tests__/bridza-run.test.js && echo \"=== PATH/stub patterns ===\" && gre…\n· Bash sed -n '535,555p' server/bridza-run.js && echo \"=== api client ===\" && grep -n \"createPR\"…\n· Write /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/create-pr-via-gh-cli/s…\n· Write /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/create-pr-via-gh-cli/a…\nWrote `spec.md` + `acceptance.md` (root files held stale logo-heartbeat content → overwritten).\n\nGrounding found while reading code — matters for impl:\n\n- `createPR()` already exists at `server/bridza-run.js:1543` with a `gh` branch + existing-PR lookup. Missing: auth gate, push-if-no-upstream, fallback contract.\n- Current no-`gh` path returns `{ ok: true, url: composeUrl }` → UI can't distinguish created vs compose. Spec changes it to `{ ok:false, fallback:true, url: compareUrl }`, compose URL still on response.\n- Push failure = real error, not fallback (compose link also useless if branch not on origin).\n- `BRIDZA_TOOL_OVERRIDE` is stage-tool only; doesn't reach `gh`. `toolAvailable` = `which <bin>`, and `createPR` calls `execFileSync(\"gh\", …)` → tests must stub via temp bin dir prepended to `PATH`. Spec says that.\n\nOut of scope: draft/reviewers/labels, PR templates, body editing in UI, checks/status, non-GitHub remotes, auto-installing gh.\n· done · 15 turns · 80s · $0.6761"
+        }
+      ]
+    }
+  },
+  "target": "better_merge_mechanism",
+  "flow": "feature",
+  "template": "",
+  "routing": {
+    "spec": {
+      "tool": "claude",
+      "model": ""
+    }
+  },
+  "branch": "bridza/engineering/create-pr-via-gh-cli"
 }

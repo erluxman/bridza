@@ -50,10 +50,10 @@ export function Expandable({ text, lines = 3, className = "", style }) {
   );
 }
 
-export function Modal({ title, children, onClose, onConfirm, confirm }) {
+export function Modal({ title, children, onClose, onConfirm, confirm, wide }) {
   return (
     <div className="modal-bg" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className={"modal" + (wide ? " wide" : "")} onClick={(e) => e.stopPropagation()}>
         <h2 style={{ marginTop: 0, fontSize: 17 }}>{title}</h2>
         {children}
         <div className="spread" style={{ marginTop: 16 }}>

@@ -14,7 +14,7 @@ const api = vi.hoisted(() => ({
   getPlan: vi.fn(), getTimeline: vi.fn(), getContext: vi.fn(), fetchTime: vi.fn(),
   getBlast: vi.fn(), getModels: vi.fn(), getBranches: vi.fn(), automate: vi.fn(),
   runStage: vi.fn(), stopRun: vi.fn(), saveTime: vi.fn(), finalize: vi.fn(), openEditor: vi.fn(),
-  finishConflict: vi.fn(), abortConflict: vi.fn(), openConflict: vi.fn(), setStageRouting: vi.fn(),
+  finishConflict: vi.fn(), abortConflict: vi.fn(), openConflict: vi.fn(), setStageRouting: vi.fn(), attachRun: vi.fn(),
 }));
 vi.mock("../api/client.js", () => api);
 vi.mock("../features/term.jsx", () => ({ TermDrawer: () => null }));
@@ -76,6 +76,7 @@ beforeEach(() => {
   api.getModels.mockResolvedValue({ models: [] });
   api.getBranches.mockResolvedValue({ branches: ["main"] });
   api.saveTime.mockResolvedValue({ ok: true });
+  api.attachRun.mockImplementation((_dir, _body, onEvent) => { const e = { t: "end", none: true }; onEvent(e); return Promise.resolve(e); });
   api.finishConflict.mockResolvedValue({ ok: true, target: "main" });
 });
 

@@ -14,7 +14,7 @@ import { __resetLogs } from "../lib/autolog.js";
 const api = vi.hoisted(() => ({
   getPlan: vi.fn(), getTimeline: vi.fn(), getContext: vi.fn(), fetchTime: vi.fn(),
   getBlast: vi.fn(), getModels: vi.fn(), getBranches: vi.fn(), automate: vi.fn(),
-  runStage: vi.fn(), stopRun: vi.fn(), saveTime: vi.fn(), finalize: vi.fn(), openEditor: vi.fn(),
+  runStage: vi.fn(), stopRun: vi.fn(), saveTime: vi.fn(), finalize: vi.fn(), openEditor: vi.fn(), attachRun: vi.fn(),
 }));
 vi.mock("../api/client.js", () => api);
 // term/diff pull in xterm (a dynamic import of @xterm/addon-ligatures that
@@ -87,11 +87,16 @@ beforeEach(() => {
     onEvent({ t: "out", d: "measuring the floor…" });
     return defer().promise;   // hold the run open so the pane stays live
   });
-  api.runStage.mockImplementation((_dir, _body, onEvent) => {
+  api.runStage.mockImplementation((_dir, body, onEvent) => {
     onEvent({ t: "out", d: "measuring the floor…" });
-    return Promise.resolve({ status: "done", exit: 0 });
+    // the server answers like the real one: a done stage with a chain says so
+    return Promise.resolve({ status: "done", exit: 0, advancing: body.advance && body.advance.length ? body.advance.length : undefined });
   });
+  // nothing live on the server unless a test says otherwise
+  api.attachRun.mockImplementation((_dir, _body, onEvent) => { const e = { t: "end", none: true }; onEvent(e); return Promise.resolve(e); });
 });
+// the `advance` chain a ▸ Run press handed the server (stage ids), per call
+const advanced = (i = 0) => (api.runStage.mock.calls[i][1].advance || []).map((s) => s.stage);
 
 afterEach(() => {
   pendings.forEach((p) => p.resolve({ ok: true, exit: 0 }));
@@ -138,15 +143,17 @@ describe("opening a task starts nothing", () => {
   });
 });
 
-describe("auto-advance chains FORWARD from a stage you started", () => {
+describe("auto-advance chains FORWARD from a stage you started — the chain is handed to the server with the run", () => {
   it("carries on after the first stage is run by hand — sending only the stages after it", async () => {
     mount();
     await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
     await runOpenStage();   // ▸ Run on Planning — the explicit start
-    await vi.waitFor(() => expect(api.automate).toHaveBeenCalledTimes(1));
-    const sent = api.automate.mock.calls[0][1].stages;
-    expect(sent.map((s) => s.stage)).toEqual(["build"]);   // never back into the first stage
-    expect(host.querySelector(".term").parentElement.querySelector(".side-label").textContent).toMatch(/Auto-advancing/);
+    expect(api.runStage).toHaveBeenCalledTimes(1);
+    expect(advanced()).toEqual(["build"]);           // never back into the first stage
+    expect(api.automate).not.toHaveBeenCalled();     // no second request: the server carries on by itself
+    // the chain's bodies are full run bodies, like Automate's
+    expect(api.runStage.mock.calls[0][1].advance[0]).toMatchObject({ pipeline: "eng", task: "t506", stage: "build", stageName: "Build" });
+    expect(host.querySelector(".term").textContent).toMatch(/continue on the server/);
   });
 
   it("never reaches back: running a middle stage advances forward only, skipping the unrun first stage", async () => {
@@ -158,8 +165,7 @@ describe("auto-advance chains FORWARD from a stage you started", () => {
     await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
     openStage("Build");                 // Planning has never run
     await runOpenStage();
-    await vi.waitFor(() => expect(api.automate).toHaveBeenCalledTimes(1));
-    expect(api.automate.mock.calls[0][1].stages.map((s) => s.stage)).toEqual(["review"]);
+    expect(advanced()).toEqual(["review"]);
   });
 
   it("does not advance past the LAST stage", async () => {
@@ -167,25 +173,62 @@ describe("auto-advance chains FORWARD from a stage you started", () => {
     mount({ task: { ...task, tracking: { planning: { status: "done" } } } });
     await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
     await runOpenStage();
-    await act(async () => { await Promise.resolve(); });
+    expect(advanced()).toEqual([]);
     expect(api.automate).not.toHaveBeenCalled();
   });
 
-  it("does not advance when the stage did not finish done", async () => {
-    api.runStage.mockResolvedValue({ status: "failed", exit: 1, error: "nope" });
+  it("a failed stage shows why, and starts nothing more here (the server decides the chain)", async () => {
+    api.runStage.mockResolvedValue({ status: "failed", exit: 1, error: "nope: provider quota" });
     mount();
     await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
     await runOpenStage();
     await act(async () => { await Promise.resolve(); });
     expect(api.automate).not.toHaveBeenCalled();
+    expect(host.querySelector(".stage-run .term").textContent).toContain("✖ nope: provider quota");
+  });
+});
+
+describe("a refresh mid-run: the page re-attaches to the run on the server", () => {
+  it("shows the live run's text so far, keeps ▸ Run disabled, streams on, and frees the button at its end", async () => {
+    let finish;
+    api.attachRun.mockImplementation((_dir, body, onEvent) => {
+      expect(body).toMatchObject({ pipeline: "eng", task: "t506", stage: "planning" });
+      onEvent({ t: "replay", live: true, log: "measuring the floor…\n", startedAt: new Date().toISOString(), tool: "opencode", wallSeconds: 3 });
+      return new Promise((r) => { finish = (end) => { onEvent(end); r(end); }; });
+    });
+    mount({ runningStages: new Set(["eng/t506/planning"]) });
+    await vi.waitFor(() => expect(api.attachRun).toHaveBeenCalledTimes(1));
+    await act(async () => { await Promise.resolve(); });
+    const btn = host.querySelector(".stage-run .btn.primary");
+    expect(btn.disabled).toBe(true);
+    expect(btn.textContent).toBe("Running…");
+    expect(host.querySelector(".stage-run .term").textContent).toContain("measuring the floor");
+    // the task-level pane is up too, labelled live, with the replayed text
+    const pane = host.querySelector(".card .term");
+    expect(pane.parentElement.querySelector(".side-label").textContent).toMatch(/LIVE RUN/);
+    expect(pane.textContent).toContain("reattached");
+    expect(api.runStage).not.toHaveBeenCalled();     // attached, not restarted
+    await act(async () => { finish({ t: "end", status: "done", exit: 0, advancing: 1 }); await Promise.resolve(); });
+    expect(host.querySelector(".stage-run .btn.primary").disabled).toBe(false);
+    expect(host.querySelector(".stage-run .term").textContent).toMatch(/1 stage\(s\) continue on the server/);
   });
 
-  it("does not advance while another stage of the task is live elsewhere", async () => {
-    mount({ runningStages: new Set(["eng/t506/build"]) });
-    await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
-    await runOpenStage();
+  it("a run that failed while the page was away shows its text and the reason, without touching ▸ Run", async () => {
+    api.attachRun.mockImplementation((_dir, _body, onEvent) => {
+      onEvent({ t: "replay", live: false, log: "[agent] thinking\n" });
+      const end = { t: "end", replayed: true, status: "failed", exit: 1, error: "tool exited with code 1" };
+      onEvent(end); return Promise.resolve(end);
+    });
+    mount();
+    await vi.waitFor(() => expect(api.attachRun).toHaveBeenCalled());
     await act(async () => { await Promise.resolve(); });
-    expect(api.automate).not.toHaveBeenCalled();
+    const term = host.querySelector(".stage-run .term");
+    expect(term.textContent).toContain("[agent] thinking");
+    expect(term.textContent).toContain("✖ tool exited with code 1");
+    expect(host.querySelector(".stage-run .btn.primary").disabled).toBe(false);
+    expect(api.runStage).not.toHaveBeenCalled();
+    // …and the stage header says failed, not idle (failed runs are never committed)
+    expect(host.querySelector(".stage-hd .tag").textContent).toMatch(/failed/i);
   });
 });
 
@@ -198,13 +241,14 @@ describe("the auto-advance setting", () => {
     await runOpenStage();
     await act(async () => { await Promise.resolve(); });
     expect(api.runStage).toHaveBeenCalledTimes(1);   // the stage the user asked for ran
-    expect(api.automate).not.toHaveBeenCalled();     // nothing chained after it
+    expect(advanced()).toEqual([]);                  // nothing chained after it
+    expect(api.automate).not.toHaveBeenCalled();
 
     remount({});                                     // reopening the task keeps it off
     expect(autoSwitch().checked).toBe(false);
     await runOpenStage();
     await act(async () => { await Promise.resolve(); });
-    expect(api.automate).not.toHaveBeenCalled();
+    expect(advanced(1)).toEqual([]);
   });
 });
 
@@ -213,7 +257,7 @@ describe("the run log survives navigation", () => {
     mount();
     await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
     await runOpenStage();
-    await vi.waitFor(() => expect(api.automate).toHaveBeenCalledTimes(1));
+    expect(api.runStage).toHaveBeenCalledTimes(1);
 
     // navigate away (TaskDetail unmounts) …
     act(() => host.root.unmount());
@@ -224,19 +268,21 @@ describe("the run log survives navigation", () => {
     expect(pane).toBeTruthy();                       // pane is up without needing a new run
     expect(pane.textContent).toContain("measuring the floor");   // the log was retained
     expect(pane.parentElement.querySelector(".side-label").textContent).toMatch(/LIVE RUN/);
-    expect(api.automate).toHaveBeenCalledTimes(1);   // a live run → nothing restarted
+    expect(api.runStage).toHaveBeenCalledTimes(1);   // a live run → nothing restarted
+    expect(api.automate).not.toHaveBeenCalled();
   });
 
   it("does NOT restart advancing on re-open once the run has stopped — reopening is never a start", async () => {
     mount();
     await vi.waitFor(() => expect(api.getContext).toHaveBeenCalled());
     await runOpenStage();
-    await vi.waitFor(() => expect(api.automate).toHaveBeenCalledTimes(1));
+    expect(api.runStage).toHaveBeenCalledTimes(1);
     act(() => host.root.unmount());
     // run stopped while we were away: work remains, nothing live — still no restart
     remount({ runningStages: new Set() });
     await act(async () => { await Promise.resolve(); });
-    expect(api.automate).toHaveBeenCalledTimes(1);
+    expect(api.runStage).toHaveBeenCalledTimes(1);
+    expect(api.automate).not.toHaveBeenCalled();
     expect(host.querySelector(".term").textContent).toContain("measuring the floor");   // the log is still there
   });
 });

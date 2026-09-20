@@ -19,7 +19,7 @@ const api = vi.hoisted(() => ({
   getPlan: vi.fn(), getTimeline: vi.fn(), getContext: vi.fn(), fetchTime: vi.fn(),
   getBlast: vi.fn(), getModels: vi.fn(), getBranches: vi.fn(), automate: vi.fn(),
   runStage: vi.fn(), stopRun: vi.fn(), saveTime: vi.fn(), finalize: vi.fn(), openEditor: vi.fn(),
-  finishConflict: vi.fn(), abortConflict: vi.fn(), openConflict: vi.fn(), setStageRouting: vi.fn(),
+  finishConflict: vi.fn(), abortConflict: vi.fn(), openConflict: vi.fn(), setStageRouting: vi.fn(), attachRun: vi.fn(),
 }));
 vi.mock("../api/client.js", () => api);
 vi.mock("../features/term.jsx", () => ({ TermDrawer: () => null }));
@@ -78,6 +78,7 @@ beforeEach(() => {
   api.getModels.mockResolvedValue({ models: [] });
   api.getBranches.mockResolvedValue({ branches: ["main"] });
   api.saveTime.mockResolvedValue({ ok: true });
+  api.attachRun.mockImplementation((_dir, _body, onEvent) => { const e = { t: "end", none: true }; onEvent(e); return Promise.resolve(e); });
 });
 
 afterEach(() => {
@@ -211,10 +212,15 @@ describe("#106 cross-tab — two tabs, two different tasks", () => {
 
   // ── M: nothing stops two tabs from running the SAME stage at once ─────────
   it("M: tab 2 offers ▸ Run on a stage that tab 1 is already running", async () => {
-    // the server state poll tells every tab which stages are live
-    // (runningStages → StageRunner `live`); Run must honour it, not just the
-    // tab's own `running` flag
+    // a stage live on the server (started by tab 1) is what every other tab
+    // attaches to on mount: it replays the run's text and holds ▸ Run until the
+    // run ends — so no tab can start a second run of it
     const liveHere = new Set(["eng/t-alpha/planning"]);
+    api.attachRun.mockImplementation((_dir, body, onEvent) => {
+      if (body.stage !== "planning") { const e = { t: "end", none: true }; onEvent(e); return Promise.resolve(e); }
+      onEvent({ t: "replay", live: true, log: "[tab 1's run] working…\n", startedAt: new Date().toISOString(), tool: "opencode" });
+      return new Promise(() => {});   // still running
+    });
     // "planning" is task A's first unfinished stage, so its card is open on
     // mount — the same card the run in tab 1 is using.
     const tab2 = openTab(taskA, { runningStages: liveHere });

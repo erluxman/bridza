@@ -18,7 +18,7 @@ const led = (s) => "uxv-led " + (STATUS.includes(s) ? s : "idle");
 // new views: agent (tool) picker, optional model, the stage's system prompt
 // (viewable), an editable user prompt, Run, and live output. Self-contained — it
 // owns its own tool/model/prompt/output state and calls api.runStage directly.
-export function StageRunner({ dir, pipeline, task, def, track, tools = [], live, seconds = 0, onDone, flash, onLog, onActivity, onRunning, brief = "" }) {
+export function StageRunner({ dir, pipeline, task, def, track, tools = [], live, seconds = 0, onDone, flash, onLog, onActivity, onRunning, onAttach, onEnded, advanceFor, brief = "" }) {
   const runs = track.runs || [];
   const lastPrompt = runs.length ? (runs[runs.length - 1].prompt || "") : "";
   // First run of a stage starts from the task's brief (title + context.md +
@@ -37,11 +37,58 @@ export function StageRunner({ dir, pipeline, task, def, track, tools = [], live,
   const [prompt, setPrompt] = useState(seed);
   const [out, setOut] = useState("");
   const [running, setRunning] = useState(false);
+  const runningRef = useRef(false);   // the run THIS page started (not a re-attach)
+  const attachRef = useRef(null);     // the attach stream's AbortController, if one is up
   const [sysOpen, setSysOpen] = useState(false);
   const termRef = useRef(null);
+  const setLive = (on) => { setRunning(on); if (onRunning) onRunning(on); };
+  const append = (s) => { setOut((o) => (o + s).slice(-12000)); if (onLog) onLog(s); };
+  // one place turns stream events into text — the run we started and a run we
+  // re-attached to look identical
+  const handle = (e) => {
+    if (e.t === "out") append(e.d);
+    else if (e.t === "cmd") append("\n$ " + e.cmd + "\n");
+    else if (e.t === "commit") append(`\n● ${e.phase} commit ${e.sha.slice(0, 7)}\n`);
+    else if (e.t === "meta") append(`⎇ ${e.branch}\n`);
+  };
+  const dropAttach = () => { if (attachRef.current) { attachRef.current.abort(); attachRef.current = null; } };
   // switching task/stage re-seeds from that stage's last run: prompt, agent AND
   // model — so you resume with exactly what you last used, not the tool default.
-  useEffect(() => { setPrompt(seed()); setTool(remembered()); setModel(rememberedModel()); setOut(""); }, [pipeline.id, task.id, def.id]);
+  useEffect(() => { dropAttach(); setPrompt(seed()); setTool(remembered()); setModel(rememberedModel()); setOut(""); }, [pipeline.id, task.id, def.id]);
+  useEffect(() => () => dropAttach(), []);
+  // The run lives on the server, this box is only a window onto it. On mount and
+  // whenever the stage's live flag flips, (re)attach: a run that's live right now
+  // (page refreshed mid-run, auto-advance, another window) replays what it has
+  // printed and streams on — Run stays disabled, Stop keeps working. A run that
+  // finished while nobody was looking shows its text and why it ended.
+  useEffect(() => {
+    if (runningRef.current || attachRef.current) return;
+    const ac = new AbortController(); attachRef.current = ac;
+    let isLive = false;
+    api.attachRun(dir, { pipeline: pipeline.id, task: task.id, stage: def.id }, (e) => {
+      if (e.t === "replay") {
+        isLive = !!e.live;
+        if (isLive) {
+          setLive(true); setOut(e.log || "");
+          if (onLog) onLog(`\n━━ ${def.name} · reattached to the live run ━━\n` + (e.log || ""));
+          if (onAttach) onAttach(def.id, e);
+        } else setOut((o) => o || (e.log || ""));
+      } else if (e.t === "end") {
+        // a finished run's reason, shown once — a live run's end is handled below
+        if (!isLive && e.error) setOut((o) => o.includes(e.error) ? o : o + `\n✖ ${e.error}\n`);
+        if (!isLive && e.replayed && onEnded) onEnded(e);   // the header can say "failed", not "idle"
+      } else if (isLive) handle(e);
+    }, ac.signal).then((end) => {
+      if (attachRef.current === ac) attachRef.current = null;
+      if (!isLive || ac.signal.aborted) return;
+      setLive(false);
+      if (end && end.error) append(`\n✖ ${end.error}\n`);
+      if (end && end.status === "done") flash(`${def.name}: done`); else if (end) flash(`${def.name}: ${end.error || end.status}`);
+      if (end && end.advancing) append(`\n⚡ auto-advance · ${end.advancing} stage(s) continue on the server\n`);
+      if (onEnded) onEnded(end);
+      if (onDone) onDone(end, def.id);
+    });
+  }, [dir, pipeline.id, task.id, def.id, live]);
   // saved at PICK time, not run time: a stage chosen and never run still keeps
   // its agent, and every later execution of it — anywhere — uses that one.
   // a no-op (the model box blurred untouched) must not write — saving a pick
@@ -59,23 +106,23 @@ export function StageRunner({ dir, pipeline, task, def, track, tools = [], live,
 
   const run = async () => {
     if (onActivity) onActivity();
-    setOut(""); setRunning(true); if (onRunning) onRunning(true);
-    const append = (s) => { setOut((o) => (o + s).slice(-12000)); if (onLog) onLog(s); };
+    dropAttach();
+    setOut(""); runningRef.current = true; setLive(true);
     if (onLog) onLog(`\n━━ ${def.name} · run ━━\n`);
+    // the stages after this one ride along: the SERVER carries the task on
+    // through them when this stage ends done (auto-advance), so a refresh or a
+    // closed tab mid-run never stalls the chain
+    const advance = advanceFor ? advanceFor(def.id) : [];
     const end = await api.runStage(dir, {
       pipeline: pipeline.id, task: task.id, stage: def.id, tool, model: model.trim(),
       prompt: runPrompt(pipeline, task, def, prompt), system: def.systemPrompt || "", shell: def.shell || [], workingDir: pipeline.workingDir || ".",
-      stageName: def.name, taskTitle: task.title, wallSeconds: seconds,
-    }, (e) => {
-      if (e.t === "out") append(e.d);
-      else if (e.t === "cmd") append("\n$ " + e.cmd + "\n");
-      else if (e.t === "commit") append(`\n● ${e.phase} commit ${e.sha.slice(0, 7)}\n`);
-      else if (e.t === "meta") append(`⎇ ${e.branch}\n`);
-    });
-    setRunning(false); if (onRunning) onRunning(false);
+      stageName: def.name, taskTitle: task.title, wallSeconds: seconds, advance,
+    }, handle);
+    runningRef.current = false; setLive(false);
+    if (end && end.error) append(`\n✖ ${end.error}\n`);
     if (end && end.status === "done") flash(`${def.name}: done`); else if (end) flash(`${def.name}: ${end.error || end.status}`);
-    // hand the outcome + which stage it was to the task: auto-advance chains
-    // forward only from a stage that actually finished `done`
+    if (end && end.advancing) append(`\n⚡ auto-advance · ${end.advancing} stage(s) continue on the server\n`);
+    if (onEnded) onEnded(end);
     if (onDone) onDone(end, def.id);
   };
 
@@ -90,7 +137,7 @@ export function StageRunner({ dir, pipeline, task, def, track, tools = [], live,
           value={model} onChange={(e) => setModel(e.target.value)} onBlur={() => persist(tool, model.trim())} />
         <datalist id={"models-run-" + def.id}>{models.map((m) => <option key={m} value={m} />)}</datalist>
         {model.trim() && <button className="btn ghost sm" title="Back to the tool's default model" onClick={() => { setModel(""); persist(tool, ""); }}>×</button>}
-        <button className="btn primary" onClick={run} disabled={running || live} title={live && !running ? "already running in another window" : undefined}>{running ? "Running…" : (runs.length ? "▸ Run again" : "▸ Run stage")}</button>
+        <button className="btn primary" onClick={run} disabled={running}>{running ? "Running…" : (runs.length ? "▸ Run again" : "▸ Run stage")}</button>
       </div>
       <button className="uxv-syslink" onClick={() => setSysOpen((o) => !o)} title="The stage's system prompt — applied automatically every run">{sysOpen ? "▾" : "▸"} system prompt</button>
       {sysOpen && <pre className="uxv-pre sys">{def.systemPrompt || "— none —"}</pre>}
@@ -106,7 +153,7 @@ function runnerFor(runner, rec) {
   const def = (runner.pipeline.stages || []).find((s) => s.id === rec.id) || { id: rec.id, name: rec.name };
   const track = runner.task.tracking[rec.id] || { status: "idle" };
   const live = runner.runningStages ? runner.runningStages.has(runner.pipeline.id + "/" + runner.task.id + "/" + rec.id) : false;
-  return { dir: runner.dir, pipeline: runner.pipeline, task: runner.task, def, track, tools: runner.tools, live, onDone: runner.onDone, flash: runner.flash, onLog: runner.onLog, onActivity: runner.onActivity };
+  return { dir: runner.dir, pipeline: runner.pipeline, task: runner.task, def, track, tools: runner.tools, live, onDone: runner.onDone, flash: runner.flash, onLog: runner.onLog, onActivity: runner.onActivity, onAttach: runner.onAttach, advanceFor: runner.advanceFor };
 }
 
 // A run's changed-file list — each file opens its diff (via its result commit)

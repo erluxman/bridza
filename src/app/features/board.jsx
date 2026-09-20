@@ -1,34 +1,39 @@
 // features/board.jsx — the per-pipeline kanban. Columns are the union of every
 // stage used by any task; each task sits in its first not-yet-done stage, or a
 // terminal "Delivered" column when finalized.
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import * as api from "../api/client.js";
+import { lsGet, lsSet } from "../lib/format.js";
 import { Hamburger } from "../ui.jsx";
 import { TermDrawer } from "./term.jsx";
-import { applyKanbanOrder, moveColumn } from "./kanban-order.js";
+import { applyKanbanOrder } from "./kanban-order.js";
+import { TagMenu, TagChips, useTagActions } from "./tags.jsx";
 
 const DONE_COL = "__done__";
-const ARCHIVED_COL = "__archived__";
 
 function kanbanColumns(pipeline) {
   const order = [], nameOf = {};
   (pipeline.stages || []).forEach((s) => { if (!order.includes(s.id)) { order.push(s.id); nameOf[s.id] = s.name; } });
   (pipeline.tasks || []).forEach((t) => (t.stages || []).forEach((sid) => { if (!order.includes(sid)) { order.push(sid); nameOf[sid] = nameOf[sid] || sid; } }));
   nameOf[DONE_COL] = "Delivered";
-  nameOf[ARCHIVED_COL] = "Archived";
-  return { columns: [...order, DONE_COL, ARCHIVED_COL], nameOf };
+  return { columns: [...order, DONE_COL], nameOf };
 }
 function currentStage(t) {
-  if (t.archived) return ARCHIVED_COL;
   if (t.finalized) return DONE_COL;
   return (t.stages || []).find((s) => (t.tracking[s] || {}).status !== "done") || DONE_COL;
 }
 
 export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, onChange, flash, collapsed, onExpandSide }) {
+  const [showArchived, setShowArchived] = useState(false);
   const derived = kanbanColumns(pipeline);
   const nameOf = derived.nameOf;
   // optimistic order right after a drop, until the reloaded pipeline carries it
   const [saved, setSaved] = useState(null);
+  // empty stage columns are pure noise on a wide board, so they are hidden
+  // unless the user asks for all of them; the choice is per pipeline.
+  const showAllKey = "bridza.showAllColumns." + pipeline.id;
+  const [showAllColumns, setShowAllColumns] = useState(() => lsGet(showAllKey, "0") === "1");
+  const toggleShowAll = (val) => { setShowAllColumns(val); lsSet(showAllKey, val ? "1" : "0"); };
   const columns = applyKanbanOrder(derived.columns, saved && saved.pid === pipeline.id ? saved.order : pipeline.kanbanOrder);
   // header drag: `to` is the insertion slot (0..columns.length) under the pointer
   const [drag, setDrag] = useState(null);
@@ -42,8 +47,17 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
   const onColDrop = async (e) => {
     e.preventDefault();
     if (!drag || drag.to == null) return setDrag(null);
-    const from = columns.indexOf(drag.id);
-    const next = moveColumn(columns, drag.id, drag.to > from ? drag.to - 1 : drag.to);
+    const fromId = drag.id;
+    const toIndex = drag.to;
+    const targetCol = visibleColumns[toIndex];
+    const rest = columns.filter((id) => id !== fromId);
+    let next;
+    if (targetCol) {
+      const targetIdx = rest.indexOf(targetCol);
+      next = [...rest.slice(0, targetIdx), fromId, ...rest.slice(targetIdx)];
+    } else {
+      next = [...rest, fromId];
+    }
     setDrag(null);
     if (next.join("\n") === columns.join("\n")) return;
     const prev = saved;
@@ -55,8 +69,9 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
   const [termOpen, setTermOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const searchRef = useRef(null);
   const byCol = {}; columns.forEach((c) => (byCol[c] = []));
-  (pipeline.tasks || []).forEach((t) => { const c = currentStage(t); (byCol[c] || byCol[DONE_COL]).push(t); });
+  (pipeline.tasks || []).filter(t => !t.archived).forEach((t) => { const c = currentStage(t); (byCol[c] || byCol[DONE_COL]).push(t); });
   const q = searchQuery.toLowerCase();
   const filtered = q ? { title: q, ref: q.replace(/^#/, ""), branch: q } : null;
   const matches = (t) => !filtered ||
@@ -65,16 +80,26 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
     (t.branch && t.branch.toLowerCase().includes(filtered.branch));
   const filteredByCol = {};
   Object.entries(byCol).forEach(([c, ts]) => { filteredByCol[c] = ts.filter(matches); });
-  // hover a card + press "L" → a dropdown of this pipeline's stage flows, so you
-  // can retarget a task without opening it. Only meaningful with several flows.
+  // a pipeline's stage union is wide and mostly empty, so only columns holding
+  // a card (after the search filter) are rendered unless the user asks for all
+  const visibleColumns = showAllColumns ? columns : columns.filter((c) => filteredByCol[c].length > 0);
+  // hover a card + press "L" → the tag picker for that task; "F" → a dropdown of
+  // this pipeline's stage flows, so you can retarget without opening the task.
+  // Tagging is the frequent action so it owns L; the flow menu is rare and
+  // destructive, and stays gated on the pipeline having several flows.
   const flows = pipeline.flows || [];
+  const registry = pipeline.tags || {};
   const [hover, setHover] = useState(null);
   const [flowMenu, setFlowMenu] = useState(null);
+  const [tagMenu, setTagMenu] = useState(null);
   useEffect(() => {
     const onKey = (e) => {
       if ((e.key === "/" || (e.key === "k" && (e.metaKey || e.ctrlKey))) && !/^(input|textarea|select)$/i.test(e.target.tagName || "")) {
         e.preventDefault();
         setSearchOpen(true);
+        // already open but the caret is elsewhere — the shortcut still means
+        // "put me in the box", and no mount is coming to do it for us
+        if (searchRef.current) searchRef.current.focus();
       }
       else if (e.key === "Escape" && searchOpen) {
         setSearchOpen(false);
@@ -84,15 +109,34 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [searchOpen]);
+  // Focus on the INTENT to open (the 🔍 click or the shortcut flipping
+  // searchOpen), not on every commit: the board re-renders on each 4s poll and
+  // on every card hover, and a focus() tied to render steals the caret back
+  // from wherever the user put it.
   useEffect(() => {
-    if (!hover || flows.length < 2) return;
+    if (searchOpen && searchRef.current) searchRef.current.focus();
+  }, [searchOpen]);
+  useEffect(() => {
+    if (!hover) return;
     const onKey = (e) => {
-      if ((e.key === "l" || e.key === "L") && !/^(input|textarea|select)$/i.test(e.target.tagName || "")) { e.preventDefault(); setFlowMenu(hover); }
-      else if (e.key === "Escape") setFlowMenu(null);
+      const typing = /^(input|textarea|select)$/i.test(e.target.tagName || "");
+      if (typing) return;
+      // only one menu at a time — both sit at the card's top-right corner
+      if (e.key === "l" || e.key === "L") { e.preventDefault(); setFlowMenu(null); setTagMenu(hover); }
+      else if ((e.key === "f" || e.key === "F") && flows.length >= 2) { e.preventDefault(); setTagMenu(null); setFlowMenu(hover); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [hover, flows.length]);
+  // Escape follows the OPEN MENU, not the hover: the pointer leaves the card the
+  // moment you reach for the menu (and the tag picker holds a focused input), so
+  // a hover-scoped listener would strand an open menu with only the ✕ to close it.
+  useEffect(() => {
+    if (!tagMenu && !flowMenu) return;
+    const onKey = (e) => { if (e.key === "Escape") { setFlowMenu(null); setTagMenu(null); } };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tagMenu, flowMenu]);
 const changeFlow = async (t, nf) => {
     setFlowMenu(null);
     if (!nf || nf === t.flow) return;
@@ -102,12 +146,15 @@ const changeFlow = async (t, nf) => {
     if (r.ok) { flash && flash(r.removed ? `flow → ${fl ? fl.name : nf} · ${r.removed} stage commit${r.removed === 1 ? "" : "s"} discarded` : "flow changed", 4000); onChange && onChange(); }
     else flash && flash(r.error);
   };
+  const { toggleTag, recolorTag, createAndAssign } = useTagActions(dir, onChange, flash);
   const toggleArchive = async (e, t) => {
     e.stopPropagation();
     const r = await api.setTaskArchived(dir, { pipeline: pipeline.id, task: t.id, archived: !t.archived });
     if (r.ok) { flash && flash(r.archived ? "task archived" : "task restored", 3000); onChange && onChange(); }
     else flash && flash(r.error);
   };
+  const archivedTasks = (pipeline.tasks || []).filter(t => t.archived);
+
   return (
     <>
       <div className="topbar">
@@ -116,7 +163,7 @@ const changeFlow = async (t, nf) => {
           <button className={"btn ghost" + (termOpen ? " on" : "")} onClick={() => setTermOpen((o) => !o)} title="Terminal at the repo root">⌨ Terminal</button>
           {searchOpen ? (
             <input
-              ref={(el) => el && setTimeout(() => el.focus(), 0)}
+              ref={searchRef}
               className="search-input"
               placeholder="Search tasks..."
               value={searchQuery}
@@ -126,37 +173,61 @@ const changeFlow = async (t, nf) => {
           ) : (
             <button className="btn ghost" onClick={() => setSearchOpen(true)} title="Search tasks (press /)">🔍</button>
           )}
+          <label className="muted col-toggle" title="Show every column, or only the ones holding a card">
+            <input type="checkbox" checked={showAllColumns} onChange={(e) => toggleShowAll(e.target.checked)} />
+            Show all columns
+          </label>
           <button className="btn ghost" onClick={onFlow}>⚙ Stage flow</button>
+          <button className="btn ghost" onClick={() => setShowArchived(!showArchived)}>🗄 Archived</button>
           <button className="btn primary" onClick={onNewTask}>＋ New task</button>
         </div>
       </div>
+      {showArchived && (
+        <div className="archive-panel" style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: "320px", background: "var(--bg-1)", borderLeft: "1px solid var(--line)", zIndex: 100, overflowY: "auto", padding: "20px", boxShadow: "-10px 0 20px #0004" }}>
+          <div className="spread" style={{ marginBottom: 16 }}>
+            <h2 style={{ fontSize: 17, margin: 0 }}>Archived ({archivedTasks.length})</h2>
+            <button className="btn ghost sm" onClick={() => setShowArchived(false)}>✕</button>
+          </div>
+          {archivedTasks.map(t => (
+            <div key={t.id} className="kcard" style={{ marginBottom: 8 }} onClick={() => onOpen(t.id)}>
+              <div className="spread"><b>{t.title}</b><button className="btn sm ghost" onClick={(e) => toggleArchive(e, t)}>Restore</button></div>
+            </div>
+          ))}
+        </div>
+      )}
       {termOpen && <TermDrawer dir={dir} onClose={() => setTermOpen(false)} />}
       {pipeline.tasks.length === 0 ? (
         <div className="content"><p className="muted">No tasks yet. Create one — it gets its own branch <code>bridza/{pipeline.id}/&lt;task&gt;</code>.</p></div>
       ) : (
         <div className="kanban">
-          {columns.map((c, i) => (
+          {visibleColumns.map((c, i) => (
             <div key={c} onDragOver={(e) => onColOver(e, i)} onDrop={onColDrop}
-              className={"kcol" + (drag && drag.to === i ? " drop-before" : "") + (drag && drag.to === columns.length && i === columns.length - 1 ? " drop-after" : "")}>
+              className={"kcol" + (drag && drag.to === i ? " drop-before" : "") + (drag && drag.to === visibleColumns.length && i === visibleColumns.length - 1 ? " drop-after" : "")}>
               <div className={"kcol-h" + (drag && drag.id === c ? " grabbed" : "")} draggable
                 onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", c); setDrag({ id: c, to: null }); }}
-                onDragEnd={() => setDrag(null)}><span className={c === DONE_COL ? "done" : c === ARCHIVED_COL ? "archived" : ""}>{nameOf[c] || c}</span><span className="n">{filteredByCol[c].length}</span></div>
+                onDragEnd={() => setDrag(null)}><span className={c === DONE_COL ? "done" : ""}>{nameOf[c] || c}</span><span className="n">{filteredByCol[c].length}</span></div>
               <div className="kcol-body">
                 {filteredByCol[c].map((t) => (
                    <div className="kcard" key={t.id} style={{ position: "relative" }} onClick={() => onOpen(t.id)}
                      onMouseEnter={() => setHover(t.id)} onMouseLeave={() => { setHover((h) => (h === t.id ? null : h)); }}>
                      <div className="spread"><b title={t.title}>{t.ref ? <span className="tref">#{t.ref}</span> : null}{t.title}</b><div style={{ display: "flex", gap: "6px", alignItems: "center" }}>{runningTasks && runningTasks.has(pipeline.id + "/" + t.id) ? <span className="tag running"><span className="livedot" /> running</span> : t.finalized && !t.archived && <span className="tag done">✓</span>}<button className="btn sm ghost" onClick={(e) => toggleArchive(e, t)} title={t.archived ? "Restore from archive" : "Archive task"}>🗄</button></div></div>
+                     <TagChips tags={t.tags} />
                      <div className="muted mono kcard-branch">{t.branch}</div>
                      <div className="bar"><i style={{ width: t.progress + "%" }} /></div>
                      <div className="muted" style={{ fontSize: 11, marginTop: 5 }}>{t.progress}% · {t.stages.length} stages</div>
-                     {flows.length > 1 && hover === t.id && flowMenu !== t.id && !t.finalized && (
-                       <div className="muted" style={{ fontSize: 10, marginTop: 4, opacity: 0.65 }}>press <b>L</b> to change flow</div>
+                     {hover === t.id && flowMenu !== t.id && tagMenu !== t.id && !t.finalized && (
+                       <div className="muted" style={{ fontSize: 10, marginTop: 4, opacity: 0.65 }}>press <b>L</b> to tag{flows.length > 1 ? <> · <b>F</b> for flow</> : null}</div>
                      )}
                      {flowMenu === t.id && (
                        <div className="proj-menu" style={{ right: 6, left: "auto", top: 6, minWidth: 160, zIndex: 5 }} onClick={(e) => e.stopPropagation()} onMouseLeave={() => setFlowMenu(null)}>
                          <div className="path" style={{ padding: "4px 9px" }}>Change stage flow</div>
                          {flows.map((f) => <button className="item" key={f.id} onClick={(e) => { e.stopPropagation(); changeFlow(t, f.id); }}>{f.id === t.flow ? "● " : ""}{f.name}</button>)}
                        </div>
+                     )}
+                     {tagMenu === t.id && (
+                       <TagMenu task={t} registry={registry} onToggle={(id) => toggleTag(pipeline.id, t.id, t.tags, id)}
+                         onCreate={(name, color) => createAndAssign(pipeline.id, t.id, t.tags, name, color)}
+                         onRecolor={recolorTag} onClose={() => setTagMenu(null)} />
                      )}
                    </div>
                  ))}
