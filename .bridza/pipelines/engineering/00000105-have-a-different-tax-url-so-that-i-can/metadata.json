@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "have-a-different-tax-url-so-that-i-can",
+  "pipeline": "engineering",
+  "title": "Have a different tax URL so that I can refresh.",
+  "ref": 105,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/have-a-different-tax-url-so-that-i-can",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
