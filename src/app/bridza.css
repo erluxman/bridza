@@ -39,6 +39,7 @@ textarea.input { resize: vertical; min-height: 64px; }
 
 .search-input { background: var(--bg); border: 1px solid var(--line-2); color: var(--txt); padding: 7px 12px; border-radius: 8px; font-size: 13px; width: 160px; }
 .search-input:focus { outline: none; border-color: var(--accent); }
+.col-toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; user-select: none; }
 
 .muted { color: var(--txt-3); }
 .row { display: flex; align-items: center; gap: 8px; }

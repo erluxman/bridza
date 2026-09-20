@@ -3,6 +3,7 @@
 // terminal "Delivered" column when finalized.
 import { useState, useEffect, useRef } from "react";
 import * as api from "../api/client.js";
+import { lsGet } from "../lib/format.js";
 import { Hamburger } from "../ui.jsx";
 import { TermDrawer } from "./term.jsx";
 import { applyKanbanOrder, moveColumn } from "./kanban-order.js";
@@ -70,6 +71,11 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
   const nameOf = derived.nameOf;
   // optimistic order right after a drop, until the reloaded pipeline carries it
   const [saved, setSaved] = useState(null);
+  const [showAllColumns, setShowAllColumns] = useState(() => lsGet("bridza.showAllColumns." + pipeline.id, "false") === "true");
+  const toggleShowAll = (val) => {
+    setShowAllColumns(val);
+    try { localStorage.setItem("bridza.showAllColumns." + pipeline.id, val ? "1" : "0"); } catch (e) {}
+  };
   const columns = applyKanbanOrder(derived.columns, saved && saved.pid === pipeline.id ? saved.order : pipeline.kanbanOrder);
   // header drag: `to` is the insertion slot (0..columns.length) under the pointer
   const [drag, setDrag] = useState(null);
@@ -83,8 +89,17 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
   const onColDrop = async (e) => {
     e.preventDefault();
     if (!drag || drag.to == null) return setDrag(null);
-    const from = columns.indexOf(drag.id);
-    const next = moveColumn(columns, drag.id, drag.to > from ? drag.to - 1 : drag.to);
+    const fromId = drag.id;
+    const toIndex = drag.to;
+    const targetCol = visibleColumns[toIndex];
+    const rest = columns.filter((id) => id !== fromId);
+    let next;
+    if (targetCol) {
+      const targetIdx = rest.indexOf(targetCol);
+      next = [...rest.slice(0, targetIdx), fromId, ...rest.slice(targetIdx)];
+    } else {
+      next = [...rest, fromId];
+    }
     setDrag(null);
     if (next.join("\n") === columns.join("\n")) return;
     const prev = saved;
@@ -107,6 +122,9 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
     (t.branch && t.branch.toLowerCase().includes(filtered.branch));
   const filteredByCol = {};
   Object.entries(byCol).forEach(([c, ts]) => { filteredByCol[c] = ts.filter(matches); });
+  // a pipeline's stage union is wide and mostly empty, so only columns holding
+  // a card (after the search filter) are rendered unless the user asks for all
+  const visibleColumns = showAllColumns ? columns : columns.filter((c) => filteredByCol[c].length > 0);
   // hover a card + press "L" → the tag picker for that task; "F" → a dropdown of
   // this pipeline's stage flows, so you can retarget without opening the task.
   // Tagging is the frequent action so it owns L; the flow menu is rare and
@@ -209,6 +227,10 @@ const changeFlow = async (t, nf) => {
           ) : (
             <button className="btn ghost" onClick={() => setSearchOpen(true)} title="Search tasks (press /)">🔍</button>
           )}
+          <label className="muted col-toggle" title="Show every column, or only the ones holding a card">
+            <input type="checkbox" checked={showAllColumns} onChange={(e) => toggleShowAll(e.target.checked)} />
+            Show all columns
+          </label>
           <button className="btn ghost" onClick={onFlow}>⚙ Stage flow</button>
           <button className="btn primary" onClick={onNewTask}>＋ New task</button>
         </div>
@@ -218,9 +240,9 @@ const changeFlow = async (t, nf) => {
         <div className="content"><p className="muted">No tasks yet. Create one — it gets its own branch <code>bridza/{pipeline.id}/&lt;task&gt;</code>.</p></div>
       ) : (
         <div className="kanban">
-          {columns.map((c, i) => (
+          {visibleColumns.map((c, i) => (
             <div key={c} onDragOver={(e) => onColOver(e, i)} onDrop={onColDrop}
-              className={"kcol" + (drag && drag.to === i ? " drop-before" : "") + (drag && drag.to === columns.length && i === columns.length - 1 ? " drop-after" : "")}>
+              className={"kcol" + (drag && drag.to === i ? " drop-before" : "") + (drag && drag.to === visibleColumns.length && i === visibleColumns.length - 1 ? " drop-after" : "")}>
               <div className={"kcol-h" + (drag && drag.id === c ? " grabbed" : "")} draggable
                 onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", c); setDrag({ id: c, to: null }); }}
                 onDragEnd={() => setDrag(null)}><span className={c === DONE_COL ? "done" : c === ARCHIVED_COL ? "archived" : ""}>{nameOf[c] || c}</span><span className="n">{filteredByCol[c].length}</span></div>
