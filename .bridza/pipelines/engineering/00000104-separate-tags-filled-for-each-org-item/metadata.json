@@ -19,9 +19,27 @@
     "spec": {
       "tool": "claude",
       "model": ""
+    },
+    "build": {
+      "tool": "claude",
+      "model": ""
     }
   },
   "status": "in-progress",
   "finalized": false,
-  "tracking": {}
+  "tracking": {
+    "spec": {
+      "status": "running",
+      "seconds": 0,
+      "runs": [
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: separate tags filled for each org item or task",
+          "startedAt": "2026-09-20T15:31:17.266Z",
+          "status": "running"
+        }
+      ]
+    }
+  }
 }
