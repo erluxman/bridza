@@ -1,154 +1,76 @@
-# Review — Have a different task URL so that I can refresh
+# Review — Tags on a task, picked from a card with L
 
-Task #105 · `engineering/have-a-different-tax-url-so-that-i-can` · stage `fix-review`
-Branch `bridza/engineering/have-a-different-tax-url-so-that-i-can` → lands on **`main`**.
+Branch `bridza/engineering/separate-tags-filled-for-each-org-item` → lands on `main`.
 
-**Verdict: approved.** The fix hits the root cause named in `repro.md`, the
-regression test is proven to fail without it, every sibling nav caller still
-behaves, and the merge into `main` is clean. Four minor notes below — none
-blocking.
+**Verdict: approve with fixes.** The feature works end-to-end and the shape matches the spec: registry + assignments in root `refs.json`, **L** = tags on every pipeline, **F** = flow behind the old two-flow gate, chips on card and task header, docs updated. `pnpm test` (254 tests, 11 files), `pnpm lint`, `pnpm build` all pass. Two things block a clean tick: the picker never lets you choose a colour, and the tag menu gets stuck open (Escape dead) once the pointer leaves the card. Both are small.
 
-## 1. Does it address the root cause?
+**Merge into `main`: clean.** `git merge-tree --write-tree main HEAD` produced tree `70f3df0` with zero conflict messages (merge-base `a008119`). No file in the diff is touched on `main` since the base. Docs and outputs name `main` as the landing branch.
 
-`repro.md` pinned one cause: no `history` integration anywhere, so the five nav
-states (`activePipe`, `activeTask`, `flowOpen`, `inboxOpen`, `planOpen`) are
-plain `useState` that boot to "home" on every mount.
+## 1. Acceptance criteria
 
-The fix closes exactly that loop, at the one place that owns the state:
-
-| `repro.md` symptom | Addressed | Where |
+| # | Criterion | Result |
 |---|---|---|
-| URL never names the open task | yes | `src/app/App.jsx:119-131` writer effect |
-| Refresh drops to the board | yes | `src/app/App.jsx:22-23,30-32` boot from `parseRoute()` |
-| Shared/pasted link goes home | yes | same + `public/_redirects`, electron `serveStatic` already fall back to `index.html` |
-| Inbox / Plan / Flow reset on refresh | yes | `?view=` param, `src/app/lib/route.js:18,33` |
-| Back/Forward leave the app | yes | `popstate` listener, `src/app/App.jsx:105-113` |
-| Secondary: refresh on the 2nd pipeline snaps to the 1st | yes | URL mirrors the *derived* `pipeline`, so `activePipe` boots to the pipeline you were on and `refresh()`'s reset leaves it alone (it only resets an empty/unknown id) |
-| Stale id → blank screen | yes | `src/app/App.jsx:116-118` clears a task the pipeline doesn't have, degrading to that board |
+| 1 | **L** on a hovered card opens the tag picker, incl. single-flow pipelines | ✅ `board.jsx:124` — listener now gated on `hover` alone, `flows.length` gate moved to **F**; covered by `board-tags.test.jsx` |
+| 2 | Typing a name **and choosing a colour** creates + assigns + chip appears without reload | ⚠️ **partial** — name + create + assign + refresh all work (`createAndAssign`, `board.jsx:152`), but there is **no colour choice in the UI**; the colour is auto-picked as the next unused palette entry. See finding A |
+| 3 | A different card's **L** lists the earlier tag, one-click selectable, registry board-wide | ✅ registry rides `pipeline.tags` for every pipeline (`bridza-store.js:578`) |
+| 4 | Clicking an assigned tag unassigns; last one leaves no chips and no `taskTags` entry | ✅ `setTaskTags` deletes the key on empty (`bridza-store.js:428`); store + UI tests cover both |
+| 5 | Several tags at once, each in its own colour, on card and task header | ✅ `board.jsx:204`, `task.jsx:351` |
+| 6 | Name slugging to an existing tag reuses it, no duplicate, no recolour | ✅ `createTag` returns the existing entry with `created: false`; test asserts the colour is untouched |
+| 7 | Stored in `refs.json` as `tags`/`taskTags`, committed on the base branch, survives restart | ✅ — but the **path in acceptance.md/spec.md is wrong**. See finding D |
+| 8 | **F** opens the flow menu with the old two-or-more-flows condition + confirm; **L** never opens it | ✅ confirm dialog untouched in `changeFlow`; test asserts F is inert with <2 flows |
+| 9 | Hint line names the live keys; `Escape` closes whichever menu is open | ⚠️ **partial** — hint is right (`press L to tag · F for flow`); Escape works only while the card is still hovered. See finding B |
+| 10 | Legacy `refs.json` loads with no tags; unknown slug ignored, no crash | ✅ `readRefs` defaults both to `{}`; projection filters unresolved slugs; both tested |
+| 11 | Deleting a task drops `taskTags`, registry entries survive | ✅ `deleteTaskIn` (`bridza-store.js:973`), tested |
+| 12 | Failed save flashes the error and leaves tags unchanged | ✅ no optimistic update; `flash(r.error)` on `!ok` |
+| 13 | Tests: `createTag` idempotence/colour, `setTaskTags` drop+dedupe, projection resolution, L/F menus | ✅ all four present. Gap: the create-from-picker path is never asserted — `api.createTag` is mocked but no test calls it |
+| 14 | `tags`/`taskTags` documented in `docs/09-file-format.md` | ✅ new "Board state" section, and it usefully documents the whole file, which had no section before |
+| 15 | `pnpm test`, `pnpm lint`, `pnpm build` pass | ✅ 254/254, eslint silent, build ✓ |
 
-Fixed at the shared state, not at the six open-a-task call sites — the right
-altitude. No new dependency, no router, no server change.
+## 2. Findings
 
-Verified deep-path serving myself rather than trusting the claim:
-`electron/main.js:44` falls back to `index.html` for any extension-less *or*
-missing path (so a task id containing a dot is covered too), and
-`public/_redirects` is `/* /index.html 200`. `src/main.tsx:19` already admits
-`/app/*` into the app bundle.
+### A. No colour picker — criterion 2 is half-met (medium)
+`src/app/features/board.jsx:150-160`. `createAndAssign` computes the colour itself (`TAG_PALETTE.find(c => !used.includes(c))`) and `TagMenu` renders only a text input. Acceptance asks the user to choose a colour; the spec asks for "name + a colour picked from the palette, **defaulting** to the next unused one". As shipped there is a default and no choice — after 8 tags every new one gets a colour by modulo, with no way to change it (tag recolour is explicitly out of scope, so the create moment is the only chance).
 
-## 2. Regression test fails without the fix — confirmed
+Fix: a row of 8 colour swatches above the input, preselected to the next unused one, passed as `color` to `api.createTag`. ~10 lines in `TagMenu`.
 
-Reverted `src/app/App.jsx` to `main` and deleted `src/app/lib/route.js`, then
-re-ran:
+### B. Tag menu sticks open with Escape dead after the pointer leaves the card (medium — confirmed)
+`src/app/features/board.jsx:122-134`. The key listener early-returns on `if (!hover) return`, so leaving the card unmounts the handler — but nothing closes `tagMenu`. The flow menu is safe because it carries `onMouseLeave={() => setFlowMenu(null)}`; `TagMenu` has no equivalent. Reproduced with a scratch render test: hover → `l` → mouseout → the `.tag-menu` node is still in the DOM and `Escape` no longer removes it. Only the ✕ closes it. This breaks criterion 9 literally.
 
-```
-playwright test e2e/task-url.spec.js      → 1 failed, 1 did not run
-  Expected pattern: /\/app\/engineering$/
-  Received string:  "http://localhost:5199/app"
-vitest run src/app/__tests__/route.test.js → 1 failed (module gone)
-```
+Fix (either): bind `Escape` in an effect that depends on `tagMenu || flowMenu` rather than `hover`; or give `TagMenu` the same `onMouseLeave`. The first is better — the menu holds a focused text input, so closing on mouseout would be hostile while typing.
 
-With the fix restored, both pass (`2 passed` / `254 passed`). Source tree was
-restored byte-identical to HEAD afterwards (`git diff HEAD -- src/ e2e/` empty).
+### C. **F** can open the flow menu on top of an open tag menu (low)
+Once a tag row is clicked, focus sits on a `<button>`, so the `typing` guard is false and **F** opens `flowMenu` while `tagMenu` is still open; both are absolutely positioned at `top: 6; right: 6` and overlap. One line: have each setter clear the other.
 
-One caveat worth stating: without the fix the spec dies on its *first*
-assertion (the board URL) and never reaches the `page.reload()` assertion that
-is the literal user complaint. Same root cause, so the proof holds, but the
-refresh assertion is not independently exercised in the red state.
+### D. `acceptance.md` and `spec.md` name a path that does not exist (low, docs)
+Both say `.bridza/.metadata/refs.json`. The real file — used by the code, the tests and the new `docs/09-file-format.md` section — is `.bridza/refs.json` (`DATA_DIR = ".bridza"`, `refsFile()` at `bridza-store.js:365`). The implementation is right; correct the two spec docs so criterion 7 does not read as failed.
 
-## 3. Sibling callers — no regressions
+### E. `createTag` hand-rolls name validation the repo already has (low)
+`server/bridza-store.js:389`. `if (!name || typeof name !== "string" || !name.trim())` duplicates `validRef(name, "tag name")` from `bridza-run.js:89`, and misses what `validRef` catches: `safeRef` falls back to the literal `"x"` for a punctuation-only string, so `createTag({name: "!!!"})` and `createTag({name: "???"})` both land on slug `x` and silently become the same tag. Replace the three-part check with `const bad = validRef(name, "tag name"); if (bad) return { ok: false, error: bad };` — shorter and closes the collapse.
 
-Walked all six nav entry points; all keep calling the same setters, all still
-land on the right screen, and each now writes a URL:
+## 3. Over-engineering — what to delete
 
-| Caller | Behaviour |
-|---|---|
-| `Sidebar onPipe` / `onOpenTask` / `onInbox` / `onPlan` (`App.jsx:148-152`) | batched setters → exactly one history entry each ✓ |
-| `PlanView onOpenTask` (`:158`) | batched → one entry ✓ |
-| `Board onOpen={setActiveTask}` (`:165`) | one entry ✓ |
-| `TaskDetail onOpenTask` / `onBack` (`:167-168`) | batched → one entry ✓ |
-| `NewTaskModal onDone` (`:178`) | intermediate commit is still the board URL, so one entry ✓ |
-| `Inbox onOpenTask` (`:161`) | two entries — see note (b) |
+1. **`TAG_PALETTE` duplicated in `src/app/features/board.jsx:12`.** It exists only to compute the next unused colour client-side, and the comment concedes it mirrors the server. If you fix finding A, the client needs the list for swatches and the duplication is earned — but then it should be imported from `core/domain.js`, not retyped, since `core/` is already the shared layer both sides import. If you *don't* fix A, delete the client constant entirely and let `createTag` default the colour server-side when `color` is omitted.
+2. **`board.jsx:154` — the `||` fallback.** `TAG_PALETTE.find(c => !used.includes(c)) || TAG_PALETTE[Object.keys(registry).length % TAG_PALETTE.length]` is two strategies where one does the whole job. The modulo expression alone covers every case. Delete the `find` half (or the whole line, per item 1).
+3. **Redundant guards in the projection, `bridza-store.js:569-571` and `:578`.** `refsAll.taskTags && …`, `refsAll.tags && …` and `refsAll.tags || {}` all re-check what `readRefs` has just guaranteed — it normalises both keys to `{}` two functions up. Three dead conditionals; drop them and the `.map` reads in one line.
+4. **`createTag`'s `tag` return field.** Callers use `ok`, `id`, `error`; `tag` has no consumer anywhere and `created` only has the unit test. Return `{ ok, id, created }` and drop `tag`.
+5. **Not over-engineering, worth saying:** `setTaskTags`/`createTag` correctly reuse `readRefs` → `writeJSON` → `commitPaths`, matching `setTaskArchived` line for line, and `commitPaths` already no-ops when nothing staged, so a no-change toggle makes no empty commit. `TagMenu` as a component is justified — it holds its own input state and the card body is already dense.
 
-Other checks, all clean:
+## 4. Suggested order
 
-- Hook order: the derivation and the three effects sit **above** the early
-  returns; `pipes` guards `proj === null`, so the Welcome / picker branches are
-  unchanged.
-- `refresh()`'s `activePipe` reset (`App.jsx:64`) and the URL no longer fight:
-  the reset only fires for an empty or unknown id, which is exactly the case
-  where the URL has nothing to defend.
-- The polling `refresh()` re-runs the writer effect every 4s (new `proj`
-  object), but `next === currentPath()` so it never writes. No loop.
-- No other `location`/`history` use in `src/` conflicts (`flow.jsx:77` mailto,
-  `term.jsx:53` ws host, landing-page `href="/app"` links).
-- `parseRoute`/`routePath` round-trip is covered under both prefixes
-  (`/app/…` and `app.<host>/…`), which is the case main.tsx's own gate creates.
+1. B (stuck menu, Escape) — smallest and the only one that strands the user.
+2. A (colour swatches) — the one real acceptance gap.
+3. D (fix the two docs paths), E (`validRef`), then the deletions in §3.
+4. C last.
 
-## 4. Full verification run
+---
 
-```
-vitest run                         → 11 files, 254 tests passed
-eslint .                           → clean (exit 0)
-tsc -b && vite build               → clean (exit 0)
-playwright test e2e/task-url.spec.js → 2 passed
-playwright test (full suite)       → task-url 2 passed; app.spec.js:40 and
-                                     ux-views.spec.js:67 fail (pre-existing)
-```
+## 5. Fixes applied (post-review)
 
-The two e2e failures are **pre-existing and unrelated**, verified by re-running
-both specs with the fix reverted — identical failure, `<div class="modal-bg">
-intercepts pointer events`: their shared `openApp` helper doesn't suppress the
-once-a-day welcome dialog. Both suites are serial, so that one failure skips
-~30 downstream tests in each. Out of scope here, but worth its own task — the
-new spec suppresses the dialog itself and shows the two-line fix.
+Every finding above is addressed; `pnpm test` (257 tests, 11 files), `pnpm lint`, `pnpm build` pass.
 
-## 5. Minor notes (non-blocking)
-
-**(a) Normalising after boot uses `pushState`, so Back can bounce.**
-`App.jsx:119-131` only `replaceState`s while `urlSettled.current` is false.
-After the project loads, a history entry whose URL the app immediately rewrites
-(one with no pipeline segment) gets *pushed* instead: going Back to it
-re-normalises forward and grows history rather than navigating. Reachable by
-switching projects (`openDir` clears `activePipe` while the old `proj` is still
-mounted, so the pre-switch URL lands in history). Pre-fix, Back simply left the
-app, so this is not a regression — but a `replace` flag set by `onPop` and by
-the "state didn't change, only resolved" case would close it.
-
-**(b) Opening a task from the Inbox costs two history entries.**
-`App.jsx:161` is the one entry point that splits across two commits
-(`setActivePipe(pid)` now, `setActiveTask(tid)` after `refresh()` resolves), so
-the writer effect pushes `/app/<pipe>` and then `/app/<pipe>/<task>`. Back from
-that task lands on the board, not the Inbox you came from. Code-derived, not
-executed (the e2e fixture has an empty inbox). Folding the id into the same
-commit, or reusing the `PlanView` shape, would fix it.
-
-**(c) A malformed percent-escape in the path throws at mount.**
-`decodeURIComponent` in `parseRoute` (`route.js:24`) raises `URIError` on input
-like `/app/eng/%E0%A4%A`; it runs inside a `useState` initialiser and there is
-no error boundary in `src/main.tsx`, so the app would render blank — the one
-outcome `repro.md` asked to avoid. Mitigating: Vite's dev server 500s on that
-request before the app ever loads (verified), and only an externally malformed
-link can produce it, since every id the app emits is `encodeURIComponent`'d.
-A `try/catch` returning the raw segment would settle it.
-
-**(d) `closeProject` leaves the old pipeline in the URL.**
-`App.jsx:90` clears `activeTask` but not `activePipe`, so the Welcome screen can
-sit at `/app/engineering`. Cosmetic — a reload still lands on Welcome, since the
-project key is gone from `localStorage`.
-
-## 6. Merge readiness — into `main`
-
-**The merge into `main` will be clean.** Verified, not assumed:
-
-- `git merge-tree --write-tree --messages main HEAD` → wrote tree
-  `a2e1fe6…` with **no conflict messages**, exit 0.
-- Merge base `5de52f2`. Since the base, `main` has touched only
-  `.bridza/plan.json` and `.bridza/refs.json`; this branch touches neither.
-  **Zero file overlap** between the two sides.
-- No doc or output on this branch names a landing branch other than `main`;
-  `package.json`'s `deploy` script already targets `--branch=main` and is
-  untouched.
-- `git diff HEAD -- src/ e2e/` is empty after my revert experiments — nothing
-  from this review leaked into the tree. Build artefacts (`dist/`,
-  `node_modules`, `test-results/`) were removed; only the expected pipeline
-  files remain uncommitted.
+- **A — colour picker.** `TagMenu` now renders a row of 8 palette swatches above the name input, preselected to the palette's next colour and passed as `color` to `api.createTag`. Criterion 2 is fully met.
+- **B — stuck menu.** `Escape` moved out of the hover-scoped listener into its own effect keyed on `tagMenu || flowMenu`, so it closes whichever menu is open regardless of where the pointer is. Regression test: hover → `l` → mouseout → `Escape` closes.
+- **C — stacked menus.** Each hotkey clears the other menu before opening its own; test asserts `F` replaces an open tag picker rather than overlapping it.
+- **D — wrong path in docs.** `spec.md` and `acceptance.md` now say `.bridza/refs.json`, matching the code, the tests and `docs/09-file-format.md`.
+- **E — name validation.** `createTag` uses `validRef(name, "tag name")`, closing the `"!!!"`/`"???"` → slug `x` collapse. Test covers both.
+- **§3 deletions.** `TAG_PALETTE` moved to `core/domain.js` and imported by both sides (no retyped copy); the two-strategy colour default replaced by the modulo expression alone; the three redundant `refsAll.tags && …` guards dropped from the projection (`readRefs` normalises them); `createTag` returns `{ ok, id, created }` with the unused `tag` field gone.

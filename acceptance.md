@@ -1,21 +1,17 @@
-# Acceptance — Create PR button, direct `gh` path
+# Acceptance — Tags on a task, picked from a card with L
 
-- [ ] With `gh` installed and authenticated, clicking **Create PR** creates the
-      PR for `<task-branch>` → `<target>` with the task title and a body from
-      the task context, and returns the real PR URL — no compose page involved.
-- [ ] The task branch is pushed to origin before `gh pr create` when it has no
-      upstream; a branch that already has one is not re-pushed.
-- [ ] A failed push returns `ok: false` with a readable error (not a fallback),
-      and no `gh pr create` is attempted.
-- [ ] `gh` not on PATH returns `{ ok: false, fallback: true }` carrying the
-      compose URL, and the button opens the compose link — never a dead click.
-- [ ] `gh auth status` exiting non-zero is caught and falls back the same way,
-      with a message naming the cause ("not logged in to GitHub CLI").
-- [ ] An already-open PR for the branch is reported as existing with its URL
-      instead of erroring on a duplicate create.
-- [ ] While the request is in flight the button is disabled and shows a busy
-      label; it returns to **Create PR** on success, fallback, and error alike.
-- [ ] Vitest coverage in `src/app/__tests__/` with a stubbed `gh` on PATH:
-      happy-path `pr create` argv and URL, missing-`gh` fallback, unauthenticated
-      fallback.
+- [ ] Hovering a board card and pressing **L** opens a tag picker for that task — on every pipeline, including one with a single flow (where **L** does nothing today).
+- [ ] Typing a name in the picker and choosing a colour creates the tag, assigns it to the hovered task immediately, and the chip appears on the card without a reload.
+- [ ] Hovering a *different* card and pressing **L** lists the tag created earlier, selectable in one click — the registry is board-wide, not per task.
+- [ ] Clicking an assigned tag in the picker unassigns it; unassigning the last one leaves the card with no chips and no leftover `taskTags` entry.
+- [ ] A task can hold several tags at once, each rendering in its own colour, on the card and in the task header.
+- [ ] Creating a tag whose name slugs to an existing one reuses that tag instead of duplicating it or changing its colour.
+- [ ] Tags and assignments are stored in `.bridza/refs.json` as `tags` / `taskTags` and committed on the base branch — visible in `git show` of that branch tip, and surviving an app restart.
+- [ ] **F** on a hovered card opens the stage-flow menu with the same behaviour and the same two-or-more-flows condition **L** had before, confirm dialog included; **L** never opens the flow menu.
+- [ ] The card hint line names the live keys, and `Escape` closes whichever menu is open.
+- [ ] A repo whose `refs.json` predates this (no `tags`, no `taskTags`) loads with no tags and no error; a `taskTags` entry naming a tag that is not in the registry is ignored, not rendered, and does not crash the board.
+- [ ] Deleting a task removes its `taskTags` entry; the tags it used stay in the registry and are still offered on other tasks.
+- [ ] A failed save flashes the error and leaves the board showing the unchanged tags.
+- [ ] Tests cover: `createTag` idempotence and colour validation; `setTaskTags` dropping unknown slugs and de-duplicating; the task projection resolving slugs to `{ id, name, color }`; **L** opening the tag menu and **F** the flow menu from a hovered card.
+- [ ] The `tags` / `taskTags` shape is documented alongside the other `.bridza/` on-disk state in `docs/09-file-format.md`.
 - [ ] `pnpm test`, `pnpm lint`, `pnpm build` pass.

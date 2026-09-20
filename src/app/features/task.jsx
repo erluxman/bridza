@@ -362,6 +362,7 @@ setResolveOpen(false);
           {/* one line, ellipsised: a long title must never push the toolbar
               around — the full text lives in the Brief card below */}
           <h1 className="task-title" style={{ marginLeft: 6 }} title={task.title}>{task.ref ? <span className="tref">#{task.ref}</span> : null}{task.title}</h1>
+          {(task.tags || []).map((g) => <span className={"tag tag-" + g.color} key={g.id}>{g.name}</span>)}
         </div>
         <div className="row">
           <div className="seg" title="How to view this task's stages. Stages: the classic runner. Inspector / Canvas / Chat: read & audit what each stage did. Terminal: a real shell in this task's worktree.">
