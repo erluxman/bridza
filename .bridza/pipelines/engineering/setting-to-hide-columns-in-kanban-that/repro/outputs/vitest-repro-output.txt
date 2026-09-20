@@ -1,0 +1,61 @@
+
+ RUN  v4.1.9 /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/setting-to-hide-columns-in-kanban-that
+
+ ❯ src/app/__tests__/repro-kanban-empty-columns.test.jsx (3 tests | 2 failed) 5ms
+     × expected: only columns holding at least one card are rendered by default 3ms
+     × expected: a toggle exists on the pipeline view to show all columns 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/app/__tests__/repro-kanban-empty-columns.test.jsx > REPRO #40 — Kanban shows columns with no cards > expected: only columns holding at least one card are rendered by default
+AssertionError: expected [ 'Research(0)', 'Plan(1)', …(6) ] to deeply equal [ 'Plan(1)', 'Reproduce(1)' ]
+
+- Expected
++ Received
+
+  [
++   "Research(0)",
+    "Plan(1)",
+    "Reproduce(1)",
++   "Fix(0)",
++   "Fix review(0)",
++   "Ship(0)",
++   "Delivered(0)",
++   "Archived(0)",
+  ]
+
+ ❯ src/app/__tests__/repro-kanban-empty-columns.test.jsx:54:21
+     52|
+     53|   it("expected: only columns holding at least one card are rendered by…
+     54|     expect(headers).toEqual(["Plan(1)", "Reproduce(1)"]);
+       |                     ^
+     55|   });
+     56|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/app/__tests__/repro-kanban-empty-columns.test.jsx > REPRO #40 — Kanban shows columns with no cards > expected: a toggle exists on the pipeline view to show all columns
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/app/__tests__/repro-kanban-empty-columns.test.jsx:58:44
+     56|
+     57|   it("expected: a toggle exists on the pipeline view to show all colum…
+     58|     expect(/show all columns/i.test(html)).toBe(true);
+       |                                            ^
+     59|   });
+     60| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  20:52:34
+   Duration  115ms (transform 31ms, setup 0ms, import 54ms, tests 5ms, environment 0ms)
+

@@ -6,7 +6,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { DATA_DIR, rel, safeRef, shortTitle, taskSlug, taskDirName, parseTaskDir, pipelineFlows, flattenFlows, TAG_PALETTE } from "../core/domain.js";
+import { DATA_DIR, rel, safeRef, shortTitle, taskSlug, taskDirName, parseTaskDir, pipelineFlows, flattenFlows, TAG_PALETTE, normalizeTagColor } from "../core/domain.js";
 import { git, isGitRepo, branchExists, baseBranchName, ensureTaskBranch, taskBranchName, taskDirOn, taskDirAt, removeTaskWorktree, stopRuns, healTaskFlow, validRef } from "./bridza-run.js";
 
 const BEMAIL = "bridza@local";
@@ -364,6 +364,19 @@ export function mergeTime(root, pipeline, task, map) {
 // Numbers are never reused — deleting a task retires its number.
 const refsFile = (root) => path.join(root, DATA_DIR, "refs.json");
 
+// Own keys only: a tag id is user input, and `tags["constructor"]` inherited
+// from Object.prototype would otherwise read as a tag that exists.
+const ownTagIds = (tags) => Object.keys(tags).filter((id) => Object.prototype.hasOwnProperty.call(tags, id));
+
+function normalizeTags(tags) {
+  const out = {};
+  for (const id of ownTagIds(tags)) {
+    const t = tags[id];
+    if (t && typeof t === "object") out[id] = { ...t, color: normalizeTagColor(t.color) || TAG_PALETTE[0] };
+  }
+  return out;
+}
+
 export function readRefs(root) {
   const j = readJSON(refsFile(root));
   return {
@@ -379,7 +392,9 @@ export function readRefs(root) {
     // another computer. Explicit `false` is kept so that unarchiving also wins
     // over a legacy `archived: true` left in an old task metadata.json.
     archived: (j && j.archived && typeof j.archived === "object" && !Array.isArray(j.archived)) ? j.archived : {},
-    tags: (j && j.tags && typeof j.tags === "object" && !Array.isArray(j.tags)) ? j.tags : {},
+    // colours normalize on the way out: a refs.json written before free colours
+    // holds "violet", and every renderer downstream now expects "#a78bfa"
+    tags: normalizeTags((j && j.tags && typeof j.tags === "object" && !Array.isArray(j.tags)) ? j.tags : {}),
     taskTags: (j && j.taskTags && typeof j.taskTags === "object" && !Array.isArray(j.taskTags)) ? j.taskTags : {},
   };
 }
@@ -390,16 +405,36 @@ export function createTag(root, { name, color }) {
   // single slug "x" — two different tags silently becoming one.
   const bad = validRef(name, "tag name");
   if (bad) return { ok: false, error: bad };
-  if (!TAG_PALETTE.includes(color)) return { ok: false, error: "invalid color" };
+  const hex = normalizeTagColor(color);
+  if (!hex) return { ok: false, error: "invalid color" };
   // lowercased before slugging: "Billing" and "billing" are the SAME tag, so
   // typing it again on another card reuses the entry instead of duplicating it
   const id = safeRef(name.trim().toLowerCase());
   const refs = readRefs(root);
-  if (refs.tags[id]) return { ok: true, id, created: false };
-  refs.tags[id] = { name: name.trim(), color };
+  // same own-key guard: a tag actually named "constructor" slugs to a key that
+  // is truthy on every object, and would report as already created
+  if (Object.prototype.hasOwnProperty.call(refs.tags, id)) return { ok: true, id, created: false };
+  refs.tags[id] = { name: name.trim(), color: hex };
   writeJSON(refsFile(root), refs);
   commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: create tag "${name.trim()}" (${id})`);
   return { ok: true, id, created: true };
+}
+
+export function updateTag(root, { id, color }) {
+  const hex = normalizeTagColor(color);
+  if (!hex) return { ok: false, error: "invalid color" };
+  const refs = readRefs(root);
+  // hasOwnProperty, not truthiness: `refs.tags["constructor"]` is a function
+  // off Object.prototype, so a bare `if (!tag)` let an id that is not a tag
+  // through and wrote a nameless entry to refs.json.
+  if (!Object.prototype.hasOwnProperty.call(refs.tags, id)) return { ok: false, error: `unknown tag "${id}"` };
+  const tag = refs.tags[id];
+  // only `color` is touched — refs.taskTags is never read here, so a recolour
+  // cannot disturb which tasks carry the tag
+  refs.tags[id] = { ...tag, color: hex };
+  writeJSON(refsFile(root), refs);
+  commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: recolor tag "${tag.name}" (${id}) → ${hex}`);
+  return { ok: true, id, color: hex };
 }
 
 export function setTaskTags(root, pipeline, task, tagIds) {
@@ -408,7 +443,7 @@ export function setTaskTags(root, pipeline, task, tagIds) {
   if (!Array.isArray(tagIds)) return { ok: false, error: "tagIds must be an array" };
   const key = safeRef(pipeline) + "/" + safeRef(task);
   const refs = readRefs(root);
-  const validIds = [...new Set(tagIds)].filter((id) => refs.tags[id]);
+  const validIds = [...new Set(tagIds)].filter((id) => Object.prototype.hasOwnProperty.call(refs.tags, id));
   if (validIds.length === 0) delete refs.taskTags[key];
   else refs.taskTags[key] = validIds;
   writeJSON(refsFile(root), refs);
@@ -571,7 +606,7 @@ export function readProject(root) {
         // readRefs normalises tags/taskTags to {}, so no guard is needed here; a
         // slug with no registry entry drops out rather than rendering half a chip
         tags: (refsAll.taskTags[pid + "/" + tid] || [])
-          .filter((id) => refsAll.tags[id])
+          .filter((id) => Object.prototype.hasOwnProperty.call(refsAll.tags, id))
           .map((id) => ({ id, name: refsAll.tags[id].name, color: refsAll.tags[id].color })),
         stages, tracking: tr, routing: meta.routing || {}, branch: taskBranchName(pid, tid),
         target: meta.target || base,

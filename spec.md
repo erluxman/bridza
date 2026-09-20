@@ -1,88 +1,82 @@
-# VS Code-like categorised Settings
+# Change a tag's colour
 
 ## What
 
-Restructure the Settings modal from a single flat form into a two-pane,
-category-driven panel modelled on VS Code: a category rail on the left, the
-selected category's settings on the right.
+A tag's colour is editable after creation, from **every place a task is drawn**,
+and it is a free colour rather than one of eight.
 
-The categories are defined in one declarative registry. Today that registry
-holds exactly one entry — **Terminal**, containing the font family / font size /
-ligatures fields that already exist. No new settings are added. The deliverable
-is the shell plus the registry that makes adding the next category a one-entry
-change.
+Three surfaces, all carrying the same picker:
 
-Out of scope (deliberately): a settings search box, per-setting reset, "modified"
-badges, workspace-vs-user scopes, category persistence across opens, nested
-sub-categories. These are the VS Code features we are *not* building now.
+- **Kanban card** — hover, press **L**, as today.
+- **Plan board** — the task panel gains its chips and a 🏷 button.
+- **Task detail rail** — a `Tags` row in the Task card, beside `Status`,
+  `Branch` and `Target`.
+
+In the picker, each existing tag's dot expands a row holding the eight presets
+**and a full colour input**; the picker's **⚙** opens a manage-tags dialog
+listing every tag in the registry with the same control on each. A change is
+registry-wide and immediate: every chip and dot for that tag repaints. Tag name,
+id, and which tasks carry the tag are untouched.
+
+Tags also become visible on the plan board — colour dots on the task node, full
+chips in the panel — the one place a task was drawn without them.
+
+Out of scope: renaming a tag, deleting a tag, and a tags screen under Settings
+(the ⚙ dialog is reachable from any picker instead).
 
 ## Why
 
-Settings currently render as one unbroken form. Every future setting appends to
-that list until it is unreadable, and each addition touches the same component.
-The captured intent is explicit: *"the settings should have a category like VS
-code — we may not have all the features but that's the way we eventually will
-go."* Committing to the categorised layout now, while there is one category and
-three fields to migrate, costs one refactor. Doing it after five more settings
-land costs a rewrite plus a re-learn for anyone already used to the old layout.
+Colour was assigned once and then permanent, and it was one of eight names.
+`createTag` (`server/bridza-store.js`) early-returns the existing entry when the
+slugged name already exists, ignoring the colour it was handed — so retyping a
+name with a different swatch did nothing, and the only escape was a second,
+differently-named tag. That is how a registry accumulates `billing` and
+`billing-2`.
 
-A single-category rail is the honest intermediate state and is what the intent
-asks for: the structure is the feature, the content fills in later.
+Editing from one surface only is the other half. `TagMenu` was private to
+`board.jsx` and mounted on the kanban card alone, so a task looked at on the plan
+board or on its own detail page could not be tagged or recoloured without
+navigating back to the board.
 
 ## How
 
-**Registry** — in `src/app/features/settings.jsx`, above the component:
+**Colour becomes a value.** `TAG_PALETTE` (`core/domain.js`) turns from eight
+names into eight `#rrggbb` presets — the same values the old `.tag-<name>` CSS
+rules resolved to — and `normalizeTagColor` accepts any hex (expanding `#abc`,
+folding case) plus the legacy names through `LEGACY_TAG_COLORS`. `readRefs`
+normalizes on the way out, so a `refs.json` written before this change needs no
+migration pass: it reads as hex, and the next write persists hex.
 
-```jsx
-const CATEGORIES = [
-  { id: "terminal", label: "Terminal", Panel: TerminalPanel },
-];
-```
+**Rendering.** The eight `.tag-<name>` rules are gone. `tagStyle(color)` in
+`features/tags.jsx` returns `{ color, borderColor: color + "55" }` — the same
+~33% border alpha the palette rules used — and chips, dots, swatches and the
+plan-board circles carry it inline.
 
-Each entry is `{ id, label, Panel }`. `Panel` is a component receiving
-`{ value, onChange }` for its own slice of draft state. Adding a category means
-appending one entry and writing its panel — no edit to `SettingsModal` itself.
+**Store.** `updateTag(root, { id, color })` beside `createTag`: unknown id →
+`{ ok: false, error }`, unparseable colour → `{ ok: false, error: "invalid
+color" }`, otherwise set `refs.tags[id].color`, write and commit
+(`bridza: recolor tag "<name>" (<id>) → <hex>`). Existence is checked with
+`hasOwnProperty`, not truthiness — `refs.tags["constructor"]` is a function off
+`Object.prototype`, and a bare truthiness check wrote a nameless tag to disk.
+`createTag`, `setTaskTags` and the project projection share the same guard.
 
-**`TerminalPanel`** — extract the existing font family select, the custom-font
-free-text fallback, the font size input, and the ligatures checkbox verbatim out
-of `SettingsModal` into this component. Behaviour, `FONTS` list, clamping
-(`Math.max(8, Math.min(32, …))`) and the `custom` toggle logic are unchanged;
-this is a move, not a rewrite. Drop the now-redundant inline `Terminal`
-`.side-label` heading — the category rail carries that name.
+**Shared module.** `TagMenu` moves out of `board.jsx` into
+`src/app/features/tags.jsx`, together with `TagChips`, the `TagManager` dialog,
+and `useTagActions(dir, onChange, flash)` — the four writes the three surfaces
+would otherwise each copy. Pipeline id is a per-call argument, not a hook
+argument, because the plan board spans every pipeline at once and the registry
+is per-pipeline.
 
-**`SettingsModal`** — keeps ownership of draft state and of `save`, which still
-calls `setTermSettings` and then `onClose`. It adds:
+`TagManager` is portalled to `document.body`: the picker that opens it is an
+absolutely positioned, z-indexed menu, which is a stacking context that would
+otherwise pin the modal underneath the app.
 
-- `const [active, setActive] = useState(CATEGORIES[0].id)` — selection lives in
-  component state and resets to the first category on each open.
-- A `.settings-body` two-column layout: `.settings-cats` rail of `<button>`s
-  (one per registry entry, `aria-current="page"` on the active one) and a
-  `.settings-pane` that renders the active entry's `Panel`.
+The colour input listens for the **native `change`** event, not React's
+`onChange` — a colour input fires `input` continuously while the OS picker is
+dragged, which would be one API round-trip and one git commit per pixel.
 
-**Modal width** — `.modal` is `min(440px, 92vw)`, too narrow for two panes. Add
-an optional `wide` prop to `Modal` in `src/app/ui.jsx` that appends a `wide`
-class, and pass it here. In `src/app/bridza.css` add `.modal.wide { width:
-min(720px, 92vw); }`.
-
-**CSS** — in `src/app/bridza.css`: `.settings-body` as a two-column grid
-(fixed rail ~160px, flexible pane), `.settings-pane` scrollable with a bounded
-max-height so long categories scroll rather than growing the modal past the
-viewport, `.settings-cats button` styled to match existing sidebar items with a
-visible active state, and a divider between the columns. Use existing
-`--bg-*` / `--line-*` custom properties; do not introduce new colour values.
-
-Unchanged: `src/app/lib/settings.js` (storage keys, defaults, subscribers),
-`src/app/features/nav.jsx` (still renders `<SettingsModal onClose={…} />`), and
-the live-update path into the terminal.
-
-## Verification
-
-- New test `src/app/__tests__/settings-categories.test.jsx`, in the existing
-  raw `react-dom/client` + `act` + jsdom style used by `welcome-dialog.test.jsx`
-  (with the same in-memory `localStorage` stub), covering:
-  - the rail renders one button per `CATEGORIES` entry, first active by default;
-  - the Terminal panel's fields render and Save writes through
-    `getTermSettings()`, i.e. the migrated behaviour still works;
-  - rendering `SettingsModal` with a stubbed two-entry registry switches panes on
-    click — the extensibility claim, tested rather than asserted.
-- `pnpm test`, `pnpm lint`, `pnpm build` pass.
+**Plan board** (`src/app/features/plan.jsx`) — `tags` carries into the task
+model. On a node, a right-aligned row of `<circle>`s on the sub-text line
+(`y ≈ 33`), capped at 4; the `<title>` naming all of them lives on the node's own
+`<g>`, so the whole card is the hit area rather than a 7px dot. The pipeline
+label truncates harder when tags are present, so the dots do not sit on it.

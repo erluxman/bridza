@@ -25,7 +25,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { DATA_DIR, CLI_TOOLS, pipelineFlows } from "../core/domain.js";
-import { readProject, createPipeline, savePipeline, archivePipeline, saveKanbanOrder, deletePipeline, createTask, deleteTask, readContext, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan, assignRefs, readPipelineDef, setTaskArchived, createTag, setTaskTags } from "./bridza-store.js";
+import { readProject, createPipeline, savePipeline, archivePipeline, saveKanbanOrder, deletePipeline, createTask, deleteTask, readContext, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan, assignRefs, readPipelineDef, setTaskArchived, createTag, updateTag, setTaskTags } from "./bridza-store.js";
 import { runStage, runStageAndAdvance, attachRun, automateTask, finalizeTask, finishConflict, abortConflict, openDir, conflictedFiles, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, retargetTask, setTaskReuse, setStageRouting, listModels, termRun, ensureTaskWorktree, recommendPipelines, readTaskFile, saveTaskFile, listBranches, createPR } from "./bridza-run.js";
 
 function resolveDir(raw) {
@@ -109,6 +109,10 @@ export function setPickFolder(fn) { pickFolderImpl = fn || pickFolder; }
 // A REAL shell (your $SHELL, zsh/bash) in the browser via xterm.js. cwd = the
 // task's worktree when pipeline+task are given, else the repo root. node-pty +
 // ws load lazily so plain builds never touch the native module.
+const SESSIONS = new Map(); // cwd -> { pty, buffer, ws, timer, shell }
+const REAP_TIMEOUT = 30 * 60 * 1000;
+const MAX_BUFFER = 256 * 1024;
+
 let wssP = null;
 const getWss = () => wssP || (wssP = import("ws").then(({ WebSocketServer }) => new WebSocketServer({ noServer: true })));
 
@@ -119,35 +123,79 @@ export async function handleUpgrade(req, socket, head) {
   try {
     const wss = await getWss();
     wss.handleUpgrade(req, socket, head, async (ws) => {
+      // The client speaks (its opening `resize`, then keystrokes) as soon as
+      // the socket opens, but the first attach still has to resolve the
+      // worktree and load node-pty — and a `message` with no listener is
+      // dropped. So listen right away and queue until there is a PTY to feed.
+      let cwd = null, sess = null, closed = false;
+      const pending = [];
+      const apply = (m) => {
+        if (m.t === "in" && typeof m.d === "string") sess.pty.write(m.d);
+        else if (m.t === "resize" && m.cols > 1 && m.rows > 1) sess.pty.resize(m.cols | 0, m.rows | 0);
+        else if (m.t === "kill") { try { sess.pty.kill(); } catch (e) {} SESSIONS.delete(cwd); }
+      };
+      // Detach: the shell keeps running, minus a viewer, until reattached or reaped.
+      const detach = () => {
+        if (sess.ws !== ws) return;             // already taken over by a newer client
+        sess.ws = null;
+        if (SESSIONS.get(cwd) !== sess) return; // killed, or exited on its own — nothing left to reap
+        sess.timer = setTimeout(() => {
+          if (SESSIONS.get(cwd) === sess && !sess.ws) {
+            try { sess.pty.kill(); } catch (e) {}
+            SESSIONS.delete(cwd);
+          }
+        }, REAP_TIMEOUT);
+      };
+      ws.on("message", (buf) => {
+        try {
+          const m = JSON.parse(String(buf));
+          if (sess) apply(m); else pending.push(m);
+        } catch (e) { /* ignore malformed frames */ }
+      });
+      ws.on("close", () => { closed = true; if (sess) detach(); });
+
       const url = new URL(req.url, "http://localhost");
       const root = repoRoot(url.searchParams.get("dir"));
       if (!root) return void ws.close(1008, "no project folder");
-      let cwd = root;
+      cwd = root;
       const pl = url.searchParams.get("pipeline"), tk = url.searchParams.get("task");
       if (pl && tk) {
         const wt = ensureTaskWorktree(root, pl, tk);
         if (wt.ok) cwd = wt.worktree;
       }
-      let ptyMod;
-      try { ptyMod = await import("node-pty"); }
-      catch (e) { ws.send(JSON.stringify({ t: "err", d: "node-pty isn't installed — run `pnpm install` and reload" })); return void ws.close(); }
-      const shell = process.env.SHELL || (process.platform === "win32" ? "powershell.exe" : "/bin/zsh");
-      let p;
-      try {
-        const args = process.platform === "win32" ? [] : ["-l"];
-        p = ptyMod.spawn(shell, args, { name: "xterm-256color", cols: 80, rows: 24, cwd, env: { ...process.env, PWD: cwd } });
-      } catch (e) { ws.send(JSON.stringify({ t: "err", d: "couldn't spawn " + shell + ": " + String((e && e.message) || e) })); return void ws.close(); }
-      ws.send(JSON.stringify({ t: "cwd", d: cwd, shell }));
-      p.onData((d) => { if (ws.readyState === 1) ws.send(JSON.stringify({ t: "out", d })); });
-      p.onExit(({ exitCode }) => { if (ws.readyState === 1) { ws.send(JSON.stringify({ t: "exit", code: exitCode })); ws.close(); } });
-      ws.on("message", (buf) => {
+
+      sess = SESSIONS.get(cwd);
+      if (sess) {
+        clearTimeout(sess.timer);
+        if (sess.ws && sess.ws.readyState === 1) sess.ws.close();
+        sess.ws = ws;
+        ws.send(JSON.stringify({ t: "cwd", d: cwd, shell: sess.shell }));
+        if (sess.buffer.length > 0) ws.send(JSON.stringify({ t: "out", d: sess.buffer }));
+      } else {
+        let ptyMod;
+        try { ptyMod = await import("node-pty"); }
+        catch (e) { ws.send(JSON.stringify({ t: "err", d: "node-pty isn't installed — run `pnpm install` and reload" })); return void ws.close(); }
+        const shell = process.env.SHELL || (process.platform === "win32" ? "powershell.exe" : "/bin/zsh");
+        let p;
         try {
-          const m = JSON.parse(String(buf));
-          if (m.t === "in" && typeof m.d === "string") p.write(m.d);
-          else if (m.t === "resize" && m.cols > 1 && m.rows > 1) p.resize(m.cols | 0, m.rows | 0);
-        } catch (e) { /* ignore malformed frames */ }
-      });
-      ws.on("close", () => { try { p.kill(); } catch (e) { /* already gone */ } });
+          const args = process.platform === "win32" ? [] : ["-l"];
+          p = ptyMod.spawn(shell, args, { name: "xterm-256color", cols: 80, rows: 24, cwd, env: { ...process.env, PWD: cwd } });
+        } catch (e) { ws.send(JSON.stringify({ t: "err", d: "couldn't spawn " + shell + ": " + String((e && e.message) || e) })); return void ws.close(); }
+        sess = { pty: p, buffer: "", ws, timer: null, shell };
+        SESSIONS.set(cwd, sess);
+        ws.send(JSON.stringify({ t: "cwd", d: cwd, shell }));
+        p.onData((d) => {
+          sess.buffer = (sess.buffer + d).slice(-MAX_BUFFER);
+          if (sess.ws && sess.ws.readyState === 1) sess.ws.send(JSON.stringify({ t: "out", d }));
+        });
+        p.onExit(({ exitCode }) => {
+          if (sess.ws && sess.ws.readyState === 1) { sess.ws.send(JSON.stringify({ t: "exit", code: exitCode })); sess.ws.close(); }
+          SESSIONS.delete(cwd);
+        });
+      }
+
+      for (const m of pending.splice(0)) apply(m);
+      if (closed) detach(); // client gave up while we were spawning
     });
   } catch (e) { socket.destroy(); }
 }
@@ -249,6 +297,11 @@ export async function handleApi(req, res) {
       if (!root) return void need(), true;
       const b = (await json(req)) || {};
       res.end(JSON.stringify(createTag(root, { name: b.name, color: b.color }))); return true;
+    }
+    if (M === "POST" && P === "/api/bridza/tag/update") {
+      if (!root) return void need(), true;
+      const b = (await json(req)) || {};
+      res.end(JSON.stringify(updateTag(root, { id: b.id, color: b.color }))); return true;
     }
     if (M === "POST" && P === "/api/bridza/task/tags") {
       if (!root) return void need(), true;

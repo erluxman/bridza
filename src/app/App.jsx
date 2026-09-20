@@ -154,7 +154,7 @@ export default function App() {
       {!sideCollapsed && <ColGrip side="left" {...sideGrip} style={{ left: sideW - 3 }} />}
       <div className="main">
         {planOpen ? (
-          <PlanView dir={dir} proj={proj} runningTasks={runningTasks} flash={flash} {...topbarNav}
+          <PlanView dir={dir} proj={proj} runningTasks={runningTasks} flash={flash} onChange={refresh} {...topbarNav}
             onOpenTask={(pid, tid) => { setPlanOpen(false); setActivePipe(pid); setActiveTask(tid); }} />
         ) : inboxOpen ? (
           <Inbox dir={dir} proj={proj} onChange={refresh} flash={flash} {...topbarNav}
