@@ -167,7 +167,8 @@
     "engineering/define-merge-strategy": true,
     "engineering/merge-preflight-check": true,
     "engineering/finalize-merge-style-surface": true,
-    "engineering/merge-strategy-acceptance-matrix": true
+    "engineering/merge-strategy-acceptance-matrix": true,
+    "engineering/merge-method-decision-adr": true
   },
   "tags": {
     "complex": {
