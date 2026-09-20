@@ -1,135 +1,158 @@
-# Repro — Have a different task URL so that I can refresh
+# Repro — Remove automatic focus on search field in Kanban View
 
-Task #105 · `engineering/have-a-different-tax-url-so-that-i-can` · stage `repro`
-
-> "tax URL" in the title is a typo for **task URL**.
+Task #107 · `engineering/remove-automatic-focus-on-search-field` · stage `repro`
 
 ## Summary
 
-The Bridza app (`/app`, `app.localhost:5173`) keeps **all** navigation state in
-React component state only. The address bar is `http://localhost:5199/app`
-whether you are on the board, inside a task, in the inbox, in the plan view, or
-in the stage-flow editor. Because the URL never names the open task, a browser
-refresh (or a copy-pasted link, or a Vite HMR full reload) drops the user back
-to the pipeline board — "home".
+The kanban board's search box does not focus **once, when you open it**. It
+re-focuses itself on **every single render of `<Board>`**, for the whole time it
+stays open. Since the app polls the bridge every 4 seconds and re-renders the
+board with fresh data, the caret is yanked out of whatever you were doing and
+back into the search field roughly every 4 seconds — and instantly whenever the
+mouse pointer crosses a task card.
 
-**Reproduced end-to-end.** Failing spec: `e2e/repro-task-url.spec.js` (added by
-this stage; it is a repro, not a fix).
+The offending line is `src/app/features/board.jsx:191`:
+
+```jsx
+ref={(el) => el && setTimeout(() => el.focus(), 0)}
+```
+
+An **inline** ref callback is a new function identity on every render, so React
+detaches it (`ref(null)`) and re-attaches it (`ref(el)`) on every commit. This
+is not mount-time focus; it is `focus()` per render.
+
+**Reproduced end-to-end.** Failing spec: `src/app/__tests__/board-search-focus.test.jsx`
+(added by this stage — it is a repro, not a fix).
+
+The ⌘K / `/` shortcut the report asks for **already exists**
+(`board.jsx:120-123`) and works. Nothing needs adding there; the defect is
+purely the unconditional re-focus.
 
 ## Reproduction steps
 
-Prereq: dependencies installed (`pnpm install`). This worktree has none; the run
-below borrowed the main checkout's:
-`ln -sfn /Users/risky/projects/erluxman.com/bridza/node_modules node_modules`
-(removed again afterwards so the tree stays clean).
+### Automated
+
+This worktree ships without `node_modules`; the run below borrowed the main
+checkout's (symlink, gitignored, so the tree stays clean):
 
 ```bash
-PLAYWRIGHT_BROWSERS_PATH=~/Library/Caches/ms-playwright \
-  ./node_modules/.bin/playwright test e2e/repro-task-url.spec.js
-```
-
-The spec drives the real app against a throwaway git fixture repo:
-
-1. `goto /app`, clear `localStorage` (and pre-set `bridza-welcome` to today so
-   the once-a-day welcome dialog does not swallow clicks), reload.
-2. Type the fixture repo path into the Welcome panel → Enter.
-3. Category picker → **Engineering** → **Create 1 pipeline**.
-4. Click the **Engineering** pipeline → **New task** → title `Repro Task 105`,
-   flow `feature` → **Create**. The task detail screen opens.
-5. Record `page.url()` on the board and with the task open.
-6. `page.reload()`, wait, record what is on screen.
-
-Manual equivalent: `pnpm dev`, open `http://app.localhost:5173`, open any task,
-look at the address bar, press ⌘R.
-
-## Observed
-
-Verbatim console output from the failing run:
-
-```
-URL on board          : http://localhost:5199/app
-URL with task OPEN    : http://localhost:5199/app
-URL after reload      : http://localhost:5199/app
-task heading visible  : false
-board visible         : true
-main region text      : "Engineering\n⌨ Terminal\n🔍\n⚙ Stage flow\n＋ New task"
+ln -sfn /home/risky/projects/erluxman.com/bridza/node_modules node_modules
+./node_modules/.bin/vitest run src/app/__tests__/board-search-focus.test.jsx
 ```
 
 ```
-Error: URL should change when a task is opened
-expect(received).not.toBe(expected) // Object.is equality
-Expected: not "http://localhost:5199/app"
+ ❯ src/app/__tests__/board-search-focus.test.jsx (4 tests | 2 failed)
+   × does NOT re-steal focus on an unrelated re-render (the 4s poll)
+   × does NOT re-steal focus when the pointer merely crosses a card
+   ✓ focuses the search box when the user opens it on purpose (click)
+   ✓ does not grab focus when the board first renders
 ```
+
+The two passing cases are the behaviour a fix must **preserve**; the two failing
+ones are the bug.
+
+### By hand, in the real app
+
+1. `pnpm dev`, open `http://app.localhost:5173/app`, open any pipeline with at
+   least one task (the kanban view).
+2. Click 🔍 (or press `/` / ⌘K) and type something, e.g. `alpha`. The query must
+   be non-empty — `onBlur` closes the box again when it is empty
+   (`board.jsx:196`), which masks the bug.
+3. Click somewhere else — another button, a card, the terminal drawer.
+4. **Wait ~4 seconds, or just move the pointer over a task card.**
+
+Observed: focus jumps back into the search input, caret and all. Keystrokes
+meant for the page get typed into the search box.
 
 ## Observed vs expected
 
-| Action | Observed | Expected |
-|---|---|---|
-| Open a task | URL stays `/app` | URL names the pipeline + task, e.g. `/app/engineering/repro-task-105` |
-| Refresh with a task open | Task closes; pipeline board ("home") renders | Same task detail reopens |
-| Copy/share the address bar | Always points at home | Points at the exact task |
-| Refresh in Inbox / Plan / Stage-flow | Falls back to the board | Stays on that view |
-| Back / Forward buttons | Leave the app entirely (no in-app history entries) | Step through in-app navigation |
+| | |
+|---|---|
+| **Observed** | While search is open, focus returns to the search `<input>` on every board render — every 4s from the poll, and immediately on any card hover. The user never asked for it. |
+| **Expected** | Focus moves into the search box **only** on an explicit user action: clicking 🔍 / the input, or pressing `/` or ⌘K. Otherwise focus stays wherever the user put it. |
 
 ## Root cause
 
-There is no router and no `history` integration anywhere in the app. A repo-wide
-grep for `pushState` / `replaceState` / `popstate` / `hashchange` /
-`location.hash` returns **zero** hits in `src/`; `react-router` is not a
-dependency. The only `location` reads are in `src/main.tsx:17-21`, and they run
-once at module load to pick which bundle to mount:
+`src/app/features/board.jsx:189-197`
 
-```ts
-const isApp =
-  location.hostname.startsWith("app.") ||
-  location.pathname === "/app" ||
-  location.pathname.startsWith("/app/");
+```jsx
+{searchOpen ? (
+  <input
+    ref={(el) => el && setTimeout(() => el.focus(), 0)}   // ← line 191
+    className="search-input"
+    ...
 ```
 
-Everything after `/app/` is matched but then discarded — nothing parses it.
+Three facts combine:
 
-All navigation lives in `useState` inside `src/app/App.jsx`, initialised to
-"home" on every mount:
+1. **The ref is inline.** React compares ref identity across commits. An arrow
+   function literal is never identity-equal to the previous render's, so React
+   runs the detach/attach cycle every commit — the callback fires, and calls
+   `focus()`, on **every render**, not just on mount.
 
-- `src/app/App.jsx:22` — `const [activeTask, setActiveTask] = useState("")`
-- `src/app/App.jsx:21` — `const [activePipe, setActivePipe] = useState("")`
-- `src/app/App.jsx:29-31` — `flowOpen` / `inboxOpen` / `planOpen`, all `useState(false)`
+   Measured directly (instrumented `input.focus`, then three unrelated
+   re-renders): **3 renders → 3 `focus()` calls.** One per render. Confirmed,
+   not inferred.
 
-`src/app/App.jsx:36` then computes `atHome = !planOpen && !inboxOpen &&
-!flowOpen && !activeTask`, which is **true on every fresh mount**, and
-`src/app/App.jsx:125` renders `<Board>` because `task` is undefined.
+2. **`<Board>` re-renders constantly.** `App.jsx:76-79` polls every 4s:
 
-Every "open a task" entry point is a pure `setState` with no URL write —
-`src/app/App.jsx:111` (sidebar), `:119` (plan), `:122` (inbox), `:126` (board
-card), `:129` (task→task), `:139` (task just created).
+   ```js
+   const t = setInterval(() => refresh(dir, { poll: true }), 4000);
+   ```
 
-The single piece of navigation state that *does* survive a reload is the opened
-project folder, persisted to `localStorage` under `bridza-project`
-(`src/app/App.jsx:17`, key from `src/app/lib/format.js:10`). That is exactly why
-the refresh lands on the board rather than on the Welcome screen — the project
-reopens, the task does not.
+   `refresh` does `setProj(s)` (`App.jsx:63`) with a **fresh object** from
+   `api.getState(d)`, so the board's props change identity every 4s. `Board` is
+   not memoised. On top of that, board-local state re-renders it too — most
+   notably `setHover(t.id)` from each card's `onMouseEnter` (`board.jsx:219`),
+   which is why a bare mouse movement triggers it with no poll involved.
 
-Secondary consequence, from the same cause (code-level, not exercised by the
-spec above, which creates only one pipeline): `src/app/App.jsx:63` resets
-`activePipe` to `s.pipelines[0].id` whenever the current value is empty, so a
-refresh while viewing the *second* pipeline also silently switches back to the
-first.
+3. **The `setTimeout(…, 0)` hides the cause and widens the blast radius.** The
+   focus lands a macrotask *after* the commit, so it beats React's own focus
+   restoration and steals focus that was legitimately moved during that same
+   tick. It also means the steal cannot be traced to the render that caused it.
 
-## Notes for the fix stage (nothing fixed here)
+Why the intent was reasonable and still wrong: the author wanted "focus the box
+when it appears". A ref callback looks like a mount hook, but it isn't one — it
+is a per-commit hook. The condition that actually matters (*did the user just
+open the search?*) is nowhere in the code, so every render re-asserts focus.
 
-- Deep links will resolve in both environments already: `public/_redirects`
-  serves `/* /index.html 200` in production, and Vite dev falls back to
-  `index.html` for unknown paths — so a path-based scheme under `/app/...` needs
-  no extra server work. `src/main.tsx:19` already admits `/app/*` into the app
-  bundle. Note the app also answers on `app.<host>` where the path has no `/app`
-  prefix, so the URL scheme has to work under both prefixes.
-- The URL should carry pipeline id + task id (both are stable slugs, e.g.
-  `engineering` / `have-a-different-tax-url-so-that-i-can`), and ideally the
-  non-board views (`inbox`, `plan`, `flow`) too.
-- Restoring state on load must wait for `refresh()` to populate `proj` before
-  the task lookup at `src/app/App.jsx:98` can succeed; an id in the URL that no
-  longer exists should degrade to the board, not to a blank screen.
-- Guard against the polling `refresh()` at `src/app/App.jsx:77` and the
-  `activePipe` reset at `:63` fighting whatever the URL says.
-- `e2e/repro-task-url.spec.js` should be kept and turned into the regression
-  test once the fix lands (drop the `REPRO:` prefix from its title).
+### Why the empty-query case masks it
+
+`onBlur={(e) => { if (!e.target.value) setSearchOpen(false); }}` (`board.jsx:196`)
+closes the box on blur when it is empty. With an empty query the input unmounts
+the moment you click away, so there is nothing left to steal focus. The bug only
+shows once a query is typed — which is exactly the state a user searching is in.
+
+## Scope
+
+Only `src/app/features/board.jsx:191`. The other `autoFocus` uses in the
+codebase (`nav.jsx:206`, `task.jsx:587`, `onboarding.jsx:192`/`269`,
+`board.jsx:62`) are React's declarative `autoFocus` prop, which fires on mount
+only and is correct — all of them sit in modals/forms the user just opened.
+
+## Notes for the fix stage
+
+- Removing the ref outright is **not** enough: ⌘K and `/` set `searchOpen` but
+  rely on this ref to actually put the caret in the box. The fix has to focus on
+  the *intent to open*, not on the render.
+- The two passing tests in the spec pin the behaviour to keep.
+
+## Environment
+
+- Branch `bridza/engineering/remove-automatic-focus-on-search-field`, worktree clean apart from this stage's files.
+- `node_modules` symlinked from the main checkout for the run; gitignored.
+- vitest 4.1.9, jsdom, React 19.
+
+### Pre-existing unrelated failure
+
+The full suite (`vitest run`) reports **283 tests, 3 failed**. The third failure
+is not ours and predates this task:
+
+```
+× src/app/__tests__/create-pr.test.js > createPR — fallbacks
+  > falls back with the compose URL when gh is not on PATH
+```
+
+It asserts behaviour for a machine **without** the GitHub CLI; `gh` is installed
+here (`/usr/bin/gh`), so the test's premise does not hold in this environment.
+Unrelated to the search field — flagged, not touched.
