@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "separate-tags-filled-for-each-org-item",
+  "pipeline": "engineering",
+  "title": "separate tags filled for each org item or task",
+  "ref": 104,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/separate-tags-filled-for-each-org-item",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
