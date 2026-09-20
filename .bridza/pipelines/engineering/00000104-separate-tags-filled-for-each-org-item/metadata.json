@@ -15,7 +15,12 @@
     "build",
     "review"
   ],
-  "routing": {},
+  "routing": {
+    "spec": {
+      "tool": "claude",
+      "model": ""
+    }
+  },
   "status": "in-progress",
   "finalized": false,
   "tracking": {}
