@@ -1,31 +1,37 @@
-# The agent picked for a stage sticks to that stage
+# Tags on a task, picked from a card with L
 
 ## What
 
-Picking an agent (and model) for a stage of a task **saves that choice on the task**, keyed by stage. Every later execution of that stage — reopening the task in any window, ▸ Run, auto-advance, a run the server continues after the window is gone — uses the saved agent, until the user picks a different one for that stage.
+A task carries **tags** — a set of named, coloured labels, independent of its pipeline, flow, stage and #ref. Hovering a card on the board and pressing **L** opens a tag picker for that task; the picker both selects from tags that already exist and creates new ones (name + colour) on the spot. A tag created once is offered on every task from then on. Tags render as chips on the board card and in the task header.
 
 ## Why
 
-The choice currently lives only in `StageRunner`'s React state, seeded from `lastRunTool(runs)` (`src/app/features/views.jsx:28`). So it exists only *after* a run, only for that stage's own run history, and only in the window that is open: a stage picked as `claude` but not yet run, or re-entered from another window, or chained into by auto-advance building bodies from a stale snapshot (`src/app/features/task.jsx:235`), silently falls back to `def.tool` → `opencode`. The user has to re-check the picker every time, and a background run can execute on an agent they did not choose.
+There is no per-task label today. The only classifiers a task has are structural — `type` (idea/bug/feature), `flow`, stage, archive state — all of them chosen from fixed sets the pipeline owns, and all of them meaning "where this task is in the machine". Nothing says what the work is *about* (`billing`, `regression`, `blocked-on-design`), so cross-cutting groupings live in the title or nowhere.
+
+**L** is the hover key the user wants for this, and it is taken: today it opens the *flow* menu (`src/app/features/board.jsx:88-94`), which is a rare, destructive action — retargeting discards stage commits — and is only bound at all when the pipeline has two or more flows. Tagging is the frequent one; it gets **L**, and the flow menu moves to **F**.
 
 ## How
 
-**Where it lives.** The task's `metadata.json` already reserves an empty `routing: {}` (written at `server/bridza-store.js:801`, documented in `docs/09-file-format.md`). It becomes the store for this:
+**Where it lives.** Both the registry and the per-task assignment go in `.bridza/.metadata/refs.json`, at the repo root on the base branch — the same place and for the same reason as `archived` (`server/bridza-store.js:370-382`): a task's `metadata.json` is read from its `bridza/*` branch tip, which is never pushed, so anything stored there cannot cross to another machine. Tags are board-wide display state, so they follow `archived`, not `routing`.
 
 ```json
-"routing": { "<stageId>": { "tool": "claude", "model": "opus" } }
+"tags":     { "billing": { "name": "billing", "color": "violet" } },
+"taskTags": { "engineering/separate-tags-filled-for-each-org-item": ["billing", "regression"] }
 ```
 
-`model: ""` (or absent) keeps meaning *the tool's own default* — the same meaning the model box already has. Unknown stage ids are ignored on read, never pruned on write. It is written on the task branch alongside `tracking`, via `readTaskMeta`/`writeTaskMeta`, so it travels with the task like every other per-task fact.
+The registry key is the slug (`safeRef` of the typed name); `name` keeps the typed casing for display. `color` is a name from a fixed palette, not a hex value, so tags theme with the rest of the app in light and dark. `readRefs` defaults both to `{}` — an old `refs.json` with neither key reads as "no tags" and never crashes. Deleting a task drops its `taskTags` entry in the same place the existing cleanup drops `refs.archived[key]` (`server/bridza-store.js:937`); registry entries are never auto-pruned.
 
-**Writing it.** A new `setStageRouting(root, pipeline, task, stage, { tool, model })` in `server/bridza-run.js`, modelled on `setTaskReuse` (validate refs → `ensureTaskWorktree` → read/merge/write meta → `commitWorktree`), exposed as `POST /api/bridza/task/routing` in `server/bridge.js` and `api.setStageRouting` in the client. The `StageRunner` picker calls it when the agent or the model changes — at pick time, not at run time — so a choice made and never run still persists. `runStage` also records `{ tool: toolId, model }` into `routing[stage]` as part of the prompt-commit metadata write it already does (`server/bridza-run.js:787`), keeping the saved choice in step with what actually ran, including a fallback to another agent.
+**Server.** Two functions in `server/bridza-store.js`, both modelled on `setTaskArchived` — read `refs.json`, mutate, `writeJSON`, `commitPaths` once:
 
-**Reading it.** `readTask`'s projection in `server/bridza-store.js` surfaces `routing: meta.routing || {}` on the task, next to `tracking`. Then:
+- `createTag(root, { name, color })` — slugifies, rejects an empty name or a colour outside the palette, returns the existing entry unchanged if the slug is already taken (create is idempotent, never a silent recolour).
+- `setTaskTags(root, pipeline, task, tagIds)` — validates the refs, keeps only slugs present in the registry, de-duplicates, writes the whole set for that task. An empty array clears the task's tags and removes the key.
 
-- `StageRunner.remembered()` resolves `routing[def.id].tool` → `lastRunTool(runs)` → `def.tool` → first available tool → `"opencode"`; the model seed resolves `routing[def.id].model` → `lastRunModel(runs)` → `""`.
-- `automate()` in `src/app/features/task.jsx` builds each stage body from `routing[def.id]` first (same precedence), and passes its `model` — instead of today's "no model is ever passed".
-- `runStage` on the server resolves the agent as `body.tool || routing[stage].tool || <stage default>` (and the model likewise) before `resolveRunnableTool`, so any path that reaches the server without an explicit tool — a chain continued after the window closed, a stale client snapshot, another window — still runs the agent the user chose. The client's explicit pick always wins over the stored one.
+Exposed as `POST /api/bridza/tag/create` and `POST /api/bridza/task/tags` in `server/bridge.js`, and `api.createTag` / `api.setTaskTags` in `src/app/api/client.js`.
 
-**Changing it.** Picking a different agent for that stage overwrites the entry; picking a tool clears the stored model (mirroring the picker's existing `setModel("")` on tool change), and the `×` next to the model box stores `""` = tool default. Nothing clears routing on its own — not finalize, not reopening a stage.
+**Reads.** `readRefs`' `tags` registry rides out on every pipeline projection in `readTasks` as `pipeline.tags` (like `flows`), and each task gets `tags: [{ id, name, color }]` resolved next to `archived` (`server/bridza-store.js:536`) — the UI never has to resolve slugs itself, and a slug whose registry entry is gone simply drops out of the projection.
 
-Out of scope: per-pipeline or global agent defaults, a routing editor outside the existing per-stage pickers, changing which agents exist or how they are detected, and back-filling `routing` for tasks that already have run history (their `lastRunTool` fallback already covers them).
+**UI.** In `src/app/features/board.jsx` the existing hover effect keeps its shape, with the bindings swapped: **L** opens `tagMenu` for the hovered card (bound whenever a card is hovered, unlike the flow menu's `flows.length >= 2` guard), **F** opens `flowMenu` on the same condition as today, `Escape` closes either, and the card's hint line reads `press L to tag` (plus `· F for flow` when the pipeline has several flows). The menu reuses `.proj-menu`, positioned like `flowMenu`: every registry tag as a toggleable row showing its colour dot and a check when assigned, a text input at the bottom that creates a tag (name + a colour picked from the palette, defaulting to the next unused one) and assigns it immediately. Toggling posts the new set and refreshes via the existing `onChange`; a failed post flashes the error and leaves the board untouched.
+
+Chips render from `task.tags` on the card (under the title, next to the running/done chip) and in the task header in `src/app/features/task.jsx:350`, as `.tag.tag-<color>` classes added to `src/app/bridza.css` alongside the existing `.tag.kind-*` rules.
+
+Out of scope: filtering or searching the board by tag, tag rename/delete/recolour after creation, tags on pipelines or on inbox items, per-pipeline tag namespaces, and any use of tags by agents or stage prompts.

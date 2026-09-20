@@ -1,15 +1,17 @@
-# Acceptance — The agent picked for a stage sticks to that stage
+# Acceptance — Tags on a task, picked from a card with L
 
-- [ ] Picking an agent for a stage and running nothing, then closing and reopening the task (or opening it in a second window), shows that agent still selected for that stage.
-- [ ] The pick is stored in the task's `metadata.json` as `routing["<stageId>"] = { tool, model }` on the task branch, and is committed — visible in `git show` of the task branch tip.
-- [ ] Two stages of the same task can hold different agents at once, and picking for one never changes the other; two tasks using the same stage id keep independent picks.
-- [ ] ▸ Run on a stage with a saved pick runs on that agent — the run record in `tracking[stage].runs` and the run's commit message name it.
-- [ ] Auto-advance into a stage that was never run uses that stage's saved agent and model, not `def.tool`/`opencode`.
-- [ ] A run whose request reaches the server with no `tool` uses the saved `routing[stage].tool`; with an explicit `tool`, the explicit one wins.
-- [ ] Choosing an agent for a later stage, starting the task, then closing the window: the run that continues in the background executes that stage on the chosen agent.
-- [ ] A saved model is reapplied on the next run; clearing it with `×` stores "tool default" and the next run passes no model.
-- [ ] Changing the agent for a stage overwrites the previous pick and clears the stored model for that stage.
-- [ ] A task with no `routing` (existing tasks, `routing: {}`) behaves exactly as before: last-run agent, then stage default, then `opencode` — no crash on a `routing` entry naming a stage that no longer exists or an agent that is not installed (falls back as today).
-- [ ] `docs/09-file-format.md` documents the populated `routing` shape.
-- [ ] Tests cover: routing round-trips through read/write of task metadata; `runStage` resolving the agent from routing when the body omits it; the picker seeding from routing ahead of run history.
+- [ ] Hovering a board card and pressing **L** opens a tag picker for that task — on every pipeline, including one with a single flow (where **L** does nothing today).
+- [ ] Typing a name in the picker and choosing a colour creates the tag, assigns it to the hovered task immediately, and the chip appears on the card without a reload.
+- [ ] Hovering a *different* card and pressing **L** lists the tag created earlier, selectable in one click — the registry is board-wide, not per task.
+- [ ] Clicking an assigned tag in the picker unassigns it; unassigning the last one leaves the card with no chips and no leftover `taskTags` entry.
+- [ ] A task can hold several tags at once, each rendering in its own colour, on the card and in the task header.
+- [ ] Creating a tag whose name slugs to an existing one reuses that tag instead of duplicating it or changing its colour.
+- [ ] Tags and assignments are stored in `.bridza/.metadata/refs.json` as `tags` / `taskTags` and committed on the base branch — visible in `git show` of that branch tip, and surviving an app restart.
+- [ ] **F** on a hovered card opens the stage-flow menu with the same behaviour and the same two-or-more-flows condition **L** had before, confirm dialog included; **L** never opens the flow menu.
+- [ ] The card hint line names the live keys, and `Escape` closes whichever menu is open.
+- [ ] A repo whose `refs.json` predates this (no `tags`, no `taskTags`) loads with no tags and no error; a `taskTags` entry naming a tag that is not in the registry is ignored, not rendered, and does not crash the board.
+- [ ] Deleting a task removes its `taskTags` entry; the tags it used stay in the registry and are still offered on other tasks.
+- [ ] A failed save flashes the error and leaves the board showing the unchanged tags.
+- [ ] Tests cover: `createTag` idempotence and colour validation; `setTaskTags` dropping unknown slugs and de-duplicating; the task projection resolving slugs to `{ id, name, color }`; **L** opening the tag menu and **F** the flow menu from a hovered card.
+- [ ] The `tags` / `taskTags` shape is documented alongside the other `.bridza/` on-disk state in `docs/09-file-format.md`.
 - [ ] `pnpm test`, `pnpm lint`, `pnpm build` pass.
