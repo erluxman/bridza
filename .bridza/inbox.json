@@ -1,11 +1,4 @@
 {
   "v": 1,
-  "items": [
-    {
-      "id": "in-mho154",
-      "kind": "idea",
-      "text": "Commands sent to claude  are not responding for some reason. They sometimes respond, they sometimes don't respond. Right now they are not responding. Opencode is working though",
-      "time": "2026-09-20T10:28:13.014Z"
-    }
-  ]
+  "items": []
 }

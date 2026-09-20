@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "commands-sent-to-claude-are-not",
+  "pipeline": "engineering",
+  "title": "Commands sent to claude are not responding for some reason.",
+  "ref": 87,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/commands-sent-to-claude-are-not",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
