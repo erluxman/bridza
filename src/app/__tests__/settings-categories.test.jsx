@@ -83,6 +83,20 @@ describe("Settings categories", () => {
     expect(updated.fontSize).toBe(15);
   });
 
+  it("clamps an out-of-range font size to 8-32 on Save", () => {
+    mount();
+    const sizeInput = host.querySelector("input[type='number']");
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+
+    act(() => {
+      nativeSetter.call(sizeInput, "99");
+      sizeInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const save = Array.from(host.querySelectorAll(".spread button")).find((b) => b.textContent === "Save");
+    act(() => save.click());
+    expect(getTermSettings().fontSize).toBe(32);
+  });
+
   it("switches panes on click when a stubbed two-entry registry is provided", () => {
     const DummyPanel = () => <div className="dummy-pane">Dummy Category Panel</div>;
     const testCategories = [
