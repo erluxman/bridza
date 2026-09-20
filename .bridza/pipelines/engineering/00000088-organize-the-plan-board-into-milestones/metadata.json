@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "id": "organize-the-plan-board-into-milestones",
+  "pipeline": "engineering",
+  "title": "Organize the plan board into milestones and also update git mods related tickets.",
+  "ref": 88,
+  "type": "idea",
+  "flow": "dissection",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/organize-the-plan-board-into-milestones",
+  "target": "main",
+  "stages": [
+    "dissect"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}

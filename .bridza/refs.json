@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 88,
+  "next": 89,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -76,7 +76,8 @@
     "engineering/atlas-scan-cache-and-ignore": 83,
     "engineering/atlas-shell-and-file-map": 84,
     "engineering/usage-based-design-changes-automatically": 85,
-    "engineering/commands-sent-to-claude-are-not": 87
+    "engineering/commands-sent-to-claude-are-not": 87,
+    "engineering/organize-the-plan-board-into-milestones": 88
   },
   "deleted": [
     "engineering/truncation-check-idea",
