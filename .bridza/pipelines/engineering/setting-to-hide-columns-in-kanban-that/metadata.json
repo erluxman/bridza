@@ -18,5 +18,36 @@
   "routing": {},
   "status": "in-progress",
   "finalized": false,
-  "tracking": {}
+  "tracking": {
+    "repro": {
+      "status": "done",
+      "seconds": 208,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Setting to hide columns in Kanban that do not have any item.\n\nI don't think it's a nice idea to show all the columns in the Kanban. Please put a toggle somewhere on the pipeline view that will by default be disabled to show all the columns but when enabled it will show all columns. By default it will only show columns which has card in them.",
+          "startedAt": "2026-09-19T06:00:15.668Z",
+          "status": "running"
+        },
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: Setting to hide columns in Kanban that do not have any item.",
+          "startedAt": "2026-09-20T15:05:11.878Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T15:08:40.246Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/setting-to-hide-columns-in-kanban-that/repro/outputs/repro-kanban-empty-columns.test.jsx",
+            ".bridza/pipelines/engineering/setting-to-hide-columns-in-kanban-that/repro/outputs/vitest-repro-output.txt",
+            "repro.md"
+          ],
+          "sessionId": "8c403b1f-eb5a-4826-b0de-5ce0a4bb630a",
+          "error": null,
+          "log": "ures/*.jsx src/app/features/*.js src/app/lib/*.js && echo \"=== kanban-o…\n· Bash cat -n src/app/features/board.jsx\n· Bash cat -n src/app/lib/settings.js && cat -n src/app/features/settings.jsx\n· Bash cat package.json && echo \"=== vite config ===\" && cat vite.config.ts && echo \"=== ux-view…\n· Bash ls node_modules >/dev/null 2>&1 && echo \"node_modules OK\" || echo \"MISSING node_modules\";…\n· Bash which pnpm node npx; ls ~/.pnpm-store 2>/dev/null | head -3; ls /Users/risky/projects/erl…\n  ✖ Exit code 1\n· Bash cat .gitignore && echo \"=== main repro.md ===\" && head -60 /Users/risky/projects/erluxman…\n· Bash head -20 src/app/features/term.jsx\n· Bash ln -s /Users/risky/projects/erluxman.com/bridza/node_modules node_modules && ls node_modu…\n· Bash cat > src/app/__tests__/repro-kanban-empty-columns.test.jsx <<'EOF'\n· Bash pnpm exec vitest run src/app/__tests__/repro-kanban-empty-columns.test.jsx 2>&1 | tail -60\n· Bash python3 - <<'EOF'\n· Bash pnpm exec vitest run src/app/__tests__/repro-kanban-empty-columns.test.jsx 2>&1 | head -35\n· Bash pnpm exec vitest run --disableConsoleIntercept=false --reporter=verbose src/app/__tests__…\n· Bash grep -rniE \"hide|empty|kcol-empty\" src/app --include=*.jsx --include=*.js | grep -v __tes…\n· Bash ls .bridza && ls .bridza/pipelines && python3 -c \"\n· Bash grep -rniE \"hide|kcol-empty\" src/app/features src/app/lib | head -20; echo \"=== pipeline …\n· Bash find .bridza -maxdepth 3 -name \"*.json\" -not -path \"*/pipelines/*/*/*\" | head -20 && echo…\n  ✖ Exit code 1\n· Bash python3 - <<'EOF'\n· Bash grep -n \"^\\.kanban\" src/app/bridza.css; echo \"=== pipeline meta ===\"; head -c 1200 .bridz…\n· Bash python3 -c \"\n· Bash grep -rn \"kanbanOrder\" server core src --include=*.js --include=*.jsx | head -15\n· Bash grep -rn \"kanbanOrder\" server core src 2>/dev/null | head -15\n· Bash sed -n 370,395p server/bridza-store.js\n· Bash D=.bridza/pipelines/engineering/setting-to-hide-columns-in-kanban-that/repro/outputs && c…\n· Bash cat > repro.md <<'MD'\n· Bash rm node_modules && sed -i '' 's|This worktree had no `node_modules`; the repro symlinked …\n· Bash sed -i '' 's|could run. The repro test|could run (symlink removed afterwards — recreate i…\nRepro done. `repro.md` written at worktree root. Nothing fixed.\n\n**Bug (missing-capability, not crash):** Kanban renders every derived column, empty ones included. No toggle exists.\n\n**Failing path**\n- `src/app/features/board.jsx:13-20` `kanbanColumns()` → union of `pipeline.stages` + every task's `stages` + `__done__` + `__archived__`. Occupancy never consulted.\n- `board.jsx:102` `columns.map(...)` renders all of them; `board.jsx:128` only *adds* a `—` placeholder for empties.\n- `server/bridza-store.js:390` ships full stage list; multi-flow pipelines → union blowup.\n- No setting to read: `src/app/lib/settings.js` = terminal font only.\n\n**Evidence**\n- Real data (`.bridza/pipelines/engineering`, 32 tasks): **18 columns, 13 empty**, 5 occupied (`repro 6`, `spec 9`, `dissect 4`, `vision 1`, `Delivered 12`). At `flex: 0 0 270px` + `gap 14px` → ~5100px strip.\n- SSR test (archived in `repro/outputs/`, ran + failed as expected):\n```\ncolumns rendered: Research(0) | Plan(1) | Reproduce(1) | Fix(0) | Fix review(0) | Ship(0) | Delivered(0) | Archived(0)\n× expected only ['Plan(1)','Reproduce(1)']   × expected a \"show all columns\" toggle\nTests  2 failed | 1 passed (3)\n```\n\n**Traps flagged for fix stage**\n- Filter *after* `byCol` tally — `board.jsx:55-56` falls back to `byCol[DONE_COL]`; filtering first dumps tasks into Delivered.\n- Drag-reorder (`board.jsx:45-46` + `kanban-order.js:7-10`) saves order from the *visible* list → hidden columns get reshuffled to the end when toggle flips on.\n- Persistence: localStorage (`lib/settings.js`) vs per-pipeline field next to `kanbanOrder` (`bridza-store.js:520-528`).\n\nArtifacts: `repro.md`, `repro/outputs/repro-kanban-empty-columns.test.jsx`, `repro/outputs/vitest-repro-output.txt`. Temp node_modules symlink removed; src tree untouched.\n· done · 34 turns · 207s · $1.6447"
+        }
+      ]
+    }
+  }
 }
