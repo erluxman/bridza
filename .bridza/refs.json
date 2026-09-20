@@ -169,7 +169,8 @@
     "engineering/finalize-merge-style-surface": true,
     "engineering/merge-strategy-acceptance-matrix": true,
     "engineering/merge-method-decision-adr": true,
-    "engineering/implement-merge-strategy": true
+    "engineering/implement-merge-strategy": true,
+    "engineering/conflict-open-in-vscode": true
   },
   "tags": {
     "complex": {
