@@ -6,7 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { ensureDataDir, readProject, readPlan, savePlan, createPipeline, savePipeline, archivePipeline, saveKanbanOrder, createTask, deleteTask, readContext, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox, setTaskArchived, deletePipeline } from "../../../server/bridza-store.js";
+import { ensureDataDir, readProject, readPlan, savePlan, createPipeline, savePipeline, archivePipeline, saveKanbanOrder, createTask, deleteTask, readContext, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox, setTaskArchived, deletePipeline, createTag, setTaskTags } from "../../../server/bridza-store.js";
 import { runStage, git, ensureTaskWorktree, taskDirOn } from "../../../server/bridza-run.js";
 import { STARTER_PIPELINES, rel, judgeStageId, pipelineFlows, exportFlow, parseFlowFile, exportPipeline, parsePipelineFile, shortTitle } from "../../../core/domain.js";
 
@@ -652,6 +652,72 @@ describe("task target branch", () => {
     const d2 = readProject(root).pipelines[0].tasks.find((x) => x.id === "task-plain");
     expect(d2.target).toBe("main");
     expect(git(root, ["rev-parse", d.branch]).trim()).toBe(git(root, ["rev-parse", "main"]).trim());
+  });
+});
+
+// Tags: a board-wide registry + a per-task assignment, both in root refs.json
+// on the base branch for the same reason `archived` is — a task's metadata.json
+// lives on a bridza/* branch tip that is never pushed.
+describe("task tags", () => {
+  const tagsOf = (r, id) => readProject(r).pipelines[0].tasks.find((t) => t.id === id).tags;
+  const refsJson = (r) => JSON.parse(fs.readFileSync(path.join(r, ".bridza", "refs.json"), "utf8"));
+
+  beforeEach(() => {
+    createPipeline(root, MARKETING);
+    createTask(root, { pipeline: "marketing", id: "t1", title: "ship it" });
+  });
+
+  it("createTag slugifies, validates the colour, and is idempotent on the slug", () => {
+    expect(createTag(root, { name: "Billing", color: "violet" })).toMatchObject({ ok: true, id: "billing", created: true });
+    expect(refsJson(root).tags.billing).toEqual({ name: "Billing", color: "violet" });
+    expect(git(root, ["status", "--porcelain"]).trim()).toBe("");
+
+    // same slug → the existing entry comes back untouched, never a recolour
+    expect(createTag(root, { name: "billing", color: "rose" })).toMatchObject({ ok: true, id: "billing", created: false });
+    expect(refsJson(root).tags.billing).toEqual({ name: "Billing", color: "violet" });
+
+    expect(createTag(root, { name: "", color: "violet" }).error).toMatch(/name/);
+    expect(createTag(root, { name: "x", color: "#ff0000" }).error).toMatch(/color/);
+  });
+
+  it("setTaskTags keeps only known slugs, de-duplicates, and clears on empty", () => {
+    createTag(root, { name: "billing", color: "violet" });
+    createTag(root, { name: "regression", color: "rose" });
+
+    expect(setTaskTags(root, "marketing", "t1", ["billing", "billing", "ghost", "regression"]))
+      .toEqual({ ok: true, tags: ["billing", "regression"] });
+    expect(refsJson(root).taskTags["marketing/t1"]).toEqual(["billing", "regression"]);
+
+    expect(setTaskTags(root, "marketing", "t1", []).tags).toEqual([]);
+    expect(refsJson(root).taskTags["marketing/t1"]).toBeUndefined();
+    expect(setTaskTags(root, "marketing", "", ["billing"]).error).toMatch(/task/);
+  });
+
+  it("the task projection resolves slugs to { id, name, color } and drops unknown ones", () => {
+    expect(tagsOf(root, "t1")).toEqual([]);
+    createTag(root, { name: "Billing", color: "violet" });
+    setTaskTags(root, "marketing", "t1", ["billing"]);
+    expect(tagsOf(root, "t1")).toEqual([{ id: "billing", name: "Billing", color: "violet" }]);
+    expect(readProject(root).pipelines[0].tags).toEqual({ billing: { name: "Billing", color: "violet" } });
+
+    // a hand-edited refs.json naming a tag the registry lost: ignored, no crash
+    const f = path.join(root, ".bridza", "refs.json");
+    const j = refsJson(root); j.taskTags["marketing/t1"] = ["billing", "ghost"];
+    fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");
+    expect(tagsOf(root, "t1")).toEqual([{ id: "billing", name: "Billing", color: "violet" }]);
+  });
+
+  it("a refs.json predating tags reads as no tags, and deleting a task drops its entry", () => {
+    const f = path.join(root, ".bridza", "refs.json");
+    const j = refsJson(root); delete j.tags; delete j.taskTags;
+    fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");
+    expect(tagsOf(root, "t1")).toEqual([]);
+
+    createTag(root, { name: "billing", color: "violet" });
+    setTaskTags(root, "marketing", "t1", ["billing"]);
+    deleteTask(root, { pipeline: "marketing", task: "t1" });
+    expect(refsJson(root).taskTags["marketing/t1"]).toBeUndefined();
+    expect(refsJson(root).tags.billing).toBeTruthy();   // registry is never auto-pruned
   });
 });
 

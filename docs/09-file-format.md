@@ -141,6 +141,34 @@ The stage's content files (what the tool produced). On a fresh stage an empty
 `outputs/` is materialised with a `.gitkeep`. Diffs/reviews are against the task
 branch timeline, not a per-stage branch.
 
+## Board state — `.bridza/refs.json`
+
+Task state the *board* owns, kept at the repo root on the base branch (not in a
+task's `metadata.json`, which lives on a `bridza/*` branch tip that is never
+pushed and so cannot cross machines).
+
+```json
+{
+  "next": 105,
+  "refs":     { "engineering/ship-it": 104 },
+  "deleted":  ["engineering/old-task"],
+  "archived": { "engineering/ship-it": true },
+  "tags":     { "billing": { "name": "billing", "color": "violet" } },
+  "taskTags": { "engineering/ship-it": ["billing", "regression"] }
+}
+```
+
+- `tags` — the board-wide tag registry. Key is the slug (`safeRef` of the typed
+  name); `name` keeps the typed casing for display; `color` is a palette name
+  (`violet indigo blue emerald amber rose cyan orange`), never a hex value, so
+  chips theme in light and dark.
+- `taskTags` — `<pipeline>/<task>` → the slugs assigned to it. An empty set
+  removes the key. Deleting a task drops its entry; registry entries are never
+  auto-pruned.
+- Both default to `{}`: a `refs.json` predating tags reads as "no tags", and a
+  slug with no registry entry is dropped from the projection rather than
+  rendered.
+
 ## Project enumeration & state
 
 - **Projects** are a recents list (folders the user has opened), the same model

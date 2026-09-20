@@ -36,6 +36,8 @@ export const getBranches = (dir) => get("/branches", dir);
 export const setTaskReuse = (dir, body) => post("/task/reuse", dir, body);
 export const setStageRouting = (dir, body) => post("/task/routing", dir, body);
 export const setTaskArchived = (dir, body) => post("/task/archive", dir, body);
+export const createTag = (dir, body) => post("/tag/create", dir, body);
+export const setTaskTags = (dir, body) => post("/task/tags", dir, body);
 export const stopRun = (dir, body) => post("/run/stop", dir, body);
 export const getContext = (dir, pipeline, task, stage = "") => get(`/context?pipeline=${encodeURIComponent(pipeline)}&task=${encodeURIComponent(task)}&stage=${encodeURIComponent(stage)}`, dir);
 export const saveContext = (dir, body) => post("/context", dir, body);
