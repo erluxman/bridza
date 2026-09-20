@@ -158,9 +158,5 @@
       "color": "violet"
     }
   },
-  "taskTags": {
-    "engineering/vs-code-like-setting-page": [
-      "complex"
-    ]
-  }
+  "taskTags": {}
 }
