@@ -1,11 +1,4 @@
 {
   "v": 1,
-  "items": [
-    {
-      "id": "in-uowxik",
-      "kind": "idea",
-      "text": "When the app refreshes the running... Do the running processes like cloud prompts etc get preserved? If it does not then it should like just refreshing a page should not kill all the process that were forged or like the communication with the terminal that is happening.\n when we select an agent.",
-      "time": "2026-09-20T17:39:19.331Z"
-    }
-  ]
+  "items": []
 }

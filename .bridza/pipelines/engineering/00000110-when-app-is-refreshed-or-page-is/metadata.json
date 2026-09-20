@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "when-app-is-refreshed-or-page-is",
+  "pipeline": "engineering",
+  "title": "When app is refreshed or page is refreshed, the sessions with agents should preserve, should continue. It should not be…",
+  "ref": 110,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/when-app-is-refreshed-or-page-is",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
