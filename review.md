@@ -61,3 +61,16 @@ Both say `.bridza/.metadata/refs.json`. The real file — used by the code, the 
 2. A (colour swatches) — the one real acceptance gap.
 3. D (fix the two docs paths), E (`validRef`), then the deletions in §3.
 4. C last.
+
+---
+
+## 5. Fixes applied (post-review)
+
+Every finding above is addressed; `pnpm test` (257 tests, 11 files), `pnpm lint`, `pnpm build` pass.
+
+- **A — colour picker.** `TagMenu` now renders a row of 8 palette swatches above the name input, preselected to the palette's next colour and passed as `color` to `api.createTag`. Criterion 2 is fully met.
+- **B — stuck menu.** `Escape` moved out of the hover-scoped listener into its own effect keyed on `tagMenu || flowMenu`, so it closes whichever menu is open regardless of where the pointer is. Regression test: hover → `l` → mouseout → `Escape` closes.
+- **C — stacked menus.** Each hotkey clears the other menu before opening its own; test asserts `F` replaces an open tag picker rather than overlapping it.
+- **D — wrong path in docs.** `spec.md` and `acceptance.md` now say `.bridza/refs.json`, matching the code, the tests and `docs/09-file-format.md`.
+- **E — name validation.** `createTag` uses `validRef(name, "tag name")`, closing the `"!!!"`/`"???"` → slug `x` collapse. Test covers both.
+- **§3 deletions.** `TAG_PALETTE` moved to `core/domain.js` and imported by both sides (no retyped copy); the two-strategy colour default replaced by the modulo expression alone; the three redundant `refsAll.tags && …` guards dropped from the projection (`readRefs` normalises them); `createTag` returns `{ ok, id, created }` with the unused `tag` field gone.

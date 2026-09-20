@@ -678,6 +678,12 @@ describe("task tags", () => {
 
     expect(createTag(root, { name: "", color: "violet" }).error).toMatch(/name/);
     expect(createTag(root, { name: "x", color: "#ff0000" }).error).toMatch(/color/);
+
+    // a name with no letter or digit slugs to the literal "x" — two unrelated
+    // tags would silently become one, so it is rejected outright
+    expect(createTag(root, { name: "!!!", color: "violet" }).ok).toBe(false);
+    expect(createTag(root, { name: "???", color: "violet" }).error).toMatch(/tag name/);
+    expect(refsJson(root).tags.x).toBeUndefined();
   });
 
   it("setTaskTags keeps only known slugs, de-duplicates, and clears on empty", () => {

@@ -6,10 +6,8 @@ import * as api from "../api/client.js";
 import { Hamburger } from "../ui.jsx";
 import { TermDrawer } from "./term.jsx";
 import { applyKanbanOrder, moveColumn } from "./kanban-order.js";
+import { TAG_PALETTE } from "../../../core/domain.js";
 
-// mirrors TAG_PALETTE in server/bridza-store.js — colour names, not hex, so the
-// chips theme with the rest of the app (see .tag.tag-* in bridza.css)
-const TAG_PALETTE = ["violet", "indigo", "blue", "emerald", "amber", "rose", "cyan", "orange"];
 const DONE_COL = "__done__";
 const ARCHIVED_COL = "__archived__";
 
@@ -27,17 +25,21 @@ function currentStage(t) {
   return (t.stages || []).find((s) => (t.tracking[s] || {}).status !== "done") || DONE_COL;
 }
 
-// The tag picker: every registry tag as a toggle row, plus an input that
-// creates a new tag (next unused palette colour) and assigns it in one go.
+// The tag picker: every registry tag as a toggle row, plus a name input and a
+// swatch row that create a new tag and assign it in one go. The swatches start
+// on the palette's next colour (registry size, so tags made back to back walk
+// the palette), and the create moment is the only chance to choose — recolour
+// after the fact is out of scope.
 function TagMenu({ task, registry, onToggle, onCreate, onClose }) {
-  const [name, setName] = useState("");
-  const assigned = new Set((task.tags || []).map((g) => g.id));
   const entries = Object.entries(registry);
+  const [name, setName] = useState("");
+  const [color, setColor] = useState(TAG_PALETTE[entries.length % TAG_PALETTE.length]);
+  const assigned = new Set((task.tags || []).map((g) => g.id));
   const submit = (e) => {
     e.preventDefault(); e.stopPropagation();
     if (!name.trim()) return;
     setName("");
-    onCreate(name);
+    onCreate(name, color);
   };
   return (
     <div className="proj-menu tag-menu" style={{ right: 6, left: "auto", top: 6, minWidth: 180, zIndex: 5 }} onClick={(e) => e.stopPropagation()}>
@@ -49,6 +51,13 @@ function TagMenu({ task, registry, onToggle, onCreate, onClose }) {
         </button>
       ))}
       <form onSubmit={submit} style={{ padding: "4px 6px" }}>
+        <div className="tag-swatches">
+          {TAG_PALETTE.map((c) => (
+            <button type="button" key={c} title={c} aria-label={c} aria-pressed={c === color}
+              className={"tag-swatch tag-" + c + (c === color ? " on" : "")}
+              onClick={(e) => { e.stopPropagation(); setColor(c); }} />
+          ))}
+        </div>
         <input className="search-input" style={{ width: "100%" }} placeholder="new tag…" value={name}
           autoFocus onChange={(e) => setName(e.target.value)} onClick={(e) => e.stopPropagation()} />
       </form>
@@ -124,13 +133,23 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
     if (!hover) return;
     const onKey = (e) => {
       const typing = /^(input|textarea|select)$/i.test(e.target.tagName || "");
-      if ((e.key === "l" || e.key === "L") && !typing) { e.preventDefault(); setTagMenu(hover); }
-      else if ((e.key === "f" || e.key === "F") && !typing && flows.length >= 2) { e.preventDefault(); setFlowMenu(hover); }
-      else if (e.key === "Escape") { setFlowMenu(null); setTagMenu(null); }
+      if (typing) return;
+      // only one menu at a time — both sit at the card's top-right corner
+      if (e.key === "l" || e.key === "L") { e.preventDefault(); setFlowMenu(null); setTagMenu(hover); }
+      else if ((e.key === "f" || e.key === "F") && flows.length >= 2) { e.preventDefault(); setTagMenu(null); setFlowMenu(hover); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [hover, flows.length]);
+  // Escape follows the OPEN MENU, not the hover: the pointer leaves the card the
+  // moment you reach for the menu (and the tag picker holds a focused input), so
+  // a hover-scoped listener would strand an open menu with only the ✕ to close it.
+  useEffect(() => {
+    if (!tagMenu && !flowMenu) return;
+    const onKey = (e) => { if (e.key === "Escape") { setFlowMenu(null); setTagMenu(null); } };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tagMenu, flowMenu]);
 const changeFlow = async (t, nf) => {
     setFlowMenu(null);
     if (!nf || nf === t.flow) return;
@@ -149,9 +168,7 @@ const changeFlow = async (t, nf) => {
     const cur = (t.tags || []).map((x) => x.id);
     saveTags(t, cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
   };
-  const createAndAssign = async (t, name) => {
-    const used = Object.values(registry).map((x) => x.color);
-    const color = TAG_PALETTE.find((c) => !used.includes(c)) || TAG_PALETTE[Object.keys(registry).length % TAG_PALETTE.length];
+  const createAndAssign = async (t, name, color) => {
     const r = await api.createTag(dir, { name, color });
     if (!r.ok) return void (flash && flash(r.error));
     const cur = (t.tags || []).map((x) => x.id);
@@ -217,7 +234,7 @@ const changeFlow = async (t, nf) => {
                        </div>
                      )}
                      {tagMenu === t.id && (
-                       <TagMenu task={t} registry={registry} onToggle={(id) => toggleTag(t, id)} onCreate={(name) => createAndAssign(t, name)} onClose={() => setTagMenu(null)} />
+                       <TagMenu task={t} registry={registry} onToggle={(id) => toggleTag(t, id)} onCreate={(name, color) => createAndAssign(t, name, color)} onClose={() => setTagMenu(null)} />
                      )}
                    </div>
                  ))}

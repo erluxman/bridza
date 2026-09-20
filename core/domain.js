@@ -90,6 +90,13 @@ export function taskSlug(title, max = 40) {
 // 8 digits covers 1 … 99,999,999, comfortably past the ~10 million target.
 export const REF_WIDTH = 8;
 
+// ── task tags ────────────────────────────────────────────────────────────────
+// Colour NAMES, not hex: a chip is styled by .tag.tag-<name> in bridza.css, so
+// it themes with the rest of the app in light and dark. Shared because both the
+// server (validating a create) and the picker (drawing swatches) need the list.
+export const TAG_PALETTE = ["violet", "indigo", "blue", "emerald", "amber", "rose", "cyan", "orange"];
+
+
 // 17 → "00000017". A ref too wide for REF_WIDTH is NOT truncated — it grows
 // past the width (sorting degrades, identity survives), which is the safe
 // failure for a number that must never collide.

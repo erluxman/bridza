@@ -12,14 +12,14 @@ There is no per-task label today. The only classifiers a task has are structural
 
 ## How
 
-**Where it lives.** Both the registry and the per-task assignment go in `.bridza/.metadata/refs.json`, at the repo root on the base branch — the same place and for the same reason as `archived` (`server/bridza-store.js:370-382`): a task's `metadata.json` is read from its `bridza/*` branch tip, which is never pushed, so anything stored there cannot cross to another machine. Tags are board-wide display state, so they follow `archived`, not `routing`.
+**Where it lives.** Both the registry and the per-task assignment go in `.bridza/refs.json`, at the repo root on the base branch — the same place and for the same reason as `archived` (`server/bridza-store.js:370-382`): a task's `metadata.json` is read from its `bridza/*` branch tip, which is never pushed, so anything stored there cannot cross to another machine. Tags are board-wide display state, so they follow `archived`, not `routing`.
 
 ```json
 "tags":     { "billing": { "name": "billing", "color": "violet" } },
 "taskTags": { "engineering/separate-tags-filled-for-each-org-item": ["billing", "regression"] }
 ```
 
-The registry key is the slug (`safeRef` of the typed name); `name` keeps the typed casing for display. `color` is a name from a fixed palette, not a hex value, so tags theme with the rest of the app in light and dark. `readRefs` defaults both to `{}` — an old `refs.json` with neither key reads as "no tags" and never crashes. Deleting a task drops its `taskTags` entry in the same place the existing cleanup drops `refs.archived[key]` (`server/bridza-store.js:937`); registry entries are never auto-pruned.
+The registry key is the slug (`safeRef` of the typed name); `name` keeps the typed casing for display. `color` is a name from a fixed palette (`TAG_PALETTE` in `core/domain.js`, shared by the server's validation and the picker's swatches), not a hex value, so tags theme with the rest of the app in light and dark. `readRefs` defaults both to `{}` — an old `refs.json` with neither key reads as "no tags" and never crashes. Deleting a task drops its `taskTags` entry in the same place the existing cleanup drops `refs.archived[key]` (`server/bridza-store.js:937`); registry entries are never auto-pruned.
 
 **Server.** Two functions in `server/bridza-store.js`, both modelled on `setTaskArchived` — read `refs.json`, mutate, `writeJSON`, `commitPaths` once:
 
@@ -30,7 +30,7 @@ Exposed as `POST /api/bridza/tag/create` and `POST /api/bridza/task/tags` in `se
 
 **Reads.** `readRefs`' `tags` registry rides out on every pipeline projection in `readTasks` as `pipeline.tags` (like `flows`), and each task gets `tags: [{ id, name, color }]` resolved next to `archived` (`server/bridza-store.js:536`) — the UI never has to resolve slugs itself, and a slug whose registry entry is gone simply drops out of the projection.
 
-**UI.** In `src/app/features/board.jsx` the existing hover effect keeps its shape, with the bindings swapped: **L** opens `tagMenu` for the hovered card (bound whenever a card is hovered, unlike the flow menu's `flows.length >= 2` guard), **F** opens `flowMenu` on the same condition as today, `Escape` closes either, and the card's hint line reads `press L to tag` (plus `· F for flow` when the pipeline has several flows). The menu reuses `.proj-menu`, positioned like `flowMenu`: every registry tag as a toggleable row showing its colour dot and a check when assigned, a text input at the bottom that creates a tag (name + a colour picked from the palette, defaulting to the next unused one) and assigns it immediately. Toggling posts the new set and refreshes via the existing `onChange`; a failed post flashes the error and leaves the board untouched.
+**UI.** In `src/app/features/board.jsx` the existing hover effect keeps its shape, with the bindings swapped: **L** opens `tagMenu` for the hovered card (bound whenever a card is hovered, unlike the flow menu's `flows.length >= 2` guard), **F** opens `flowMenu` on the same condition as today, `Escape` closes either, and the card's hint line reads `press L to tag` (plus `· F for flow` when the pipeline has several flows). The menu reuses `.proj-menu`, positioned like `flowMenu`: every registry tag as a toggleable row showing its colour dot and a check when assigned, a text input at the bottom with a row of palette swatches above it that creates a tag (name + the chosen colour, the swatches starting on the palette's next colour) and assigns it immediately. Toggling posts the new set and refreshes via the existing `onChange`; a failed post flashes the error and leaves the board untouched.
 
 Chips render from `task.tags` on the card (under the title, next to the running/done chip) and in the task header in `src/app/features/task.jsx:350`, as `.tag.tag-<color>` classes added to `src/app/bridza.css` alongside the existing `.tag.kind-*` rules.
 

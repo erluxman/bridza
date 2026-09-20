@@ -43,6 +43,9 @@ const press = (key) => act(() => { window.dispatchEvent(new KeyboardEvent("keydo
 function hoverCard() {
   act(() => { card().dispatchEvent(new MouseEvent("mouseover", { bubbles: true, relatedTarget: document.body })); });
 }
+function leaveCard() {
+  act(() => { card().dispatchEvent(new MouseEvent("mouseout", { bubbles: true, relatedTarget: document.body })); });
+}
 
 describe("board card tag picker", () => {
   it("L opens the tag picker even when the pipeline has one flow", () => {
@@ -97,6 +100,49 @@ describe("board card tag picker", () => {
     expect(host.querySelector(".tag-menu")).toBeTruthy();
     press("Escape");
     expect(host.querySelector(".tag-menu")).toBeNull();
+  });
+
+  // reaching for the menu takes the pointer off the card; Escape is bound to the
+  // open menu, not the hover, so the picker never strands itself open
+  it("Escape still closes the picker after the pointer leaves the card", () => {
+    mount(pipeline());
+    hoverCard();
+    press("l");
+    leaveCard();
+    expect(host.querySelector(".tag-menu")).toBeTruthy();
+    press("Escape");
+    expect(host.querySelector(".tag-menu")).toBeNull();
+  });
+
+  it("typing a name and picking a swatch creates the tag in that colour and assigns it", async () => {
+    api.createTag.mockResolvedValue({ ok: true, id: "billing", created: true });
+    api.setTaskTags.mockResolvedValue({ ok: true });
+    mount(pipeline());
+    hoverCard();
+    press("l");
+    const swatches = [...host.querySelectorAll(".tag-swatch")];
+    expect(swatches.map((b) => b.className)).toContain("tag-swatch tag-violet on");  // empty registry → first colour
+    act(() => { swatches.find((b) => b.classList.contains("tag-rose")).click(); });
+    expect(host.querySelector(".tag-swatch.on").className).toContain("tag-rose");
+
+    const input = host.querySelector(".tag-menu input");
+    act(() => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(input, "Billing");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => { host.querySelector(".tag-menu form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+
+    expect(api.createTag).toHaveBeenCalledWith("/repo", { name: "Billing", color: "rose" });
+    expect(api.setTaskTags).toHaveBeenCalledWith("/repo", { pipeline: "eng", task: "t1", tags: ["billing"] });
+  });
+
+  it("F does not stack the flow menu on top of an open tag picker", () => {
+    mount(pipeline({ flows: [{ id: "feature", name: "Feature" }, { id: "bugfix", name: "Bugfix" }] }));
+    hoverCard();
+    press("l");
+    press("f");
+    expect(host.querySelector(".tag-menu")).toBeNull();
+    expect(host.textContent).toContain("Change stage flow");
   });
 
   it("renders a chip per resolved tag, coloured by palette name", () => {

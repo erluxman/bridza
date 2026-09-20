@@ -6,7 +6,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { DATA_DIR, rel, safeRef, shortTitle, taskSlug, taskDirName, parseTaskDir, pipelineFlows, flattenFlows } from "../core/domain.js";
+import { DATA_DIR, rel, safeRef, shortTitle, taskSlug, taskDirName, parseTaskDir, pipelineFlows, flattenFlows, TAG_PALETTE } from "../core/domain.js";
 import { git, isGitRepo, branchExists, baseBranchName, ensureTaskBranch, taskBranchName, taskDirOn, taskDirAt, removeTaskWorktree, stopRuns, healTaskFlow, validRef } from "./bridza-run.js";
 
 const BEMAIL = "bridza@local";
@@ -384,20 +384,22 @@ export function readRefs(root) {
   };
 }
 
-export const TAG_PALETTE = ["violet", "indigo", "blue", "emerald", "amber", "rose", "cyan", "orange"];
-
 export function createTag(root, { name, color }) {
-  if (!name || typeof name !== "string" || !name.trim()) return { ok: false, error: "name required" };
+  // validRef, not a bare emptiness check: it also rejects a name with no letter
+  // or digit ("!!!", "???"), which safeRef would otherwise collapse onto the
+  // single slug "x" — two different tags silently becoming one.
+  const bad = validRef(name, "tag name");
+  if (bad) return { ok: false, error: bad };
   if (!TAG_PALETTE.includes(color)) return { ok: false, error: "invalid color" };
   // lowercased before slugging: "Billing" and "billing" are the SAME tag, so
   // typing it again on another card reuses the entry instead of duplicating it
   const id = safeRef(name.trim().toLowerCase());
   const refs = readRefs(root);
-  if (refs.tags[id]) return { ok: true, id, tag: refs.tags[id], created: false };
+  if (refs.tags[id]) return { ok: true, id, created: false };
   refs.tags[id] = { name: name.trim(), color };
   writeJSON(refsFile(root), refs);
   commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: create tag "${name.trim()}" (${id})`);
-  return { ok: true, id, tag: refs.tags[id], created: true };
+  return { ok: true, id, created: true };
 }
 
 export function setTaskTags(root, pipeline, task, tagIds) {
@@ -566,16 +568,18 @@ export function readProject(root) {
         // root refs.json wins; a legacy flag in the task's own metadata (written
         // by the old branch-local archive) still counts when there's no entry
         archived: archivedFlags[pid + "/" + tid] === undefined ? !!meta.archived : !!archivedFlags[pid + "/" + tid],
-        tags: (refsAll.taskTags && refsAll.taskTags[pid + "/" + tid] ? refsAll.taskTags[pid + "/" + tid] : [])
-          .map((id) => refsAll.tags && refsAll.tags[id] ? { id, name: refsAll.tags[id].name, color: refsAll.tags[id].color } : null)
-          .filter(Boolean),
+        // readRefs normalises tags/taskTags to {}, so no guard is needed here; a
+        // slug with no registry entry drops out rather than rendering half a chip
+        tags: (refsAll.taskTags[pid + "/" + tid] || [])
+          .filter((id) => refsAll.tags[id])
+          .map((id) => ({ id, name: refsAll.tags[id].name, color: refsAll.tags[id].color })),
         stages, tracking: tr, routing: meta.routing || {}, branch: taskBranchName(pid, tid),
         target: meta.target || base,
         progress: stages.length ? Math.round((done / stages.length) * 100) : 0,
         live: !!meta._live, onBranch: meta._onBranch || null,
       };
     });
-    return { id: def.id || pid, label: def.label || pid, workingDir: def.workingDir || ".", stages: allStages, flows, templates: def.templates || [], archived: !!def.archived, kanbanOrder: def.kanbanOrder || [], tags: refsAll.tags || {}, tasks };
+    return { id: def.id || pid, label: def.label || pid, workingDir: def.workingDir || ".", stages: allStages, flows, templates: def.templates || [], archived: !!def.archived, kanbanOrder: def.kanbanOrder || [], tags: refsAll.tags, tasks };
   });
   return { initialized: pipelines.length > 0, business, pipelines, inbox: readInbox(root) };
 }
