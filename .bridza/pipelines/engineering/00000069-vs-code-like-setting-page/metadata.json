@@ -18,5 +18,35 @@
   "routing": {},
   "status": "in-progress",
   "finalized": false,
-  "tracking": {}
+  "tracking": {
+    "spec": {
+      "status": "done",
+      "seconds": 687,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: VS code like setting page",
+          "startedAt": "2026-09-20T05:55:06.933Z",
+          "status": "running"
+        },
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: VS code like setting page",
+          "startedAt": "2026-09-20T10:44:21.048Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T10:45:55.137Z",
+          "exit": 0,
+          "files": [
+            "acceptance.md",
+            "spec.md"
+          ],
+          "sessionId": null,
+          "error": null,
+          "log": "$ claude -p \"Task: VS code like setting page\" --dangerously-skip-permissions --permission-mode acceptEdits --append-system-prompt \"You are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we'll know it works — n…\"\n· model: TOOL DEFAULT (no --model/-m flag — claude's own config decides)\nDone. `spec.md` + `acceptance.md` rewritten for task #69 (both previously held leftover content from task #65).\n\n**What spec'd:** flat Settings form → two-pane VS Code layout. Category rail left, panel right, driven by one `CATEGORIES = [{ id, label, Panel }]` registry in `src/app/features/settings.jsx:1`. Existing font/size/ligatures fields move verbatim into a `TerminalPanel` — no new settings, `src/app/lib/settings.js` untouched, `nav.jsx` untouched.\n\n**Two judgment calls worth flagging:**\n\n1. **Ships with one category.** Only Terminal settings exist today, so the rail has a single item. Looks thin, but the intent sanctions it explicitly (\"we may not have all the features but that's the way we eventually will go\") — the structure *is* the deliverable. Alternative was inventing a second category to fill the rail; that's speculative scope, so I didn't.\n\n2. **No search box.** It's VS Code's signature settings feature, but it's useless over one category and three fields. Listed under explicit out-of-scope alongside per-setting reset, modified badges, scope switcher, nested categories.\n\n**Real change outside settings.jsx:** `.modal` is `min(440px, 92vw)` (`bridza.css:334`) — too narrow for two panes. Spec adds an optional `wide` prop to `Modal` in `ui.jsx:53` plus a `.modal.wide` rule, so other modals keep their current width.\n\n**How we'll know it works:** new `settings-categories.test.jsx` in the existing raw `react-dom/client` + `act` + jsdom style (matching `welcome-dialog.test.jsx`, since there's no @testing-library here). The extensibility claim gets tested rather than asserted — render with a stubbed two-entry registry, click, confirm the pane swaps. Plus `pnpm test` / `lint` / `build`."
+        }
+      ]
+    }
+  }
 }
