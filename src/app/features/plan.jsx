@@ -10,6 +10,8 @@ import { Hamburger } from "../ui.jsx";
 const PN = { H: 50, ROW: 86, GW: 34, GH: 18, SLOT: 15 };   // SLOT = vertical room per gate input
 // #16 — palette assigned to pipelines by order; nodes carry their pipeline's colour
 const PIPE_COLORS = ["#5ad18b", "#e0726f", "#4f9cf2", "#d8a24a", "#a97bd6", "#4ec9c9", "#e59abf", "#8bbf5a", "#f0a860", "#7aa2f7"];
+const ARCH_KEY = "__archive__";   // reserved drag key for the archive box anchor
+const ARCH_ROWS = 8, ARCH_GAP = 12;
 const trunc = (s, n) => (s || "").length > n ? s.slice(0, n - 1) + "…" : (s || "");
 
 // layer = longest dependency chain leading into a task (roots = 0), with a
@@ -75,7 +77,7 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
 
   useEffect(() => {
     let on = true;
-    api.getPlan(dir).then((r) => { if (on) setPlan({ deps: (r.plan && r.plan.deps) || {}, milestones: (r.plan && r.plan.milestones) || [], pos: (r.plan && r.plan.pos) || {}, sizes: (r.plan && r.plan.sizes) || {}, pipeDeps: (r.plan && r.plan.pipeDeps) || [], est: (r.plan && r.plan.est) || {} }); });
+    api.getPlan(dir).then((r) => { if (on) setPlan({ deps: (r.plan && r.plan.deps) || {}, milestones: (r.plan && r.plan.milestones) || [], pos: (r.plan && r.plan.pos) || {}, sizes: (r.plan && r.plan.sizes) || {}, pipeDeps: (r.plan && r.plan.pipeDeps) || [], est: (r.plan && r.plan.est) || {}, archive: (r.plan && r.plan.archive) || null }); });
     return () => { on = false; };
   }, [dir]);
 
@@ -107,8 +109,11 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
   );
 
   // ---- model ---------------------------------------------------------------
-  const tasks = [];
-  proj.pipelines.forEach((p) => (p.tasks || []).forEach((t) => tasks.push({
+  // archived tasks are split out here — everything downstream (byKey, layout,
+  // gates, milestone membership, critical path, pickers, selection) is built
+  // from `tasks` alone, so archived work leaves the graph entirely.
+  const tasks = [], archivedTasks = [];
+  proj.pipelines.forEach((p) => (p.tasks || []).forEach((t) => (t.archived ? archivedTasks : tasks).push({
     key: p.id + "/" + t.id, pid: p.id, tid: t.id, title: (t.ref ? "#" + t.ref + " " : "") + t.title, pipe: p.label,
     progress: t.progress, done: t.finalized || (t.stages.length > 0 && t.progress === 100),
   })));
@@ -194,8 +199,19 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
     placed.push(box);
   });
   const pos = { ...basePos, ...dragPos };
-  const maxX = Math.max(0, ...tasks.map((t) => pos[t.key].x + wOf(t.key))) + 80;
-  const maxY = Math.max(0, ...tasks.map((t) => pos[t.key].y + hOf(t.key))) + 80;
+  // the archive box: one anchor (plan.archive, dragged through the normal drag
+  // system under a reserved key) with the archived cards laid out in a fixed
+  // grid relative to it — no plan.pos / plan.sizes for archived tasks.
+  if (!pos[ARCH_KEY]) pos[ARCH_KEY] = plan.archive || { x: 50, y: Math.max(0, ...tasks.map((t) => pos[t.key].y + hOf(t.key))) + 90 };
+  const archAt = pos[ARCH_KEY];
+  const archCell = (i) => ({ x: archAt.x + Math.floor(i / ARCH_ROWS) * (W + ARCH_GAP), y: archAt.y + (i % ARCH_ROWS) * (PN.H + ARCH_GAP) });
+  const archBox = archivedTasks.length ? {
+    x: archAt.x - 16, y: archAt.y - 34,
+    w: Math.ceil(archivedTasks.length / ARCH_ROWS) * (W + ARCH_GAP) - ARCH_GAP + 32,
+    h: Math.min(archivedTasks.length, ARCH_ROWS) * (PN.H + ARCH_GAP) - ARCH_GAP + 48,
+  } : null;
+  const maxX = Math.max(0, ...tasks.map((t) => pos[t.key].x + wOf(t.key)), archBox ? archBox.x + archBox.w : 0) + 80;
+  const maxY = Math.max(0, ...tasks.map((t) => pos[t.key].y + hOf(t.key)), archBox ? archBox.y + archBox.h : 0) + 80;
 
   // ---- mutations (each save commits .bridza/plan.json) ----------------------
   const save = (next) => { setPlan(next); api.savePlan(dir, next).then((r) => { if (!r.ok) flash(r.error || "plan save failed"); }); };
@@ -324,6 +340,7 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
       if (d.type === "node") { setSel(d.keys[0]); setSelMs(null); }
       else if (d.type === "ms") { setSelMs(d.id); setSel(null); }
       else if (d.type === "resize") { /* a click on the handle, no drag — do nothing */ }
+      else if (d.type === "archive") { /* the archive box is not selectable */ }
       else { setSel(null); setSelMs(null); setSelectedKeys(new Set()); }
       return;
     }
@@ -332,6 +349,12 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
       const nextSizes = { ...(plan.sizes || {}), ...(d.liveSize || {}) };
       setSizeLive({});
       save({ ...plan, sizes: nextSizes });
+      return;
+    }
+    if (d.type === "archive") {
+      const a = (d.live && d.live[ARCH_KEY]) || pos[ARCH_KEY];
+      setDragPos({});
+      save({ ...plan, archive: { x: Math.round(a.x), y: Math.round(a.y) } });
       return;
     }
     // persist the dragged positions (rounded) into the committed plan
@@ -448,7 +471,7 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
         <div className="row">
           <Hamburger collapsed={collapsed} onExpandSide={onExpandSide} />
           <h1>Plan</h1>
-          <span className="muted" style={{ fontSize: 12 }}>{tasks.length} tasks · {plan.milestones.length} milestones{blocked.length ? <> · <span style={{ color: "var(--warn, #d8a03a)" }}>{blocked.length} blocked</span></> : null}</span>
+          <span className="muted" style={{ fontSize: 12 }}>{tasks.length} tasks{archivedTasks.length ? ` · ${archivedTasks.length} archived` : ""} · {plan.milestones.length} milestones{blocked.length ? <> · <span style={{ color: "var(--warn, #d8a03a)" }}>{blocked.length} blocked</span></> : null}</span>
         </div>
         <div className="row">
           <div className="plan-legend">
@@ -487,7 +510,7 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
         {linkFrom && <span className="muted" style={{ fontSize: 12 }}>connecting from <b>{(pipeById.get(linkFrom) || {}).label}</b> — click the pipeline that comes after it (click it again to cancel)</span>}
       </div>
       <div className="plan-wrap">
-        {tasks.length === 0 ? (
+        {tasks.length === 0 && archivedTasks.length === 0 ? (
           <div className="content"><p className="muted">No tasks yet — create tasks in a pipeline first, then wire them up here.</p></div>
         ) : (
           <svg ref={svgRef} className="plan-svg" onContextMenu={(e) => e.preventDefault()} onMouseDown={(e) => { if (e.button === 2) boxDown(e); else bgDown(e); }} onMouseMove={bgMove} onMouseUp={bgUp} onMouseLeave={bgUp}>
@@ -553,6 +576,28 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
                   </g>
                 );
               })}
+              {archBox && (
+                <g className="plan-ms archive" onMouseDown={(e) => startDrag(e, { type: "archive", keys: [ARCH_KEY] })}>
+                  <rect x={archBox.x} y={archBox.y} width={archBox.w} height={archBox.h} rx="12" className="ms-box" />
+                  {Array.from({ length: Math.max(2, Math.floor(archBox.w / 26)) }, (_, i) => (
+                    <rect key={i} x={archBox.x + 14 + i * 26} y={archBox.y - 4} width="9" height="8" rx="1.5" className="ms-pin" />
+                  ))}
+                  <circle cx={archBox.x + archBox.w - 18} cy={archBox.y + 16} r="4" className="ms-notch" />
+                  <text x={archBox.x + 12} y={archBox.y + 21} className="ms-label">🗄 Archived</text>
+                  <text x={archBox.x + archBox.w - 34} y={archBox.y + 21} className="ms-count" textAnchor="end">{archivedTasks.length}</text>
+                  {archivedTasks.map((t, i) => {
+                    const c = archCell(i);
+                    return (
+                      <g key={t.key} transform={`translate(${c.x},${c.y})`} className="plan-node arch" onDoubleClick={() => onOpenTask(t.pid, t.tid)}>
+                        <rect className="pn-box" width={W} height={PN.H} rx="9" />
+                        <rect className="pn-accent" x="0" y="7" width="3.5" height={PN.H - 14} rx="1.75" fill={pipeColor(t.pid)} />
+                        <text className="pn-title" x="14" y="20">{trunc(t.title, titleCharsFor(W))}</text>
+                        <text className="pn-sub" x="14" y="36"><tspan fill={pipeColor(t.pid)} style={{ fontWeight: 600 }}>{trunc(t.pipe, wide ? 40 : 12)}</tspan> · 🗄 archived</text>
+                      </g>
+                    );
+                  })}
+                </g>
+              )}
             </g>
           </svg>
         )}

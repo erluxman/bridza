@@ -983,10 +983,11 @@ export function readPlan(root) {
     links: (j && j.links && typeof j.links === "object") ? j.links : {},
     pipeDeps: (j && Array.isArray(j.pipeDeps)) ? j.pipeDeps : [],
     est: (j && j.est && typeof j.est === "object") ? j.est : {},
+    archive: (j && j.archive && typeof j.archive === "object") ? j.archive : null,
   };
 }
 
-export function savePlan(root, { deps, milestones, pos, sizes, links, pipeDeps, est } = {}) {
+export function savePlan(root, { deps, milestones, pos, sizes, links, pipeDeps, est, archive } = {}) {
   ensureDataDir(root);
   const cur = readPlan(root);
   const nextDeps = {};
@@ -1037,7 +1038,9 @@ export function savePlan(root, { deps, milestones, pos, sizes, links, pipeDeps, 
     const h = Number(v);
     if (KEY_RE.test(k) && Number.isFinite(h) && h > 0) nextEst[k] = Math.round(h * 10) / 10;
   }
-  const next = { v: 1, deps: nextDeps, milestones: nextMs, pos: nextPos, sizes: nextSizes, links: nextLinks, pipeDeps: nextPD, est: nextEst };
+  const av = archive != null ? archive : cur.archive;
+  const nextArchive = (av && Number.isFinite(+av.x) && Number.isFinite(+av.y)) ? { x: Math.round(+av.x), y: Math.round(+av.y) } : null;
+  const next = { v: 1, deps: nextDeps, milestones: nextMs, pos: nextPos, sizes: nextSizes, links: nextLinks, pipeDeps: nextPD, est: nextEst, archive: nextArchive };
   writeJSON(path.join(root, rel.plan()), next);
   const nD = Object.keys(nextDeps).length, nM = nextMs.length, nL = Object.keys(nextLinks).length;
   const msg = [

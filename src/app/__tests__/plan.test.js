@@ -50,7 +50,15 @@ describe("gateSatisfied — AND/OR dependency gate", () => {
 
 describe("plan store — .bridza/plan.json", () => {
   it("reads an empty plan when none exists", () => {
-    expect(readPlan(root)).toEqual({ v: 1, deps: {}, milestones: [], pos: {}, sizes: {}, links: {}, pipeDeps: [], est: {} });
+    expect(readPlan(root)).toEqual({ v: 1, deps: {}, milestones: [], pos: {}, sizes: {}, links: {}, pipeDeps: [], est: {}, archive: null });
+  });
+  it("round-trips the archive box position, rejects junk, and survives a partial save", () => {
+    savePlan(root, { archive: { x: 100.4, y: 200.6 } });
+    expect(readPlan(root).archive).toEqual({ x: 100, y: 201 });
+    savePlan(root, { deps: { "dev/build": { all: ["dev/spec"], any: [] } } });   // partial save keeps it
+    expect(readPlan(root).archive).toEqual({ x: 100, y: 201 });
+    savePlan(root, { archive: { x: "nope", y: 5 } });
+    expect(readPlan(root).archive).toBe(null);
   });
   it("round-trips focused-context links, dropping self/bad keys", () => {
     savePlan(root, { links: { "dev/build": ["dev/spec", "dev/build", "bad key!"], "nope!": ["dev/spec"] } });

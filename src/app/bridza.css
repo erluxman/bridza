@@ -469,6 +469,13 @@ h1.task-title { flex: 1 1 auto; min-width: 8ch; white-space: nowrap; overflow: h
 .plan-edge.ms.hot path { stroke: #1f9d6b99; }
 .plan-ms.gated .ms-box { stroke: #d8a03a88; }
 .plan-ms.gated .ms-label { fill: var(--warn, #d8a03a); }
+/* the archive box — milestone chrome, but reads as parked-away dead work */
+.plan-ms.archive .ms-box { fill: #8888880c; stroke: var(--line); stroke-dasharray: 6 4; }
+.plan-ms.archive:hover .ms-box { stroke: var(--line-2); }
+.plan-ms.archive .ms-label { fill: var(--txt-3); }
+.plan-node.arch { opacity: .6; cursor: grab; }
+.plan-node.arch:hover { opacity: .85; }
+.plan-node.arch .pn-box { stroke: var(--line); stroke-dasharray: 4 3; }
 .plan-node, .plan-ms { cursor: grab; }
 .plan-node:active, .plan-ms:active { cursor: grabbing; }
 .btn.ghost.on { color: var(--accent); border-color: #4f9cf255; }
