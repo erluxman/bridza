@@ -193,7 +193,8 @@
     "engineering/create-pr-browser-compose-link": true,
     "engineering/auto-advance-chain-registry": true,
     "engineering/categorize-the-tasks-in-milestones": true,
-    "engineering/archived-should-not-be-just-another": true
+    "engineering/archived-should-not-be-just-another": true,
+    "engineering/i-should-be-able-to-change-the-color-of": true
   },
   "tags": {
     "complex": {
