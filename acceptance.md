@@ -1,15 +1,21 @@
-# Acceptance — The agent picked for a stage sticks to that stage
+# Acceptance — Create PR button, direct `gh` path
 
-- [ ] Picking an agent for a stage and running nothing, then closing and reopening the task (or opening it in a second window), shows that agent still selected for that stage.
-- [ ] The pick is stored in the task's `metadata.json` as `routing["<stageId>"] = { tool, model }` on the task branch, and is committed — visible in `git show` of the task branch tip.
-- [ ] Two stages of the same task can hold different agents at once, and picking for one never changes the other; two tasks using the same stage id keep independent picks.
-- [ ] ▸ Run on a stage with a saved pick runs on that agent — the run record in `tracking[stage].runs` and the run's commit message name it.
-- [ ] Auto-advance into a stage that was never run uses that stage's saved agent and model, not `def.tool`/`opencode`.
-- [ ] A run whose request reaches the server with no `tool` uses the saved `routing[stage].tool`; with an explicit `tool`, the explicit one wins.
-- [ ] Choosing an agent for a later stage, starting the task, then closing the window: the run that continues in the background executes that stage on the chosen agent.
-- [ ] A saved model is reapplied on the next run; clearing it with `×` stores "tool default" and the next run passes no model.
-- [ ] Changing the agent for a stage overwrites the previous pick and clears the stored model for that stage.
-- [ ] A task with no `routing` (existing tasks, `routing: {}`) behaves exactly as before: last-run agent, then stage default, then `opencode` — no crash on a `routing` entry naming a stage that no longer exists or an agent that is not installed (falls back as today).
-- [ ] `docs/09-file-format.md` documents the populated `routing` shape.
-- [ ] Tests cover: routing round-trips through read/write of task metadata; `runStage` resolving the agent from routing when the body omits it; the picker seeding from routing ahead of run history.
+- [ ] With `gh` installed and authenticated, clicking **Create PR** creates the
+      PR for `<task-branch>` → `<target>` with the task title and a body from
+      the task context, and returns the real PR URL — no compose page involved.
+- [ ] The task branch is pushed to origin before `gh pr create` when it has no
+      upstream; a branch that already has one is not re-pushed.
+- [ ] A failed push returns `ok: false` with a readable error (not a fallback),
+      and no `gh pr create` is attempted.
+- [ ] `gh` not on PATH returns `{ ok: false, fallback: true }` carrying the
+      compose URL, and the button opens the compose link — never a dead click.
+- [ ] `gh auth status` exiting non-zero is caught and falls back the same way,
+      with a message naming the cause ("not logged in to GitHub CLI").
+- [ ] An already-open PR for the branch is reported as existing with its URL
+      instead of erroring on a duplicate create.
+- [ ] While the request is in flight the button is disabled and shows a busy
+      label; it returns to **Create PR** on success, fallback, and error alike.
+- [ ] Vitest coverage in `src/app/__tests__/` with a stubbed `gh` on PATH:
+      happy-path `pr create` argv and URL, missing-`gh` fallback, unauthenticated
+      fallback.
 - [ ] `pnpm test`, `pnpm lint`, `pnpm build` pass.

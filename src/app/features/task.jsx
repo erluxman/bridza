@@ -51,6 +51,7 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   const [resolveOpen, setResolveOpen] = useState(false);
   const [conflict, setConflict] = useState(null);   // #15 — paused merge conflict { files, dir, target }
   const [fileOpen, setFileOpen] = useState(null);   // #7 — path of a file opened in the editor
+  const [creatingPr, setCreatingPr] = useState(false);
   const [automating, setAutomating] = useState(false);   // a chained run is live right now
   // …distinct from the auto-advance SETTING: on by default, per task, remembered
   // across navigation/reload. It only says whether a finished stage may carry the
@@ -184,11 +185,24 @@ setResolveOpen(false);
     else flash(r.error, 4800);
   };
   const createPR = async () => {
+    if (creatingPr) return;
+    setCreatingPr(true);
     flash("creating PR…", 6000);
-    const r = await api.createPR(dir, { pipeline: pipeline.id, task: task.id, target: targetName });
-    if (!r.ok) { flash(r.error, 5000); return; }
-    flash(r.existing ? `PR already exists` : `PR created`, 4000);
-    if (r.url) window.open(r.url, "_blank");
+    try {
+      const r = await api.createPR(dir, { pipeline: pipeline.id, task: task.id, target: targetName });
+      if (r.fallback) {
+        flash(r.error, 5000);
+        if (r.url) window.open(r.url, "_blank");
+        return;
+      }
+      if (!r.ok) { flash(r.error, 5000); return; }
+      flash(r.existing ? `PR already exists · ${r.url}` : `PR created · ${r.url}`, 5000);
+      if (r.url) window.open(r.url, "_blank");
+    } catch (e) {
+      flash("could not reach the server: " + (e && e.message || e), 5000);
+    } finally {
+      setCreatingPr(false);
+    }
   };
   const openVscode = async () => {
     flash("opening VS Code…");
@@ -375,7 +389,7 @@ setResolveOpen(false);
               → {handoff.tf.name}
             </button>
           )}
-          <button className="btn primary" onClick={createPR} title={`Create a PR for ${task.branch} → ${targetName}`}>Create PR</button>
+          <button className="btn primary" onClick={createPR} disabled={creatingPr} title={`Create a PR for ${task.branch} → ${targetName}`}>{creatingPr ? "Creating PR…" : "Create PR"}</button>
           <button className="btn" onClick={() => finalize()} disabled={task.finalized} title={`Merge this task's branch into ${targetName}`}>{task.finalized ? "Finalized" : `Finalize → ${targetName}`}</button>
         </div>
       </div>

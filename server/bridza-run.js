@@ -1606,21 +1606,51 @@ export function createPR(root, pipeline, task, targetBranch) {
   } catch (e) { return { ok: false, error: "no remote origin configured" }; }
 
   const target = targetBranch || taskTarget(root, pipeline, task);
+  // The compose page: where every fallback sends the user, so the button is
+  // never a dead click whatever `gh` is or isn't on this machine.
+  const composeUrl = `${repoUrl}/compare/${target}...${branch}?expand=1`;
+  const dir = taskDirOn(root, pipeline, task);   // numbered on disk ("00000017-slug")
   let title = task, body = "";
   try {
-    const meta = JSON.parse(fs.readFileSync(path.join(root, DATA_DIR, rel.taskMeta(pipeline, task)), "utf8"));
+    const meta = JSON.parse(fs.readFileSync(path.join(root, rel.taskMeta(pipeline, dir)), "utf8"));
     if (meta.title) title = meta.title;
-    const ctx = fs.readFileSync(path.join(root, DATA_DIR, rel.taskContext(pipeline, task)), "utf8").trim();
-    if (ctx) body = ctx.replace(/^\s*#.*\n+/, "").slice(0, 2000);
   } catch (e) { /* no metadata */ }
+  try {
+    const ctx = fs.readFileSync(path.join(root, rel.taskContext(pipeline, dir)), "utf8").trim();
+    if (ctx) body = ctx.replace(/^\s*#.*\n+/, "").slice(0, 2000);
+  } catch (e) { /* no context */ }
 
   if (ghAvailable) {
     try {
-      const existing = execFileSync("gh", ["pr", "view", branch, "--json", "url"], { encoding: "utf8", cwd: root, stdio: ["ignore", "pipe", "ignore"] });
-      const j = JSON.parse(existing);
-      if (j.url) return { ok: true, url: j.url, existing: true };
-    } catch (e) { /* no existing PR */ }
+      execFileSync("gh", ["auth", "status"], { encoding: "utf8", cwd: root, stdio: ["ignore", "ignore", "pipe"] });
+    } catch (e) {
+      return { ok: false, fallback: true, error: "not logged in to GitHub CLI — run `gh auth login`", url: composeUrl, title, body };
+    }
+
     try {
+      // `gh pr view <branch>` answers with the branch's LATEST pr whatever its
+      // state, so a closed or merged one would block every future PR for the
+      // branch. Only an OPEN one is a reason not to create.
+      const existing = execFileSync("gh", ["pr", "view", branch, "--json", "url,state"], { encoding: "utf8", cwd: root, stdio: ["ignore", "pipe", "ignore"] });
+      const j = JSON.parse(existing);
+      if (j.url && j.state === "OPEN") return { ok: true, url: j.url, existing: true };
+    } catch (e) { /* no existing PR */ }
+
+    try {
+      let hasUpstream = false;
+      try {
+        hasUpstream = !!git(root, ["rev-parse", "--abbrev-ref", `${branch}@{upstream}`]).trim();
+      } catch (e) { /* no upstream */ }
+
+      if (!hasUpstream) {
+        try {
+          execFileSync("git", ["push", "-u", "origin", branch], { encoding: "utf8", cwd: root, stdio: ["ignore", "pipe", "pipe"] });
+        } catch (e) {
+          const err = String((e && e.stderr) || (e && e.message) || e);
+          return { ok: false, error: "push failed: " + firstLine(err) };
+        }
+      }
+
       const args = ["pr", "create", "--base", target, "--head", branch];
       if (title) args.push("--title", title);
       if (body) args.push("--body", body);
@@ -1629,11 +1659,11 @@ export function createPR(root, pipeline, task, targetBranch) {
       return { ok: true, url: urlMatch ? urlMatch[0] : out.trim() };
     } catch (e) {
       const err = String((e && e.stderr) || (e && e.message) || e);
-      return { ok: false, error: "gh pr create failed: " + firstLine(err) };
+      return { ok: false, fallback: true, error: "gh pr create failed: " + firstLine(err), url: composeUrl, title, body };
     }
   }
 
-  const compareUrl = `${repoUrl}/compare/${target}...${branch}?expand=1`;
-  const prUrl = `${repoUrl}/pull/new/${target}...${branch}`;
-  return { ok: true, url: prUrl, compare: compareUrl, title, body };
+  // No `gh` at all: not an error the user can act on here — hand the UI the
+  // compose link and say why it took that road.
+  return { ok: false, fallback: true, error: "GitHub CLI (gh) not installed — opening the compose page", url: composeUrl, title, body };
 }

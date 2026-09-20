@@ -1,31 +1,79 @@
-# The agent picked for a stage sticks to that stage
+# Create PR button — direct GitHub CLI (`gh`) path
 
 ## What
 
-Picking an agent (and model) for a stage of a task **saves that choice on the task**, keyed by stage. Every later execution of that stage — reopening the task in any window, ▸ Run, auto-advance, a run the server continues after the window is gone — uses the saved agent, until the user picks a different one for that stage.
+The **Create PR** button in task detail (`src/app/features/task.jsx:374`) stops
+being a browser-only affordance. When the GitHub CLI is installed *and*
+authenticated, one click creates the pull request on GitHub directly —
+non-interactive, no compose page — and the resulting PR URL is flashed and
+opened. When `gh` is missing or not logged in, the same click falls back to the
+browser compose link from the sibling subtask, with a message saying why.
 
 ## Why
 
-The choice currently lives only in `StageRunner`'s React state, seeded from `lastRunTool(runs)` (`src/app/features/views.jsx:28`). So it exists only *after* a run, only for that stage's own run history, and only in the window that is open: a stage picked as `claude` but not yet run, or re-entered from another window, or chained into by auto-advance building bodies from a stale snapshot (`src/app/features/task.jsx:235`), silently falls back to `def.tool` → `opencode`. The user has to re-check the picker every time, and a background run can execute on an agent they did not choose.
+Creating a PR through the compose page costs a browser round trip and a second
+click on "Create pull request", with the title and body re-typed or re-pasted.
+Most users who have `gh` already have it authenticated, so for them the button
+can do the whole thing. The fallback is what makes that safe to default to: the
+button is never a dead click, whatever the machine has installed.
 
 ## How
 
-**Where it lives.** The task's `metadata.json` already reserves an empty `routing: {}` (written at `server/bridza-store.js:801`, documented in `docs/09-file-format.md`). It becomes the store for this:
+### Server — `createPR()` in `server/bridza-run.js`
 
-```json
-"routing": { "<stageId>": { "tool": "claude", "model": "opus" } }
-```
+The function already resolves the GitHub remote, `taskTarget`, `taskBranchName`,
+the task title and a body from the task context, and already has a `gh` branch
+guarded by `toolAvailable("gh")`. Three changes:
 
-`model: ""` (or absent) keeps meaning *the tool's own default* — the same meaning the model box already has. Unknown stage ids are ignored on read, never pruned on write. It is written on the task branch alongside `tracking`, via `readTaskMeta`/`writeTaskMeta`, so it travels with the task like every other per-task fact.
+1. **Auth gate.** After `toolAvailable("gh")`, run `gh auth status`
+   (`execFileSync`, stdio piped). A non-zero exit means unauthenticated → take
+   the fallback path with the message `not logged in to GitHub CLI — run
+   \`gh auth login\``.
+2. **Fallback contract.** Today the no-`gh` path returns `{ ok: true, url:
+   composeUrl }`, which the UI cannot tell apart from a created PR. It returns
+   `{ ok: false, fallback: true, error, url: compareUrl, title, body }` instead
+   — the compose URL still travels on the response so the UI can open it. Both
+   fallback causes (no `gh`, failed `gh auth status`) use this shape, differing
+   only in `error`.
+3. **Push before create.** With `gh` available and authenticated, check whether
+   the task branch has an upstream (`git rev-parse --abbrev-ref
+   <branch>@{upstream}`); if it does not, run `git push -u origin <branch>`
+   before `gh pr create`. A failed push is a real error, not a fallback:
+   `{ ok: false, error: "push failed: " + firstLine(...) }` — the compose link
+   would not work either with the branch absent from origin.
 
-**Writing it.** A new `setStageRouting(root, pipeline, task, stage, { tool, model })` in `server/bridza-run.js`, modelled on `setTaskReuse` (validate refs → `ensureTaskWorktree` → read/merge/write meta → `commitWorktree`), exposed as `POST /api/bridza/task/routing` in `server/bridge.js` and `api.setStageRouting` in the client. The `StageRunner` picker calls it when the agent or the model changes — at pick time, not at run time — so a choice made and never run still persists. `runStage` also records `{ tool: toolId, model }` into `routing[stage]` as part of the prompt-commit metadata write it already does (`server/bridza-run.js:787`), keeping the saved choice in step with what actually ran, including a fallback to another agent.
+Order inside the authenticated path stays: existing-PR lookup (`gh pr view
+<branch> --json url`, returns `{ ok: true, url, existing: true }` — unchanged) →
+push if needed → `gh pr create --base <target> --head <branch> --title <title>
+--body <body>` → `{ ok: true, url }` parsed from stdout.
 
-**Reading it.** `readTask`'s projection in `server/bridza-store.js` surfaces `routing: meta.routing || {}` on the task, next to `tracking`. Then:
+The bridge route `POST /api/bridza/pr` (`server/bridge.js:332`) already forwards
+the whole result object; no route change.
 
-- `StageRunner.remembered()` resolves `routing[def.id].tool` → `lastRunTool(runs)` → `def.tool` → first available tool → `"opencode"`; the model seed resolves `routing[def.id].model` → `lastRunModel(runs)` → `""`.
-- `automate()` in `src/app/features/task.jsx` builds each stage body from `routing[def.id]` first (same precedence), and passes its `model` — instead of today's "no model is ever passed".
-- `runStage` on the server resolves the agent as `body.tool || routing[stage].tool || <stage default>` (and the model likewise) before `resolveRunnableTool`, so any path that reaches the server without an explicit tool — a chain continued after the window closed, a stale client snapshot, another window — still runs the agent the user chose. The client's explicit pick always wins over the stored one.
+### UI — `createPR()` handler in `src/app/features/task.jsx:186`
 
-**Changing it.** Picking a different agent for that stage overwrites the entry; picking a tool clears the stored model (mirroring the picker's existing `setModel("")` on tool change), and the `×` next to the model box stores `""` = tool default. Nothing clears routing on its own — not finalize, not reopening a stage.
+- A `creatingPr` state disables the button and labels it `Creating PR…` for the
+  duration, so a slow `gh` call cannot be double-clicked.
+- `ok` → flash the PR URL (`PR created · <url>`, or `PR already exists · <url>`
+  for `existing`) and open it, as today.
+- `fallback` → flash the server's message and open `r.url` (the compose link) in
+  a new tab.
+- neither → flash `r.error`, open nothing.
 
-Out of scope: per-pipeline or global agent defaults, a routing editor outside the existing per-stage pickers, changing which agents exist or how they are detected, and back-filling `routing` for tasks that already have run history (their `lastRunTool` fallback already covers them).
+### Tests — `src/app/__tests__/`
+
+Vitest against a real temp git repo (the `makeRepo` pattern in
+`bridza-run.test.js`), with a stub `gh` shell script written into a temp bin dir
+prepended to `process.env.PATH`, so `toolAvailable("gh")` and the `execFileSync`
+calls both resolve to the stub. The stub appends its argv to a log file the test
+reads back. Three cases: happy path (asserts the `pr create` argv — base, head,
+title — and the returned URL), no `gh` on PATH (fallback shape + compose URL),
+and a stub whose `auth status` exits non-zero (fallback shape + the
+"not logged in" message).
+
+## Out of scope
+
+Draft PRs, reviewers, labels, assignees and milestones; PR templates; editing
+the title or body from the UI before creating; PR status or checks in task
+detail; non-GitHub remotes; installing or authenticating `gh` on the user's
+behalf.
