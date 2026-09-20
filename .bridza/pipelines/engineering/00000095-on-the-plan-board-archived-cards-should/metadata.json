@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "on-the-plan-board-archived-cards-should",
+  "pipeline": "engineering",
+  "title": "On the plan board, archived cards should not sit loose among the…",
+  "ref": 95,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/on-the-plan-board-archived-cards-should",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}

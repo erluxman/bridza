@@ -1,11 +1,4 @@
 {
   "v": 1,
-  "items": [
-    {
-      "id": "in-m5p8k1",
-      "kind": "idea",
-      "text": "On the plan board, archived cards should not sit loose among the live ones and should not be grouped into milestones either. Put every archived card in its own box on the canvas \u2014 drawn like a milestone box, labelled as the archive \u2014 and let me drag that whole box around the canvas to park it wherever I want. Milestone boxes must never contain an archived card, and the archive box must never be treated as a milestone (no deps, no needs, no critical path, not in the milestone dropdown). The kanban already hides archived cards; the plan board currently draws them inline, which is what makes the canvas confusing.",
-      "time": "2026-09-20T20:22:14+05:45"
-    }
-  ]
+  "items": []
 }

@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 95,
+  "next": 96,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -83,7 +83,8 @@
     "engineering/conflict-open-in-vscode": 91,
     "engineering/merge-button-gating": 92,
     "engineering/merge-preflight-check": 93,
-    "engineering/task-target-branch-selector": 94
+    "engineering/task-target-branch-selector": 94,
+    "engineering/on-the-plan-board-archived-cards-should": 95
   },
   "deleted": [
     "engineering/truncation-check-idea",
