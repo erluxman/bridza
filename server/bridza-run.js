@@ -476,7 +476,57 @@ export function saveTaskFile(root, { pipeline, task, path: relPath, content, ame
 // keeps a kill handle so the user can stop a run from the app.
 const ACTIVE_RUNS = new Map();
 export function listActiveRuns() {
-  return [...ACTIVE_RUNS.values()].map(({ kill, ...r }) => r);
+  return [...ACTIVE_RUNS.values()].map(({ pipeline, task, stage, tool, startedAt }) => ({ pipeline, task, stage, tool, startedAt }));
+}
+// What a run printed lives HERE, not in the client's socket: the page can be
+// refreshed, closed, or opened elsewhere and re-attach to the same run — the
+// text so far is replayed, the rest streams live. Finished runs stay around
+// (per stage, newest wins) so a run that failed while nobody was watching
+// still shows its output and the reason afterwards.
+const LOG_CAP = 64000;
+const RECENT_RUNS = new Map();   // "<pipeline>/<task>/<stage>" → the last finished run
+const RECENT_CAP = 200;
+const runText = (ev) => {
+  if (ev.t === "out") return String(ev.d || "");
+  if (ev.t === "cmd") return "\n$ " + ev.cmd + "\n";
+  if (ev.t === "meta") return "⎇ " + ev.branch + "\n";
+  if (ev.t === "commit") return "\n● " + ev.phase + " commit " + String(ev.sha || "").slice(0, 7) + "\n";
+  if (ev.t === "session") return "\n⛁ " + ev.tool + " session " + ev.sessionId + "\n";
+  return "";
+};
+function rememberRun(r, endObj) {
+  const k = r.pipeline + "/" + r.task + "/" + r.stage;
+  RECENT_RUNS.delete(k);
+  RECENT_RUNS.set(k, { pipeline: r.pipeline, task: r.task, stage: r.stage, tool: r.tool, startedAt: r.startedAt, finishedAt: nowISO(),
+    status: endObj.status || (endObj.exit ? "failed" : "done"), exit: endObj.exit, error: endObj.error || null, log: r.log() });
+  while (RECENT_RUNS.size > RECENT_CAP) RECENT_RUNS.delete(RECENT_RUNS.keys().next().value);
+}
+// Attach to a stage's run: replays what it printed so far, then streams the
+// rest until its {t:"end"}. A run that already finished replays its text and
+// its end (marked `replayed`); no run at all ends immediately with `none`.
+// Returns { done, detach } — detach when the client goes away.
+export function attachRun(pipeline, task, stage, emit) {
+  const p = safeRef(pipeline), t = safeRef(task), st = safeRef(stage);
+  for (const r of ACTIVE_RUNS.values()) {
+    if (r.pipeline !== p || r.task !== t || r.stage !== st) continue;
+    emit({ t: "replay", live: true, log: r.log(), startedAt: r.startedAt, tool: r.tool, wallSeconds: r.wallSeconds });
+    let listener;
+    const done = new Promise((resolve) => {
+      listener = (ev) => { emit(ev); if (ev.t === "end") resolve(ev); };
+      r.listeners.add(listener);
+    });
+    return { done, detach: () => r.listeners.delete(listener) };
+  }
+  const rec = RECENT_RUNS.get(p + "/" + t + "/" + st);
+  if (rec) {
+    emit({ t: "replay", live: false, log: rec.log, startedAt: rec.startedAt, finishedAt: rec.finishedAt, tool: rec.tool });
+    const end = { t: "end", replayed: true, exit: rec.exit, status: rec.status, error: rec.error };
+    emit(end);
+    return { done: Promise.resolve(end), detach() { } };
+  }
+  const none = { t: "end", none: true };
+  emit(none);
+  return { done: Promise.resolve(none), detach() { } };
 }
 
 // Stop the live run(s) of a task (optionally one stage). SIGTERM the tool's
@@ -714,13 +764,23 @@ export function runStage(root, body, emit) {
     // keep the tail of everything the tool printed, so the run record can carry
     // WHY a run failed (persisted into the task metadata on the result commit)
     let outTail = "";
+    // the full transcript (capped) + whoever is attached to it right now — the
+    // page that started the run is just one listener among any number
+    let log = "";
+    const listeners = new Set();
     const rawEmit = emit;
     emit = (ev) => {
       if (ev.t === "out" && typeof ev.d === "string") outTail = (outTail + ev.d).slice(-4000);
       else if (ev.t === "cmd" && typeof ev.cmd === "string") outTail = (outTail + "$ " + ev.cmd + "\n").slice(-4000);
+      log = (log + runText(ev)).slice(-LOG_CAP);
       rawEmit(ev);
+      for (const l of listeners) { try { l(ev); } catch (e) { /* a dead attach must not break the run */ } }
     };
-    const end = (obj) => { if (ended) return; ended = true; if (runKey) ACTIVE_RUNS.delete(runKey); emit({ t: "end", ...obj }); resolve(obj); };
+    const end = (obj) => {
+      if (ended) return; ended = true;
+      if (runKey) { const r = ACTIVE_RUNS.get(runKey); ACTIVE_RUNS.delete(runKey); if (r) rememberRun(r, obj); }
+      emit({ t: "end", ...obj }); listeners.clear(); resolve(obj);
+    };
     const { pipeline, task, stage, prompt, system, shell = [], workingDir = ".", stageContext, stageName, taskTitle, wallSeconds } = body || {};
     // the stage's saved pick backs every path that gets here without an explicit
     // one — a chain the window left behind, a stale client snapshot, another
@@ -739,8 +799,15 @@ export function runStage(root, body, emit) {
     // deps) can't run any stage until its upstream tasks are done
     const blocked = blockedByPlan(root, pipeline, task);
     if (blocked) return end({ exit: 1, status: "blocked", errorKind: "plan-gate", error: blocked });
+    // one live stage per task: a second run (another window, a stale page, a
+    // chain racing a manual press) would write the same branch from two sides
+    for (const r of ACTIVE_RUNS.values()) {
+      if (r.pipeline === safeRef(pipeline) && r.task === safeRef(task))
+        return end({ exit: 1, status: "busy", errorKind: "busy", error: "another stage of this task is already running (" + r.stage + ")" });
+    }
     runKey = safeRef(pipeline) + "/" + safeRef(task) + "/" + safeRef(stage) + "#" + Date.now();
-    const runEntry = { pipeline: safeRef(pipeline), task: safeRef(task), stage: safeRef(stage), tool: toolId, startedAt: nowISO(), kill: null };
+    const runEntry = { pipeline: safeRef(pipeline), task: safeRef(task), stage: safeRef(stage), tool: toolId, startedAt: nowISO(), kill: null,
+      wallSeconds: Math.floor(Number(wallSeconds) || 0), log: () => log, listeners };
     ACTIVE_RUNS.set(runKey, runEntry);
     // set true when the user stops the run — the close handler records
     // "stopped" instead of "failed" so the timeline tells the real story
@@ -973,6 +1040,21 @@ export function runStage(root, body, emit) {
       runShell(0);
     });
   });
+}
+
+// ── run + carry on: the auto-advance chain lives in the SERVER ──────────────
+// `body.advance` is the ordered list of run bodies for the stages after this
+// one (the client assembles them exactly like Automate). When this stage ends
+// `done`, the chain starts here and keeps going whether or not the page that
+// pressed ▸ Run is still open — a refresh mid-run no longer stalls the task.
+// The end event of the stage carries `advancing: <n>` so the UI can say so.
+export async function runStageAndAdvance(root, body, emit) {
+  const { advance, ...own } = body || {};
+  const chain = Array.isArray(advance) ? advance.filter((s) => s && s.stage) : [];
+  const res = await runStage(root, own, chain.length ? (ev) => emit(ev.t === "end" && ev.status === "done" ? { ...ev, advancing: chain.length } : ev) : emit);
+  if (chain.length && res.status === "done" && res.exit === 0)
+    automateTask(root, { stages: chain }, () => { }).catch(() => { /* each stage's own end is on record */ });
+  return res;
 }
 
 // ── automate: run every stage of a task back-to-back ────────────────────────
