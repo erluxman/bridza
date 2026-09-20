@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "i-should-be-able-to-change-the-color-of",
+  "pipeline": "engineering",
+  "title": "I should be able to change the color of the tag",
+  "ref": 112,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/i-should-be-able-to-change-the-color-of",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}

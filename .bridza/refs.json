@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 112,
+  "next": 113,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -99,7 +99,8 @@
     "engineering/make-the-git-history-and-files-less": 108,
     "engineering/always-fork-from-the-reference-branch": 109,
     "engineering/when-app-is-refreshed-or-page-is": 110,
-    "engineering/remove-automatic-focus-on-search-field": 111
+    "engineering/remove-automatic-focus-on-search-field": 111,
+    "engineering/i-should-be-able-to-change-the-color-of": 112
   },
   "deleted": [
     "engineering/truncation-check-idea",
