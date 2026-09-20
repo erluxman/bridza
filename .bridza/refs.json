@@ -189,7 +189,8 @@
     "engineering/atlas-ai-architecture-overview": true,
     "engineering/atlas-scan-cache-and-ignore": true,
     "engineering/logo-first-launch-detection": true,
-    "engineering/logo-animation-component": true
+    "engineering/logo-animation-component": true,
+    "engineering/create-pr-browser-compose-link": true
   },
   "tags": {
     "complex": {
