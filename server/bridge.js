@@ -108,6 +108,10 @@ export function setPickFolder(fn) { pickFolderImpl = fn || pickFolder; }
 // A REAL shell (your $SHELL, zsh/bash) in the browser via xterm.js. cwd = the
 // task's worktree when pipeline+task are given, else the repo root. node-pty +
 // ws load lazily so plain builds never touch the native module.
+const SESSIONS = new Map(); // cwd -> { pty, buffer, ws, timer, shell }
+const REAP_TIMEOUT = 30 * 60 * 1000;
+const MAX_BUFFER = 256 * 1024;
+
 let wssP = null;
 const getWss = () => wssP || (wssP = import("ws").then(({ WebSocketServer }) => new WebSocketServer({ noServer: true })));
 
@@ -127,26 +131,56 @@ export async function handleUpgrade(req, socket, head) {
         const wt = ensureTaskWorktree(root, pl, tk);
         if (wt.ok) cwd = wt.worktree;
       }
-      let ptyMod;
-      try { ptyMod = await import("node-pty"); }
-      catch (e) { ws.send(JSON.stringify({ t: "err", d: "node-pty isn't installed — run `pnpm install` and reload" })); return void ws.close(); }
-      const shell = process.env.SHELL || (process.platform === "win32" ? "powershell.exe" : "/bin/zsh");
-      let p;
-      try {
-        const args = process.platform === "win32" ? [] : ["-l"];
-        p = ptyMod.spawn(shell, args, { name: "xterm-256color", cols: 80, rows: 24, cwd, env: { ...process.env, PWD: cwd } });
-      } catch (e) { ws.send(JSON.stringify({ t: "err", d: "couldn't spawn " + shell + ": " + String((e && e.message) || e) })); return void ws.close(); }
-      ws.send(JSON.stringify({ t: "cwd", d: cwd, shell }));
-      p.onData((d) => { if (ws.readyState === 1) ws.send(JSON.stringify({ t: "out", d })); });
-      p.onExit(({ exitCode }) => { if (ws.readyState === 1) { ws.send(JSON.stringify({ t: "exit", code: exitCode })); ws.close(); } });
+
+      let sess = SESSIONS.get(cwd);
+      if (sess) {
+        clearTimeout(sess.timer);
+        if (sess.ws && sess.ws.readyState === 1) sess.ws.close();
+        sess.ws = ws;
+        ws.send(JSON.stringify({ t: "cwd", d: cwd, shell: sess.shell }));
+        if (sess.buffer.length > 0) ws.send(JSON.stringify({ t: "out", d: sess.buffer }));
+      } else {
+        let ptyMod;
+        try { ptyMod = await import("node-pty"); }
+        catch (e) { ws.send(JSON.stringify({ t: "err", d: "node-pty isn't installed — run `pnpm install` and reload" })); return void ws.close(); }
+        const shell = process.env.SHELL || (process.platform === "win32" ? "powershell.exe" : "/bin/zsh");
+        let p;
+        try {
+          const args = process.platform === "win32" ? [] : ["-l"];
+          p = ptyMod.spawn(shell, args, { name: "xterm-256color", cols: 80, rows: 24, cwd, env: { ...process.env, PWD: cwd } });
+        } catch (e) { ws.send(JSON.stringify({ t: "err", d: "couldn't spawn " + shell + ": " + String((e && e.message) || e) })); return void ws.close(); }
+        sess = { pty: p, buffer: "", ws, timer: null, shell };
+        SESSIONS.set(cwd, sess);
+        ws.send(JSON.stringify({ t: "cwd", d: cwd, shell }));
+        p.onData((d) => {
+          sess.buffer = (sess.buffer + d).slice(-MAX_BUFFER);
+          if (sess.ws && sess.ws.readyState === 1) sess.ws.send(JSON.stringify({ t: "out", d }));
+        });
+        p.onExit(({ exitCode }) => {
+          if (sess.ws && sess.ws.readyState === 1) { sess.ws.send(JSON.stringify({ t: "exit", code: exitCode })); sess.ws.close(); }
+          SESSIONS.delete(cwd);
+        });
+      }
+
       ws.on("message", (buf) => {
         try {
           const m = JSON.parse(String(buf));
-          if (m.t === "in" && typeof m.d === "string") p.write(m.d);
-          else if (m.t === "resize" && m.cols > 1 && m.rows > 1) p.resize(m.cols | 0, m.rows | 0);
+          if (m.t === "in" && typeof m.d === "string") sess.pty.write(m.d);
+          else if (m.t === "resize" && m.cols > 1 && m.rows > 1) sess.pty.resize(m.cols | 0, m.rows | 0);
+          else if (m.t === "kill") { try { sess.pty.kill(); } catch (e) {} SESSIONS.delete(cwd); }
         } catch (e) { /* ignore malformed frames */ }
       });
-      ws.on("close", () => { try { p.kill(); } catch (e) { /* already gone */ } });
+      ws.on("close", () => {
+        if (sess.ws === ws) {
+          sess.ws = null;
+          sess.timer = setTimeout(() => {
+            if (SESSIONS.get(cwd) === sess && !sess.ws) {
+              try { sess.pty.kill(); } catch (e) {}
+              SESSIONS.delete(cwd);
+            }
+          }, REAP_TIMEOUT);
+        }
+      });
     });
   } catch (e) { socket.destroy(); }
 }

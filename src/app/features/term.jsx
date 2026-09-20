@@ -11,6 +11,7 @@ import { SettingsModal } from "./settings.jsx";
 
 export function TermDrawer({ dir, pipeline, task, onClose, full }) {
   const hostRef = useRef(null);
+  const wsRef = useRef(null);
   const [cwd, setCwd] = useState("");
   const [shell, setShell] = useState("");
   const [dead, setDead] = useState("");
@@ -51,6 +52,7 @@ export function TermDrawer({ dir, pipeline, task, onClose, full }) {
     const q = new URLSearchParams({ dir });
     if (pipeline && task) { q.set("pipeline", pipeline); q.set("task", task); }
     const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/bridza/pty?${q}`);
+    wsRef.current = ws;
     ws.onopen = () => {
       fit.fit();
       ws.send(JSON.stringify({ t: "resize", cols: term.cols, rows: term.rows }));
@@ -66,15 +68,23 @@ export function TermDrawer({ dir, pipeline, task, onClose, full }) {
       } catch (e) { /* non-JSON frame */ }
     };
     ws.onerror = () => setDead((d) => d || "couldn't reach the PTY bridge — is the dev server running?");
-    ws.onclose = () => setDead((d) => d || "disconnected");
+    ws.onclose = () => {
+      // Detach is normal, only show dead for real errors/exits
+    };
     const dataSub = term.onData((d) => { if (ws.readyState === 1) ws.send(JSON.stringify({ t: "in", d })); });
     const ro = new ResizeObserver(() => {
       fit.fit();
       if (ws.readyState === 1) ws.send(JSON.stringify({ t: "resize", cols: term.cols, rows: term.rows }));
     });
     ro.observe(hostRef.current);
-    return () => { unsub(); ro.disconnect(); dataSub.dispose(); try { ws.close(); } catch (e) { /* */ } term.dispose(); };
+    return () => { unsub(); ro.disconnect(); dataSub.dispose(); wsRef.current = null; try { ws.close(); } catch (e) { /* */ } term.dispose(); };
   }, [dir, pipeline, task]);
+  const kill = () => {
+    if (wsRef.current && wsRef.current.readyState === 1) {
+      try { wsRef.current.send(JSON.stringify({ t: "kill" })); } catch (e) {}
+    }
+    onClose();
+  };
   return (
     <div className={"term-drawer" + (full ? " full" : "")}>
       <div className="term-hd">
@@ -82,7 +92,7 @@ export function TermDrawer({ dir, pipeline, task, onClose, full }) {
         <span className="term-cwd" title={cwd || dir}>{cwd || (task ? "task worktree" : dir)}</span>
         <div className="row" style={{ flex: "none" }}>
           <button className="btn ghost sm" onClick={() => setSettingsOpen(true)} title="Terminal font, size & ligatures">⚙</button>
-          <button className="btn ghost sm" onClick={onClose} title="Close (kills the shell)">✕</button>
+          <button className="btn ghost sm" onClick={kill} title="Close (kills the shell)">✕</button>
         </div>
       </div>
       <div className="pty-host" ref={hostRef} />

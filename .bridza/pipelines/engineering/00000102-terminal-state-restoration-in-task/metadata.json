@@ -15,7 +15,12 @@
     "build",
     "review"
   ],
-  "routing": {},
+  "routing": {
+    "build": {
+      "tool": "claude",
+      "model": ""
+    }
+  },
   "status": "in-progress",
   "finalized": false,
   "tracking": {
@@ -38,6 +43,19 @@
           "sessionId": "d4b4fae2-4fa5-40ac-84c3-d34ce562c4ca",
           "error": null,
           "log": "$ claude -p \"Task: terminal state restoration in task details\" --output-format stream-json --verbose --dangerously-skip-permissions --permission-mode acceptEdits --append-system-prompt \"You are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we'll know it works — n…\"\n· model: TOOL DEFAULT (no --model/-m flag — claude's own config decides)\n· claude ready · claude-opus-5 · 25 tools\nI'll look at the task metadata first to get the actual intent.\n· Bash ls -la .bridza/pipelines/engineering/00000102-terminal-state-restoration-in-task/ && cat …\n· Bash cat .bridza/pipelines/engineering/00000102-terminal-state-restoration-in-task/context.md …\n· Bash cat .bridza/pipelines/engineering/00000102-terminal-state-restoration-in-task/spec/prompt…\n· Bash wc -l spec.md acceptance.md && head -40 spec.md && echo \"=== ACC ===\" && head -20 accepta…\nStale artifacts from task #95. Need to explore the terminal impl before writing.\n· Bash grep -ril \"terminal\\|xterm\\|node-pty\" --include=\"*.js\" --include=\"*.jsx\" --include=\"*.ts\"…\n· Bash wc -l src/app/features/term.jsx && cat src/app/features/term.jsx\n· Bash grep -n \"pty\\|Pty\\|PTY\" server/bridge.js | head -60\n· Bash sed -n '100,175p' server/bridge.js\n· Bash grep -n \"TermDrawer\\|term\\b\\|Term\\|⌨\" src/app/features/task.jsx src/app/features/board.js…\n· Bash grep -n \"listActiveRuns\\|const runs\\|Map()\" server/bridza-run.js | head -20 && echo \"=== …\n  ✖ Exit code 1\n· Bash node -e \"console.log(JSON.stringify(require('./package.json').scripts,null,1))\" && sed -n…\nFull picture. Writing the spec now — replacing the stale task-#95 artifacts.\n· Write /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/terminal-state-restora…\n· Write /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/terminal-state-restora…\nWrote `spec.md` + `acceptance.md` (overwrote stale task-#95 artifacts that were sitting in the worktree root).\n\n**Root cause found:** `server/bridge.js:149` — `ws.on(\"close\", () => p.kill())`. `TermDrawer`'s effect cleanup closes the socket on unmount, so every tab switch kills the shell. Client-side bug, server-side fix.\n\n**Key spec decision:** intent said *\"if possible restore in UI, otherwise pop out native terminal (kitty)\"*. It is possible — the PTY already lives in the long-lived bridge process, only the close→kill wiring binds it to a browser tab. So: in-app restoration, native popout dropped. Keeps existing font/ligature settings, cwd header, worktree resolution.\n\n**Shape:** `SESSIONS` map in bridge.js keyed by resolved cwd (already distinguishes repo root vs. each task worktree). Detach clears the socket, leaves the PTY. 256 KB rolling output buffer replayed on reattach. ✕ sends a new `{t:\"kill\"}` frame so explicit close still kills.\n\nTwo things I added that weren't in the intent, both load-bearing:\n- **30-min idle reaping of detached sessions** — without it, not killing on detach leaks one shell per terminal ever opened, for the bridge's lifetime. That's a defect the fix would introduce, not a nice-to-have.\n- **Explicit kill frame** — otherwise removing the kill leaves no way to end a shell at all.\n\nScoped out and stated: surviving a dev-server restart, any \"running terminals\" UI, two panes sharing one session.\n\nOne honest limit in the spec: replay is scrollback bytes, not terminal-state emulation. A full-screen TUI (vim, htop) repaints on its next frame or the reattach resize rather than restoring pixel-exact.\n· done · 14 turns · 97s · $0.6985"
+        }
+      ]
+    },
+    "build": {
+      "status": "running",
+      "seconds": 0,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: terminal state restoration in task details\n\nwhen we press on terminal on a card/task details it should pop out a terminal in that particular directory/branch  instead of showing it as a react component because it does not persist when i make it away from it, when i come back to  terminal after going to different part of the app, that terminal session is already closed . If it is possible to restore the terminal, then keep it in the UI behind that terminal button, otherwise, pop that terminal out in a native terminal window  (like kitty)\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-20T15:11:05.283Z",
+          "status": "running"
         }
       ]
     }
