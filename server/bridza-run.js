@@ -160,16 +160,24 @@ export function taskWorktree(root, pipeline, task) {
 // markers. The `_finalize` worktree is checked whatever branch it holds — a
 // merge paused into ANOTHER target must be surfaced too, never deleted by a
 // finalize into a different branch. Returns { dir, files, target } | null.
+// The paused merge is one per repo (one target checkout), so the task that
+// parked it is written down next to it: another task's finalize must be told
+// "someone else's merge is paused", never handed this conflict as its own.
+const conflictOwnerFile = (root) => path.join(worktreeBase(root), "_finalize.owner");
+const conflictOwner = (root) => { try { return fs.readFileSync(conflictOwnerFile(root), "utf8").trim() || null; } catch (e) { return null; } };
+const setConflictOwner = (root, key) => { try { if (key) { fs.mkdirSync(worktreeBase(root), { recursive: true }); fs.writeFileSync(conflictOwnerFile(root), key); } else fs.rmSync(conflictOwnerFile(root), { force: true }); } catch (e) { /* best effort */ } };
+const ownedByOther = (root, pipeline, task) => { const o = conflictOwner(root); return o && pipeline && task && o !== safeRef(pipeline) + "/" + safeRef(task) ? o : null; };
 export function pendingConflict(root, target) {
+  const owner = conflictOwner(root);
   if (currentBranch(root) === target) {
     const files = conflictedFiles(root);
-    if (files.length) return { dir: path.resolve(root), files, target };
+    if (files.length) return { dir: path.resolve(root), files, target, owner };
   }
   const mwt = path.join(worktreeBase(root), "_finalize");
   try {
     if (fs.existsSync(path.join(mwt, ".git"))) {
       const files = conflictedFiles(mwt);
-      if (files.length || git(mwt, ["status", "--porcelain"]).trim()) return { dir: path.resolve(mwt), files, target: currentBranch(mwt) || target };
+      if (files.length || git(mwt, ["status", "--porcelain"]).trim()) return { dir: path.resolve(mwt), files, target: currentBranch(mwt) || target, owner };
     }
   } catch (e) { /* not a mid-finalize worktree */ }
   return null;
@@ -475,8 +483,9 @@ export function saveTaskFile(root, { pipeline, task, path: relPath, content, ame
 // only while runStage is actually executing in this server process. Each entry
 // keeps a kill handle so the user can stop a run from the app.
 const ACTIVE_RUNS = new Map();
-export function listActiveRuns() {
-  return [...ACTIVE_RUNS.values()].map(({ pipeline, task, stage, tool, startedAt }) => ({ pipeline, task, stage, tool, startedAt }));
+export function listActiveRuns(root) {
+  const abs = root ? path.resolve(root) : null;
+  return [...ACTIVE_RUNS.values()].filter((r) => !abs || r.root === abs).map(({ pipeline, task, stage, tool, startedAt }) => ({ pipeline, task, stage, tool, startedAt }));
 }
 // What a run printed lives HERE, not in the client's socket: the page can be
 // refreshed, closed, or opened elsewhere and re-attach to the same run — the
@@ -484,7 +493,7 @@ export function listActiveRuns() {
 // (per stage, newest wins) so a run that failed while nobody was watching
 // still shows its output and the reason afterwards.
 const LOG_CAP = 64000;
-const RECENT_RUNS = new Map();   // "<pipeline>/<task>/<stage>" → the last finished run
+const RECENT_RUNS = new Map();   // "<root>|<pipeline>/<task>/<stage>" → the last finished run
 const RECENT_CAP = 200;
 const runText = (ev) => {
   if (ev.t === "out") return String(ev.d || "");
@@ -495,7 +504,7 @@ const runText = (ev) => {
   return "";
 };
 function rememberRun(r, endObj) {
-  const k = r.pipeline + "/" + r.task + "/" + r.stage;
+  const k = r.root + "|" + r.pipeline + "/" + r.task + "/" + r.stage;
   RECENT_RUNS.delete(k);
   RECENT_RUNS.set(k, { pipeline: r.pipeline, task: r.task, stage: r.stage, tool: r.tool, startedAt: r.startedAt, finishedAt: nowISO(),
     status: endObj.status || (endObj.exit ? "failed" : "done"), exit: endObj.exit, error: endObj.error || null, log: r.log() });
@@ -505,10 +514,10 @@ function rememberRun(r, endObj) {
 // rest until its {t:"end"}. A run that already finished replays its text and
 // its end (marked `replayed`); no run at all ends immediately with `none`.
 // Returns { done, detach } — detach when the client goes away.
-export function attachRun(pipeline, task, stage, emit) {
-  const p = safeRef(pipeline), t = safeRef(task), st = safeRef(stage);
+export function attachRun(root, pipeline, task, stage, emit) {
+  const abs = path.resolve(root), p = safeRef(pipeline), t = safeRef(task), st = safeRef(stage);
   for (const r of ACTIVE_RUNS.values()) {
-    if (r.pipeline !== p || r.task !== t || r.stage !== st) continue;
+    if (r.root !== abs || r.pipeline !== p || r.task !== t || r.stage !== st) continue;
     emit({ t: "replay", live: true, log: r.log(), startedAt: r.startedAt, tool: r.tool, wallSeconds: r.wallSeconds });
     let listener;
     const done = new Promise((resolve) => {
@@ -517,7 +526,7 @@ export function attachRun(pipeline, task, stage, emit) {
     });
     return { done, detach: () => r.listeners.delete(listener) };
   }
-  const rec = RECENT_RUNS.get(p + "/" + t + "/" + st);
+  const rec = RECENT_RUNS.get(abs + "|" + p + "/" + t + "/" + st);
   if (rec) {
     emit({ t: "replay", live: false, log: rec.log, startedAt: rec.startedAt, finishedAt: rec.finishedAt, tool: rec.tool });
     const end = { t: "end", replayed: true, exit: rec.exit, status: rec.status, error: rec.error };
@@ -532,11 +541,11 @@ export function attachRun(pipeline, task, stage, emit) {
 // Stop the live run(s) of a task (optionally one stage). SIGTERM the tool's
 // process; runStage's close handler then records the run as "stopped" and
 // commits the result, so the timeline shows the stop — not a phantom crash.
-export function stopRuns(pipeline, task, stage) {
-  const p = safeRef(pipeline), t = safeRef(task), s = stage ? safeRef(stage) : null;
+export function stopRuns(root, pipeline, task, stage) {
+  const abs = path.resolve(root), p = safeRef(pipeline), t = safeRef(task), s = stage ? safeRef(stage) : null;
   let stopped = 0;
   for (const r of ACTIVE_RUNS.values()) {
-    if (r.pipeline !== p || r.task !== t || (s && r.stage !== s)) continue;
+    if (r.root !== abs || r.pipeline !== p || r.task !== t || (s && r.stage !== s)) continue;
     if (typeof r.kill === "function") { try { r.kill(); stopped++; } catch (e) { /* already gone */ } }
   }
   return { ok: stopped > 0, stopped, error: stopped ? undefined : "no live run for that task" };
@@ -806,7 +815,7 @@ export function runStage(root, body, emit) {
         return end({ exit: 1, status: "busy", errorKind: "busy", error: "another stage of this task is already running (" + r.stage + ")" });
     }
     runKey = safeRef(pipeline) + "/" + safeRef(task) + "/" + safeRef(stage) + "#" + Date.now();
-    const runEntry = { pipeline: safeRef(pipeline), task: safeRef(task), stage: safeRef(stage), tool: toolId, startedAt: nowISO(), kill: null,
+    const runEntry = { root: path.resolve(root), pipeline: safeRef(pipeline), task: safeRef(task), stage: safeRef(stage), tool: toolId, startedAt: nowISO(), kill: null,
       wallSeconds: Math.floor(Number(wallSeconds) || 0), log: () => log, listeners };
     ACTIVE_RUNS.set(runKey, runEntry);
     // set true when the user stops the run — the close handler records
@@ -1311,6 +1320,8 @@ export function finalizeTask(root, pipeline, task, { style = "squash", into, res
   //    destroying the worktree that holds it.
   const inPlace = currentBranch(root) === target;
   const pending = pendingConflict(root, target);
+  if (pending && pending.owner && pending.owner !== safeRef(pipeline) + "/" + safeRef(task))
+    return { ok: false, error: `a merge of ${pending.owner} into ${pending.target} is paused with conflicts — finish or abort it from that task first`, autocommit };
   // a merge paused into a different target is only ever finished or aborted
   // explicitly — never landed as a side effect of finalizing somewhere else
   if (pending && (pending.files.length || pending.target !== target))
@@ -1379,6 +1390,7 @@ export function finalizeTask(root, pipeline, task, { style = "squash", into, res
       // `_finalize` worktree out-of-place) and hand the app the conflicted file
       // list + the directory to open. NEVER `cleanup()` here — that worktree is
       // the ONLY copy of the conflict.
+      setConflictOwner(root, safeRef(pipeline) + "/" + safeRef(task));
       return { ok: false, conflict: true, target, style, files, dir: mwt, autocommit, mainResolved };
     }
     if (cleanup) cleanup();
@@ -1395,6 +1407,8 @@ export function finalizeTask(root, pipeline, task, { style = "squash", into, res
 export function finishConflict(root, { dir, pipeline, task, target, message } = {}) {
   const mwt = dir && fs.existsSync(dir) ? path.resolve(dir) : null;
   if (!mwt) return { ok: false, error: "no conflict directory given" };
+  const other = ownedByOther(root, pipeline, task);
+  if (other) return { ok: false, error: `that paused merge belongs to ${other} — finish it from that task` };
   const files = conflictedFiles(mwt);
   if (files.length) return { ok: false, stillConflicting: true, files, error: files.length + " file(s) still conflict — resolve them in the editor first" };
   let pendingChanges;
@@ -1408,6 +1422,7 @@ export function finishConflict(root, { dir, pipeline, task, target, message } = 
     const msg = (message && String(message).trim()) || `bridza: resolve merge conflict → ${cb}`;
     git(mwt, [...ident, "commit", "-m", msg]);
     const head = git(mwt, ["rev-parse", cb]).trim();
+    setConflictOwner(root, null);
     if (mwt !== path.resolve(root)) {
       try { git(root, ["worktree", "remove", "--force", mwt]); } catch (e) { fs.rmSync(mwt, { recursive: true, force: true }); }
       try { git(root, ["worktree", "prune"]); } catch (e) { /* */ }
@@ -1421,8 +1436,11 @@ export function finishConflict(root, { dir, pipeline, task, target, message } = 
 // else — squash merges write no MERGE_HEAD — a hard reset back to the clean
 // pre-merge HEAD). Out-of-place, the disposable `_finalize` worktree that holds
 // the conflict is simply deleted; the user's checkout is never touched.
-export function abortConflict(root, { dir } = {}) {
+export function abortConflict(root, { dir, pipeline, task } = {}) {
   if (!dir) return { ok: false, error: "no directory given" };
+  const other = ownedByOther(root, pipeline, task);
+  if (other) return { ok: false, error: `that paused merge belongs to ${other} — abort it from that task` };
+  setConflictOwner(root, null);
   const mwt = path.resolve(String(dir));
   if (mwt !== path.resolve(root)) {
     try { git(root, ["worktree", "remove", "--force", mwt]); } catch (e) { fs.rmSync(mwt, { recursive: true, force: true }); }

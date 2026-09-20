@@ -348,10 +348,12 @@ export function mergeTime(root, pipeline, task, map) {
   let idleIn = null;
   for (const [k, v] of Object.entries(map || {})) {
     if (k === "__idle") { if (v && typeof v === "object") idleIn = v; continue; }
-    const n = Math.floor(Number(v)); if (Number.isFinite(n) && n > 0) clean[k] = n;
+    const n = Math.floor(Number(v)); if (Number.isFinite(n) && n > 0) clean[k] = Math.max(n, prev[k] || 0);
   }
   const nextIdle = { ...(prev.__idle || {}) };
-  if (idleIn) for (const [k, v] of Object.entries(idleIn)) { const n = Math.floor(Number(v)); if (Number.isFinite(n) && n > 0) nextIdle[k] = n; }
+  if (idleIn) for (const [k, v] of Object.entries(idleIn)) { const n = Math.floor(Number(v)); if (Number.isFinite(n) && n > 0) nextIdle[k] = Math.max(n, nextIdle[k] || 0); }
+  // per-stage MAX, never replace: a window posts absolute totals from its own
+  // clock, and two windows on one task must not wind each other back
   cur.tasks[key] = { ...prev, ...clean };
   if (Object.keys(nextIdle).length) cur.tasks[key].__idle = nextIdle;   // keep the common case clean
   writeJSON(timeFile(root), cur);
@@ -779,7 +781,7 @@ function deletePipelineIn(root, { id }) {
   const pipeDir = path.join(root, rel.pipeline(pid));
   const taskIds = fs.existsSync(pipeDir) ? listTaskIds(pipeDir) : [];
   for (const tid of taskIds) {
-    try { stopRuns(pid, tid); } catch (e) { /* nothing running */ }
+    try { stopRuns(root, pid, tid); } catch (e) { /* nothing running */ }
     try { removeTaskWorktree(root, pid, tid); } catch (e) { /* no worktree */ }
   }
 
@@ -985,7 +987,7 @@ function deleteTaskIn(root, { pipeline, task, deleteBranch = false }) {
   const refNum = readRefs(root).refs[key] || meta.ref || null;
   const who = `${refNum ? "#" + refNum + " " : ""}"${(meta.title || tid).slice(0, 50)}"`;
   nameAction(`bridza: delete task ${who} (${key})`);
-  try { stopRuns(pid, tid); } catch (e) { /* nothing running */ }
+  try { stopRuns(root, pid, tid); } catch (e) { /* nothing running */ }
   try { removeTaskWorktree(root, pid, tid); } catch (e) { /* no worktree */ }
 
   // 1) the task dir on the current branch — committed so history shows the
@@ -1062,9 +1064,13 @@ export function readPlan(root) {
   };
 }
 
-export function savePlan(root, { deps, milestones, pos, sizes, links, pipeDeps, est, archive } = {}) {
+export function savePlan(root, { deps, milestones, pos, sizes, links, pipeDeps, est, archive, merge } = {}) {
   ensureDataDir(root);
   const cur = readPlan(root);
+  // merge: the per-task maps are patched key by key onto what is stored (a null
+  // value clears the key), so a window that loaded the plan an hour ago can
+  // save its one edit without erasing what other windows saved since
+  if (merge) { const m = (k, v) => (v != null ? { ...cur[k], ...v } : v); deps = m("deps", deps); pos = m("pos", pos); sizes = m("sizes", sizes); links = m("links", links); est = m("est", est); }
   const nextDeps = {};
   for (const [key, g] of Object.entries(deps != null ? deps : cur.deps)) {
     if (!KEY_RE.test(key)) continue;

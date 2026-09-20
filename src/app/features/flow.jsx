@@ -26,8 +26,8 @@ export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, fla
   const [activeFlowId, setActiveFlowId] = useState(() => flows[0] && flows[0].id);
   const [selStageId, setSelStageId] = useState(null);   // stage open in the right panel
   const [zoom, setZoom] = useState(1);
-  const [layoutMode, setLayoutMode] = useState(() => localStorage.getItem("bridza.plannerLayout") || "linear");
-  const pickLayout = (m) => { setLayoutMode(m); try { localStorage.setItem("bridza.plannerLayout", m); } catch (e) { /* ignore */ } };
+  const [layoutMode, setLayoutMode] = useState(() => localStorage.getItem("bridza.plannerLayout:" + dir + "|" + pipeline.id) || "linear");
+  const pickLayout = (m) => { setLayoutMode(m); try { localStorage.setItem("bridza.plannerLayout:" + dir + "|" + pipeline.id, m); } catch (e) { /* ignore */ } };
   const mut = (fn) => { setFlows(fn); setDirty(true); };
   const mutStages = (fi, fn) => mut((fl) => fl.map((f, k) => k === fi ? { ...f, stages: fn(f.stages) } : f));
   const patch = (fi, i, p) => mutStages(fi, (st) => st.map((s, k) => k === i ? { ...s, ...p } : s));
@@ -182,7 +182,7 @@ export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, fla
 
             <div className="flow-canvas-stage">
               <FlowCanvasOne key={activeFlow.id} flow={activeFlow} layoutMode={layoutMode} scale={zoom}
-                selStageId={selStageId} onSelectStage={setSelStageId} storageKey={"bridza.plannerPos:" + pipeline.id + "/" + activeFlow.id} />
+                selStageId={selStageId} onSelectStage={setSelStageId} storageKey={"bridza.plannerPos:" + dir + "|" + pipeline.id + "/" + activeFlow.id} />
               {selStage && (
                 <aside className="uxv-sheet flow-sheet">
                   <div className="row spread" style={{ marginBottom: 8 }}>

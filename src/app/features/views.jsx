@@ -54,7 +54,7 @@ export function StageRunner({ dir, pipeline, task, def, track, tools = [], live,
   const dropAttach = () => { if (attachRef.current) { attachRef.current.abort(); attachRef.current = null; } };
   // switching task/stage re-seeds from that stage's last run: prompt, agent AND
   // model — so you resume with exactly what you last used, not the tool default.
-  useEffect(() => { dropAttach(); setPrompt(seed()); setTool(remembered()); setModel(rememberedModel()); setOut(""); }, [task.id, def.id]);
+  useEffect(() => { dropAttach(); setPrompt(seed()); setTool(remembered()); setModel(rememberedModel()); setOut(""); }, [pipeline.id, task.id, def.id]);
   useEffect(() => () => dropAttach(), []);
   // The run lives on the server, this box is only a window onto it. On mount and
   // whenever the stage's live flag flips, (re)attach: a run that's live right now
@@ -252,11 +252,12 @@ export function InspectorView({ records, activeId, setActiveId, runner, onDiff, 
 
 // ── Canvas: a spatial node graph, 5 layouts, click a node → side sheet ────────
 export function CanvasView({ records, activeId, setActiveId, runner, onDiff, onOpenFile }) {
-  const [mode, setMode] = useState(() => localStorage.getItem("bridza.canvasLayout") || "linear");
-  const pick = (m) => { setMode(m); try { localStorage.setItem("bridza.canvasLayout", m); } catch (e) { /* ignore */ } };
+  const canvasKey = runner ? runner.dir + "|" + runner.pipeline.id + "/" + runner.task.id : "t";
+  const [mode, setMode] = useState(() => localStorage.getItem("bridza.canvasLayout:" + canvasKey) || "linear");
+  const pick = (m) => { setMode(m); try { localStorage.setItem("bridza.canvasLayout:" + canvasKey, m); } catch (e) { /* ignore */ } };
   const NW = 190, NH = 104;
   const base = layoutNodes(records.length, mode, { cell: { w: 230, h: 168 }, nodeW: NW, nodeH: NH });
-  const { over, setNode, clear, count } = useCanvasOverrides("bridza.canvasPos:" + (runner ? runner.pipeline.id + "/" + runner.task.id : "t"));
+  const { over, setNode, clear, count } = useCanvasOverrides("bridza.canvasPos:" + canvasKey);
   const { eff, width, height } = effLayout(base, records.map((r) => r.id), over, NW, NH);
   const rec = records.find((r) => r.id === activeId);
   const center = (i) => ({ x: eff[i].x + eff[i].w / 2, y: eff[i].y + eff[i].h / 2 });

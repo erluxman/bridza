@@ -219,7 +219,23 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, onChange,
   const maxY = Math.max(0, ...tasks.map((t) => pos[t.key].y + hOf(t.key)), archBox ? archBox.y + archBox.h : 0) + 80;
 
   // ---- mutations (each save commits .bridza/plan.json) ----------------------
-  const save = (next) => { setPlan(next); api.savePlan(dir, next).then((r) => { if (!r.ok) flash(r.error || "plan save failed"); }); };
+  // ponytail: send only what changed — key-wise for the per-task maps (merge:true
+  // on the server), whole for the lists — so two windows editing two tasks never
+  // clobber each other. Two windows editing the same milestone list still last-write-wins.
+  const KEYED = ["deps", "pos", "sizes", "links", "est"];
+  const save = (next) => {
+    setPlan(next);
+    const patch = { merge: true };
+    for (const k of Object.keys(next)) {
+      if (next[k] === plan[k]) continue;
+      if (KEYED.includes(k) && plan[k] && next[k]) {
+        const d = {};
+        for (const id of new Set([...Object.keys(plan[k]), ...Object.keys(next[k])])) if (next[k][id] !== plan[k][id]) d[id] = next[k][id] == null ? null : next[k][id];
+        patch[k] = d;
+      } else patch[k] = next[k];
+    }
+    api.savePlan(dir, patch).then((r) => { if (!r.ok) flash(r.error || "plan save failed"); });
+  };
   const setGate = (key, gate) => save({ ...plan, deps: { ...plan.deps, [key]: gate } });
   const addDep = (key, group, dep) => {
     if (!dep || dep === key) return;
@@ -704,7 +720,7 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, onChange,
               <div className="side-label" style={{ padding: "12px 0 4px" }}>Cost estimate (hours)</div>
               <input className="input" type="number" min="0" step="0.5" placeholder="e.g. 4" value={est[sel] || ""}
                 title="Estimated hours of work — shown on the node and weighted into the critical path"
-                onChange={(e) => { const v = Number(e.target.value); const n = { ...est }; if (v > 0) n[sel] = v; else delete n[sel]; save({ ...plan, est: n }); }} />
+                onChange={(e) => { const v = Number(e.target.value); save({ ...plan, est: { ...est, [sel]: v > 0 ? v : null } }); }} />
               <button className="btn" style={{ marginTop: 12, width: "100%" }} onClick={() => onOpenTask(selTask.pid, selTask.tid)}>Open task →</button>
             </aside>
           );

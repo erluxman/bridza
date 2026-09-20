@@ -220,7 +220,7 @@ export async function handleApi(req, res) {
         const refs = assignRefs(root, missing.map((m) => m.key));
         missing.forEach((m) => { m.t.ref = refs[m.key] || null; });
       }
-      res.end(JSON.stringify({ available: true, repo: root, dataDir: path.join(root, DATA_DIR), running: listActiveRuns(), ...proj }));
+      res.end(JSON.stringify({ available: true, repo: root, dataDir: path.join(root, DATA_DIR), running: listActiveRuns(root), ...proj }));
       return true;
     }
     if (M === "POST" && P === "/api/bridza/recommend-pipelines") {
@@ -309,8 +309,9 @@ export async function handleApi(req, res) {
       res.end(JSON.stringify(setTaskTags(root, b.pipeline, b.task, b.tags))); return true;
     }
     if (M === "POST" && P === "/api/bridza/run/stop") {
+      if (!root) return void need(), true;
       const b = (await json(req)) || {};
-      res.end(JSON.stringify(stopRuns(b.pipeline, b.task, b.stage))); return true;
+      res.end(JSON.stringify(stopRuns(root, b.pipeline, b.task, b.stage))); return true;
     }
     if (M === "GET" && P === "/api/bridza/context") {
       if (!root) return void need(), true;
@@ -419,7 +420,7 @@ export async function handleApi(req, res) {
     if (M === "POST" && P === "/api/bridza/conflict/abort") {
       if (!root) return void need(), true;
       const b = (await json(req)) || {};
-      res.end(JSON.stringify(abortConflict(root, { dir: b.dir }))); return true;
+      res.end(JSON.stringify(abortConflict(root, { dir: b.dir, pipeline: b.pipeline, task: b.task }))); return true;
     }
     if (M === "POST" && P === "/api/bridza/run/stage") {
       if (!root) return void need(), true;
@@ -435,7 +436,7 @@ export async function handleApi(req, res) {
       const b = (await json(req)) || {};
       res.setHeader("Content-Type", "application/x-ndjson");
       res.setHeader("Cache-Control", "no-cache");
-      const h = attachRun(b.pipeline, b.task, b.stage, (obj) => { try { res.write(JSON.stringify(obj) + "\n"); } catch (e) { /* client gone */ } });
+      const h = attachRun(root, b.pipeline, b.task, b.stage, (obj) => { try { res.write(JSON.stringify(obj) + "\n"); } catch (e) { /* client gone */ } });
       res.on("close", h.detach);
       await h.done;
       res.end(); return true;

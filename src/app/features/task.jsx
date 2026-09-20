@@ -65,16 +65,19 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   // background runner keeps going.
   const [taskLog, setTaskLog] = useState("");
   const key = logKey(pipeline.id, task.id);
-  const appendLog = useCallback((s) => setTaskLog(storeLog(key, s)), [key]);
+  // `key` is the server's identity (matches runningStages / plan keys); browser-side
+  // stores prefix the repo too — two repos can hold the same pipeline/task id.
+  const skey = dir + "|" + key;
+  const appendLog = useCallback((s) => setTaskLog(storeLog(skey, s)), [skey]);
   const [showTerm, setShowTerm] = useState(false);   // full-height PTY replaces the stage list
   // task-detail view mode: the classic stacked Stages, or one of the three new
   // read/audit views (Inspector / Canvas / Chat) — all read the unified record.
-  const [view, setView] = useState(() => { const v = localStorage.getItem("bridza.taskView"); return ["stages", "inspector", "canvas", "chat"].includes(v) ? v : "stages"; });
+  const [view, setView] = useState(() => { const v = localStorage.getItem("bridza.taskView:" + skey); return ["stages", "inspector", "canvas", "chat"].includes(v) ? v : "stages"; });
   const [activeStage, setActiveStage] = useState("");   // selection for inspector/canvas
-  const setTaskView = useCallback((v) => { setShowTerm(false); setView(v); try { localStorage.setItem("bridza.taskView", v); } catch (e) { /* ignore */ } }, []);
+  const setTaskView = useCallback((v) => { setShowTerm(false); setView(v); try { localStorage.setItem("bridza.taskView:" + skey, v); } catch (e) { /* ignore */ } }, [skey]);
   const [railW, railGrip] = useColWidth("bridza.railW", 332, { min: 240, max: 560, side: "right" });   // #3
-  const [railHidden, setRailHidden] = useState(() => localStorage.getItem("bridza.railHidden") === "1");
-  const toggleRail = () => setRailHidden((h) => { const n = !h; try { localStorage.setItem("bridza.railHidden", n ? "1" : "0"); } catch (e) { /* ignore */ } return n; });
+  const [railHidden, setRailHidden] = useState(() => localStorage.getItem("bridza.railHidden:" + skey) === "1");
+  const toggleRail = () => setRailHidden((h) => { const n = !h; try { localStorage.setItem("bridza.railHidden:" + skey, n ? "1" : "0"); } catch (e) { /* ignore */ } return n; });
   const [plan, setPlan] = useState(null);   // project plan: deps (blocks/needs) + focused-context links
   const [branches, setBranches] = useState([]);   // local branches — the menu for the task's target
   const [tagPick, setTagPick] = useState(false);   // the rail's Tags row picker
@@ -85,12 +88,19 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   // instead of wiping it — the pane keeps showing what the runner did/does even
   // if you left and came back mid-run. Run-related state always resets.
   useEffect(() => {
-    setTaskLog(readLog(key)); setShowTerm(false); setAutomating(false);
-    setAutoAdvance(localStorage.getItem(autoKey(key)) !== "0");   // default ON
-  }, [key]);
+    setTaskLog(readLog(skey)); setShowTerm(false); setAutomating(false);
+    setAutoAdvance(localStorage.getItem(autoKey(skey)) !== "0");   // default ON
+  }, [skey]);
+  // another window flipped THIS task's auto-advance → follow it here, so a stage
+  // finishing in this window never chains on a setting the user just turned off.
+  useEffect(() => {
+    const f = (e) => { if (e.key === autoKey(skey)) setAutoAdvance(e.newValue !== "0"); };
+    window.addEventListener("storage", f);
+    return () => window.removeEventListener("storage", f);
+  }, [skey]);
   const toggleAutoAdvance = (on) => {
     setAutoAdvance(on);
-    try { localStorage.setItem(autoKey(key), on ? "1" : "0"); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(autoKey(skey), on ? "1" : "0"); } catch (e) { /* ignore */ }
   };
   useEffect(() => {
     let on = true;
@@ -254,7 +264,7 @@ setResolveOpen(false);
   };
   const abortMerge = async () => {
     if (!window.confirm("Abort this merge? The paused merge is cancelled and the target branch is left exactly as it was before.")) return;
-    const r = await api.abortConflict(dir, { dir: conflict && conflict.dir });
+    const r = await api.abortConflict(dir, { dir: conflict && conflict.dir, pipeline: pipeline.id, task: task.id });
     if (r.ok) { setConflict(null); flash("merge aborted — nothing changed", 4000); onChange(); }
     else flash(r.error || "couldn't abort the merge", 4800);
   };
@@ -662,14 +672,14 @@ function TaskRelations({ dir, proj, taskKey, plan, setPlan, flash, onOpenTask })
   const saveLinks = (list) => {
     const next = { ...plan, links: { ...(plan.links || {}), [taskKey]: list } };
     setPlan(next);
-    api.savePlan(dir, next).then((r) => { if (!r.ok) flash(r.error || "couldn't save links"); });
+    api.savePlan(dir, { links: { [taskKey]: list }, merge: true }).then((r) => { if (!r.ok) flash(r.error || "couldn't save links"); });
   };
   // #12 — dependencies are editable right here (mirrors the Plan board): new deps
   // go into the ALL (AND) group; the plan.json save commits + gates run-time.
   const saveDeps = (g) => {
     const next = { ...plan, deps: { ...plan.deps, [taskKey]: g } };
     setPlan(next);
-    api.savePlan(dir, next).then((r) => { if (!r.ok) flash(r.error || "couldn't save dependencies"); });
+    api.savePlan(dir, { deps: { [taskKey]: g }, merge: true }).then((r) => { if (!r.ok) flash(r.error || "couldn't save dependencies"); });
   };
   const addNeed = (depKey) => { if (!depKey || depKey === taskKey || needs.includes(depKey)) return; saveDeps({ ...gate, all: [...(gate.all || []), depKey] }); };
   const rmNeed = (depKey) => saveDeps({ all: (gate.all || []).filter((x) => x !== depKey), any: (gate.any || []).filter((x) => x !== depKey) });
