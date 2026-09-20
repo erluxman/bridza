@@ -1,6 +1,6 @@
 # Review — Remove automatic focus on search field in Kanban View
 
-Task #107 · `engineering/remove-automatic-focus-on-search-field` · stage `fix-review`
+Task #111 · `engineering/remove-automatic-focus-on-search-field` · stage `fix-review`
 
 Branch `bridza/engineering/remove-automatic-focus-on-search-field` → lands on `main`.
 
@@ -173,7 +173,7 @@ the doc line (or the pattern) would spare the next stage the trap.
 **B. `acceptance.md`, `spec.md` and the previous `review.md` in this worktree are
 leftovers from a different task** — "Tags on a task, picked from a card with L"
 (`separate-tags-filled-for-each-org-item`). They are committed on `main` and are
-not in this branch's diff, so no acceptance criteria were ever generated for #107.
+not in this branch's diff, so no acceptance criteria were ever generated for #111.
 I reviewed against the report text in the task prompt instead, item by item
 (section 1). This file replaces the stale `review.md`. Flagging it as pipeline
 hygiene, not as a defect in the change.

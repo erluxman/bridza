@@ -1,6 +1,6 @@
 # Fix — Remove automatic focus on search field in Kanban View
 
-Task #107 · `engineering/remove-automatic-focus-on-search-field` · stage `fix`
+Task #111 · `engineering/remove-automatic-focus-on-search-field` · stage `fix`
 
 ## Flow fit
 

@@ -1,6 +1,6 @@
 # Repro — Remove automatic focus on search field in Kanban View
 
-Task #107 · `engineering/remove-automatic-focus-on-search-field` · stage `repro`
+Task #111 · `engineering/remove-automatic-focus-on-search-field` · stage `repro`
 
 ## Summary
 
