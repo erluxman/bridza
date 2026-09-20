@@ -152,7 +152,8 @@
     "engineering/merge-button-gating": true,
     "engineering/ai-assisted-conflict-merge": true,
     "engineering/creating-pr-failed-it-should-take-the": true,
-    "engineering/create-pr-via-gh-cli": true
+    "engineering/create-pr-via-gh-cli": true,
+    "engineering/setting-to-hide-columns-in-kanban-that": true
   },
   "tags": {
     "complex": {
