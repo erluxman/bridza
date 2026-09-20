@@ -1,76 +1,142 @@
-# Review — Tags on a task, picked from a card with L
+# Review: VS Code-like Categorised Settings
 
-Branch `bridza/engineering/separate-tags-filled-for-each-org-item` → lands on `main`.
+## Summary
 
-**Verdict: approve with fixes.** The feature works end-to-end and the shape matches the spec: registry + assignments in root `refs.json`, **L** = tags on every pipeline, **F** = flow behind the old two-flow gate, chips on card and task header, docs updated. `pnpm test` (254 tests, 11 files), `pnpm lint`, `pnpm build` all pass. Two things block a clean tick: the picker never lets you choose a colour, and the tag menu gets stuck open (Escape dead) once the pointer leaves the card. Both are small.
+The Settings modal is now a two-pane, registry-driven panel: a category rail on
+the left, the selected category's settings on the right. One category ships
+(**Terminal**), holding the font-family / font-size / ligatures fields moved
+verbatim out of the old flat form. `pnpm test`, `pnpm lint` and `pnpm build`
+pass, and every claim below is backed by a screenshot captured from the running
+app rather than by reading the diff.
 
-**Merge into `main`: clean.** `git merge-tree --write-tree main HEAD` produced tree `70f3df0` with zero conflict messages (merge-base `a008119`). No file in the diff is touched on `main` since the base. Docs and outputs name `main` as the landing branch.
+## Visual evidence
 
-## 1. Acceptance criteria
+All images and the video are produced by `e2e/settings-screens.spec.js` against
+the real app (Firefox, stub tool, 1440×900). Every shot doubles as an
+assertion — a drifted layout fails the test before it can write a misleading
+picture. Regenerate with:
 
-| # | Criterion | Result |
-|---|---|---|
-| 1 | **L** on a hovered card opens the tag picker, incl. single-flow pipelines | ✅ `board.jsx:124` — listener now gated on `hover` alone, `flows.length` gate moved to **F**; covered by `board-tags.test.jsx` |
-| 2 | Typing a name **and choosing a colour** creates + assigns + chip appears without reload | ⚠️ **partial** — name + create + assign + refresh all work (`createAndAssign`, `board.jsx:152`), but there is **no colour choice in the UI**; the colour is auto-picked as the next unused palette entry. See finding A |
-| 3 | A different card's **L** lists the earlier tag, one-click selectable, registry board-wide | ✅ registry rides `pipeline.tags` for every pipeline (`bridza-store.js:578`) |
-| 4 | Clicking an assigned tag unassigns; last one leaves no chips and no `taskTags` entry | ✅ `setTaskTags` deletes the key on empty (`bridza-store.js:428`); store + UI tests cover both |
-| 5 | Several tags at once, each in its own colour, on card and task header | ✅ `board.jsx:204`, `task.jsx:351` |
-| 6 | Name slugging to an existing tag reuses it, no duplicate, no recolour | ✅ `createTag` returns the existing entry with `created: false`; test asserts the colour is untouched |
-| 7 | Stored in `refs.json` as `tags`/`taskTags`, committed on the base branch, survives restart | ✅ — but the **path in acceptance.md/spec.md is wrong**. See finding D |
-| 8 | **F** opens the flow menu with the old two-or-more-flows condition + confirm; **L** never opens it | ✅ confirm dialog untouched in `changeFlow`; test asserts F is inert with <2 flows |
-| 9 | Hint line names the live keys; `Escape` closes whichever menu is open | ⚠️ **partial** — hint is right (`press L to tag · F for flow`); Escape works only while the card is still hovered. See finding B |
-| 10 | Legacy `refs.json` loads with no tags; unknown slug ignored, no crash | ✅ `readRefs` defaults both to `{}`; projection filters unresolved slugs; both tested |
-| 11 | Deleting a task drops `taskTags`, registry entries survive | ✅ `deleteTaskIn` (`bridza-store.js:973`), tested |
-| 12 | Failed save flashes the error and leaves tags unchanged | ✅ no optimistic update; `flash(r.error)` on `!ok` |
-| 13 | Tests: `createTag` idempotence/colour, `setTaskTags` drop+dedupe, projection resolution, L/F menus | ✅ all four present. Gap: the create-from-picker path is never asserted — `api.createTag` is mocked but no test calls it |
-| 14 | `tags`/`taskTags` documented in `docs/09-file-format.md` | ✅ new "Board state" section, and it usefully documents the whole file, which had no section before |
-| 15 | `pnpm test`, `pnpm lint`, `pnpm build` pass | ✅ 254/254, eslint silent, build ✓ |
+```bash
+npx playwright test e2e/settings-screens.spec.js
+```
 
-## 2. Findings
+### Walkthrough (video)
 
-### A. No colour picker — criterion 2 is half-met (medium)
-`src/app/features/board.jsx:150-160`. `createAndAssign` computes the colour itself (`TAG_PALETTE.find(c => !used.includes(c))`) and `TagMenu` renders only a text input. Acceptance asks the user to choose a colour; the spec asks for "name + a colour picked from the palette, **defaulting** to the next unused one". As shipped there is a default and no choice — after 8 tags every new one gets a colour by modulo, with no way to change it (tag recolour is explicitly out of scope, so the create moment is the only chance).
+Open Settings → rail + Terminal pane → pick "Custom…" → type a font CSS value →
+set size 18 → tick ligatures → Save → reopen (values persisted, first category
+active again) → Cancel discards.
 
-Fix: a row of 8 colour swatches above the input, preselected to the next unused one, passed as `color` to `api.createTag`. ~10 lines in `TagMenu`.
+![Settings walkthrough](review-assets/settings-walkthrough.gif)
 
-### B. Tag menu sticks open with Escape dead after the pointer leaves the card (medium — confirmed)
-`src/app/features/board.jsx:122-134`. The key listener early-returns on `if (!hover) return`, so leaving the card unmounts the handler — but nothing closes `tagMenu`. The flow menu is safe because it carries `onMouseLeave={() => setFlowMenu(null)}`; `TagMenu` has no equivalent. Reproduced with a scratch render test: hover → `l` → mouseout → the `.tag-menu` node is still in the DOM and `Escape` no longer removes it. Only the ✕ closes it. This breaks criterion 9 literally.
+Full-quality H.264: [`review-assets/settings-walkthrough.mp4`](review-assets/settings-walkthrough.mp4) (14s, 1280×800).
 
-Fix (either): bind `Escape` in an effect that depends on `tagMenu || flowMenu` rather than `hover`; or give `TagMenu` the same `onMouseLeave`. The first is better — the menu holds a focused text input, so closing on mouseout would be hostile while typing.
+### 1 — the panel in the app
 
-### C. **F** can open the flow menu on top of an open tag menu (low)
-Once a tag row is clicked, focus sits on a `<button>`, so the `typing` guard is false and **F** opens `flowMenu` while `tagMenu` is still open; both are absolutely positioned at `top: 6; right: 6` and overlap. One line: have each setter clear the other.
+Two panes inside a wide modal, rail carrying the category name, no leftover
+inline "Terminal" heading.
 
-### D. `acceptance.md` and `spec.md` name a path that does not exist (low, docs)
-Both say `.bridza/.metadata/refs.json`. The real file — used by the code, the tests and the new `docs/09-file-format.md` section — is `.bridza/refs.json` (`DATA_DIR = ".bridza"`, `refsFile()` at `bridza-store.js:365`). The implementation is right; correct the two spec docs so criterion 7 does not read as failed.
+![Settings open in the app](review-assets/01-settings-in-app.png)
 
-### E. `createTag` hand-rolls name validation the repo already has (low)
-`server/bridza-store.js:389`. `if (!name || typeof name !== "string" || !name.trim())` duplicates `validRef(name, "tag name")` from `bridza-run.js:89`, and misses what `validRef` catches: `safeRef` falls back to the literal `"x"` for a punctuation-only string, so `createTag({name: "!!!"})` and `createTag({name: "???"})` both land on slug `x` and silently become the same tag. Replace the three-part check with `const bad = validRef(name, "tag name"); if (bad) return { ok: false, error: bad };` — shorter and closes the collapse.
+![Settings modal, Terminal category](review-assets/02-modal-terminal.png)
 
-## 3. Over-engineering — what to delete
+### 2 — Terminal fields still behave
 
-1. **`TAG_PALETTE` duplicated in `src/app/features/board.jsx:12`.** It exists only to compute the next unused colour client-side, and the comment concedes it mirrors the server. If you fix finding A, the client needs the list for swatches and the duplication is earned — but then it should be imported from `core/domain.js`, not retyped, since `core/` is already the shared layer both sides import. If you *don't* fix A, delete the client constant entirely and let `createTag` default the colour server-side when `color` is omitted.
-2. **`board.jsx:154` — the `||` fallback.** `TAG_PALETTE.find(c => !used.includes(c)) || TAG_PALETTE[Object.keys(registry).length % TAG_PALETTE.length]` is two strategies where one does the whole job. The modulo expression alone covers every case. Delete the `find` half (or the whole line, per item 1).
-3. **Redundant guards in the projection, `bridza-store.js:569-571` and `:578`.** `refsAll.taskTags && …`, `refsAll.tags && …` and `refsAll.tags || {}` all re-check what `readRefs` has just guaranteed — it normalises both keys to `{}` two functions up. Three dead conditionals; drop them and the `.map` reads in one line.
-4. **`createTag`'s `tag` return field.** Callers use `ok`, `id`, `error`; `tag` has no consumer anywhere and `created` only has the unit test. Return `{ ok, id, created }` and drop `tag`.
-5. **Not over-engineering, worth saying:** `setTaskTags`/`createTag` correctly reuse `readRefs` → `writeJSON` → `commitPaths`, matching `setTaskArchived` line for line, and `commitPaths` already no-ops when nothing staged, so a no-change toggle makes no empty commit. `TagMenu` as a component is justified — it holds its own input state and the card body is already dense.
+"Custom…" reveals the free-text font CSS input:
 
-## 4. Suggested order
+![Custom font input revealed](review-assets/03-modal-custom-font.png)
 
-1. B (stuck menu, Escape) — smallest and the only one that strands the user.
-2. A (colour swatches) — the one real acceptance gap.
-3. D (fix the two docs paths), E (`validRef`), then the deletions in §3.
-4. C last.
+Size and ligatures edited in the draft:
 
----
+![Font size and ligatures](review-assets/04-modal-size-ligatures.png)
 
-## 5. Fixes applied (post-review)
+Reopened after Save — values persisted, and a stored non-preset font opens with
+the custom input already showing:
 
-Every finding above is addressed; `pnpm test` (257 tests, 11 files), `pnpm lint`, `pnpm build` pass.
+![Reopened with persisted values](review-assets/05-modal-reopened-persisted.png)
 
-- **A — colour picker.** `TagMenu` now renders a row of 8 palette swatches above the name input, preselected to the palette's next colour and passed as `color` to `api.createTag`. Criterion 2 is fully met.
-- **B — stuck menu.** `Escape` moved out of the hover-scoped listener into its own effect keyed on `tagMenu || flowMenu`, so it closes whichever menu is open regardless of where the pointer is. Regression test: hover → `l` → mouseout → `Escape` closes.
-- **C — stacked menus.** Each hotkey clears the other menu before opening its own; test asserts `F` replaces an open tag picker rather than overlapping it.
-- **D — wrong path in docs.** `spec.md` and `acceptance.md` now say `.bridza/refs.json`, matching the code, the tests and `docs/09-file-format.md`.
-- **E — name validation.** `createTag` uses `validRef(name, "tag name")`, closing the `"!!!"`/`"???"` → slug `x` collapse. Test covers both.
-- **§3 deletions.** `TAG_PALETTE` moved to `core/domain.js` and imported by both sides (no retyped copy); the two-strategy colour default replaced by the modulo expression alone; the three redundant `refsAll.tags && …` guards dropped from the projection (`readRefs` normalises them); `createTag` returns `{ ok, id, created }` with the unused `tag` field gone.
+### 3 — `wide` is opt-in, other modals unchanged
+
+New-task modal, still `min(440px, 92vw)` — measured at 440px in the same run:
+
+![Narrow modal unchanged](review-assets/06-narrow-modal-unchanged.png)
+
+### 4 — extensibility, shown not asserted
+
+`e2e/harness/settings-two.jsx` feeds the *same, untouched* `SettingsModal` a
+stubbed two-entry registry (`Terminal` + a dummy `Appearance` panel). The rail
+grows by one and the pane swaps:
+
+![Two categories — Terminal](review-assets/07-two-categories-terminal.png)
+
+![Two categories — Appearance](review-assets/08-two-categories-appearance.png)
+
+## Acceptance checklist
+
+| # | Criterion | Status | Evidence |
+|--:|-----------|:--:|----------|
+| 1 | Two panes: category rail left, settings right | ✅ | shots 01–02 |
+| 2 | One rail entry per `CATEGORIES` entry ("Terminal") | ✅ | shot 02; spec asserts `toHaveCount(1)` |
+| 3 | First category active on open, resets on reopen | ✅ | shot 05; spec re-checks `aria-current` after reopen |
+| 4 | Active category visually distinct + `aria-current="page"` | ✅ | shots 02/08; asserted both ways in spec + unit test |
+| 5 | `.modal.wide` = `min(720px, 92vw)`; other modals narrow | ✅ | measured 720 vs 440 in the run; shot 06 |
+| 6 | Pane scrolls within a bounded height | ✅ | `.settings-pane { max-height: 420px; overflow-y: auto }` |
+| 7 | Font presets + "Custom…" + free-text CSS input | ✅ | shot 03; spec asserts 7 presets + Custom… |
+| 8 | Size input 8–32, clamps on save | ✅ | new unit test: 99 → 32 |
+| 9 | Ligatures checkbox reflects + updates stored value | ✅ | shot 04; `bridza.term.ligatures` = `"1"` after Save |
+| 10 | Save persists via `setTermSettings` and closes | ✅ | spec reads the three `bridza.term.*` keys back |
+| 11 | Cancel / backdrop closes without saving | ✅ | spec edits size → Cancel → stored value unchanged |
+| 12 | Live terminal update path unbroken | ✅ | `lib/settings.js` subscribers untouched; `term.jsx` unchanged |
+| 13 | Redundant inline "Terminal" heading gone | ✅ | shot 02; spec asserts `.side-label` count 0 |
+| 14 | A new category = one registry entry + its panel | ⚠️ | true for the shell — see finding 2 |
+| 15 | Stubbed two-entry registry switches panes | ✅ | shots 07–08 + unit test |
+| 16 | Out-of-scope items excluded | ✅ | no search box, reset, badges, scopes; `lib/settings.js` untouched |
+| 17 | `settings-categories.test.jsx` covers rail / save / switching | ✅ | 4 tests |
+| 18 | `pnpm test`, `pnpm lint`, `pnpm build` | ✅ | 234 tests pass · eslint clean · build ok |
+
+## Findings
+
+**1 — Ligatures checkbox sits flush against its label (cosmetic, pre-existing).**
+Visible in shots 01/03/04: no gap, and the box aligns to the first text line.
+`.field label { display: block }` (specificity 0-1-1) beats `.row`'s
+`display: flex; gap: 8px` (0-1-0), so the row never becomes a flex row. The
+markup is unchanged from before this task — the flat form had the same defect —
+so it is not a regression. One-line fix if you want it in scope:
+`.field label.row { display: flex; }`.
+
+**2 — `SettingsModal` still knows the string `"terminal"` (follow-up, within spec).**
+Draft seeding (`if (cat.id === "terminal") …`) and `save()` are terminal-specific.
+A display-only category is genuinely a one-entry change; a category that must
+*persist* will still edit `SettingsModal`. This is what the spec asked for
+("keeps ownership of draft state and of `save`, which still calls
+`setTermSettings`"), so it is not a defect — but criterion 14 is only fully true
+for the second category once each entry carries its own `load`/`save`. Cheapest
+future fix: `{ id, label, Panel, load, save }`, `save()` looping the registry.
+
+Neither finding blocks merge.
+
+## Files changed
+
+| File | Change |
+|------|--------|
+| `src/app/features/settings.jsx` | `CATEGORIES` registry, `TerminalPanel`, two-pane `SettingsModal` |
+| `src/app/ui.jsx` | optional `wide` prop on `Modal` |
+| `src/app/bridza.css` | `.modal.wide`, `.settings-body`, `.settings-cats`, `.settings-pane` |
+| `src/app/__tests__/settings-categories.test.jsx` | rail / persistence / switching / clamp (4 tests) |
+| `e2e/settings-screens.spec.js` | review capture spec — the screenshots + video above |
+| `e2e/harness/settings-two.jsx`, `.html` | dev-only two-category harness (not in the production bundle) |
+| `review-assets/` | 8 screenshots + walkthrough mp4/gif |
+
+## Over-engineering review
+
+- Unused flexibility: none — the `Panel` registry is the feature.
+- Reinvented stdlib: none.
+- Abstractions with one caller: `TerminalPanel` is the only panel today, but the
+  harness and unit test both exercise the second-entry path.
+- To delete: nothing.
+
+## Merge readiness
+
+**Ready.** Behaviour verified in the real app, not just in jsdom; the two open
+findings are cosmetic and forward-looking respectively, and neither touches the
+shipped behaviour. `test-results/` and `*.bridza-tasks/` stay gitignored;
+`review-assets/` is committed so the pictures survive in the history.

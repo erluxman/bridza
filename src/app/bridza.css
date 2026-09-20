@@ -359,6 +359,13 @@ h1.task-title { flex: 1 1 auto; min-width: 8ch; white-space: nowrap; overflow: h
 .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--bg-3); border: 1px solid var(--line-2); padding: 9px 16px; border-radius: 10px; font-size: 13px; z-index: 50; box-shadow: 0 10px 30px #0008; }
 .modal-bg { position: fixed; inset: 0; background: #000a; display: grid; place-items: center; z-index: 40; }
 .modal { width: min(440px, 92vw); background: var(--bg-1); border: 1px solid var(--line-2); border-radius: 14px; padding: 22px; }
+.modal.wide { width: min(720px, 92vw); }
+.settings-body { display: grid; grid-template-columns: 160px 1fr; gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--bg-1); margin-top: 10px; }
+.settings-cats { display: flex; flex-direction: column; gap: 2px; padding: 8px; border-right: 1px solid var(--line); background: var(--bg-1); }
+.settings-cats button { width: 100%; text-align: left; background: none; border: none; color: var(--txt-2); font-size: 13px; font-weight: 600; padding: 8px 10px; border-radius: 7px; cursor: pointer; }
+.settings-cats button:hover { background: var(--bg-2); color: var(--txt); }
+.settings-cats button[aria-current="page"] { background: var(--bg-3); color: var(--txt); }
+.settings-pane { padding: 16px; max-height: 420px; overflow-y: auto; background: var(--bg); min-width: 0; }
 .field { margin-bottom: 12px; }
 .field label { display: block; font-size: 12px; color: var(--txt-2); margin-bottom: 5px; }
 

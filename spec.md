@@ -1,37 +1,88 @@
-# Tags on a task, picked from a card with L
+# VS Code-like categorised Settings
 
 ## What
 
-A task carries **tags** — a set of named, coloured labels, independent of its pipeline, flow, stage and #ref. Hovering a card on the board and pressing **L** opens a tag picker for that task; the picker both selects from tags that already exist and creates new ones (name + colour) on the spot. A tag created once is offered on every task from then on. Tags render as chips on the board card and in the task header.
+Restructure the Settings modal from a single flat form into a two-pane,
+category-driven panel modelled on VS Code: a category rail on the left, the
+selected category's settings on the right.
+
+The categories are defined in one declarative registry. Today that registry
+holds exactly one entry — **Terminal**, containing the font family / font size /
+ligatures fields that already exist. No new settings are added. The deliverable
+is the shell plus the registry that makes adding the next category a one-entry
+change.
+
+Out of scope (deliberately): a settings search box, per-setting reset, "modified"
+badges, workspace-vs-user scopes, category persistence across opens, nested
+sub-categories. These are the VS Code features we are *not* building now.
 
 ## Why
 
-There is no per-task label today. The only classifiers a task has are structural — `type` (idea/bug/feature), `flow`, stage, archive state — all of them chosen from fixed sets the pipeline owns, and all of them meaning "where this task is in the machine". Nothing says what the work is *about* (`billing`, `regression`, `blocked-on-design`), so cross-cutting groupings live in the title or nowhere.
+Settings currently render as one unbroken form. Every future setting appends to
+that list until it is unreadable, and each addition touches the same component.
+The captured intent is explicit: *"the settings should have a category like VS
+code — we may not have all the features but that's the way we eventually will
+go."* Committing to the categorised layout now, while there is one category and
+three fields to migrate, costs one refactor. Doing it after five more settings
+land costs a rewrite plus a re-learn for anyone already used to the old layout.
 
-**L** is the hover key the user wants for this, and it is taken: today it opens the *flow* menu (`src/app/features/board.jsx:88-94`), which is a rare, destructive action — retargeting discards stage commits — and is only bound at all when the pipeline has two or more flows. Tagging is the frequent one; it gets **L**, and the flow menu moves to **F**.
+A single-category rail is the honest intermediate state and is what the intent
+asks for: the structure is the feature, the content fills in later.
 
 ## How
 
-**Where it lives.** Both the registry and the per-task assignment go in `.bridza/refs.json`, at the repo root on the base branch — the same place and for the same reason as `archived` (`server/bridza-store.js:370-382`): a task's `metadata.json` is read from its `bridza/*` branch tip, which is never pushed, so anything stored there cannot cross to another machine. Tags are board-wide display state, so they follow `archived`, not `routing`.
+**Registry** — in `src/app/features/settings.jsx`, above the component:
 
-```json
-"tags":     { "billing": { "name": "billing", "color": "violet" } },
-"taskTags": { "engineering/separate-tags-filled-for-each-org-item": ["billing", "regression"] }
+```jsx
+const CATEGORIES = [
+  { id: "terminal", label: "Terminal", Panel: TerminalPanel },
+];
 ```
 
-The registry key is the slug (`safeRef` of the typed name); `name` keeps the typed casing for display. `color` is a name from a fixed palette (`TAG_PALETTE` in `core/domain.js`, shared by the server's validation and the picker's swatches), not a hex value, so tags theme with the rest of the app in light and dark. `readRefs` defaults both to `{}` — an old `refs.json` with neither key reads as "no tags" and never crashes. Deleting a task drops its `taskTags` entry in the same place the existing cleanup drops `refs.archived[key]` (`server/bridza-store.js:937`); registry entries are never auto-pruned.
+Each entry is `{ id, label, Panel }`. `Panel` is a component receiving
+`{ value, onChange }` for its own slice of draft state. Adding a category means
+appending one entry and writing its panel — no edit to `SettingsModal` itself.
 
-**Server.** Two functions in `server/bridza-store.js`, both modelled on `setTaskArchived` — read `refs.json`, mutate, `writeJSON`, `commitPaths` once:
+**`TerminalPanel`** — extract the existing font family select, the custom-font
+free-text fallback, the font size input, and the ligatures checkbox verbatim out
+of `SettingsModal` into this component. Behaviour, `FONTS` list, clamping
+(`Math.max(8, Math.min(32, …))`) and the `custom` toggle logic are unchanged;
+this is a move, not a rewrite. Drop the now-redundant inline `Terminal`
+`.side-label` heading — the category rail carries that name.
 
-- `createTag(root, { name, color })` — slugifies, rejects an empty name or a colour outside the palette, returns the existing entry unchanged if the slug is already taken (create is idempotent, never a silent recolour).
-- `setTaskTags(root, pipeline, task, tagIds)` — validates the refs, keeps only slugs present in the registry, de-duplicates, writes the whole set for that task. An empty array clears the task's tags and removes the key.
+**`SettingsModal`** — keeps ownership of draft state and of `save`, which still
+calls `setTermSettings` and then `onClose`. It adds:
 
-Exposed as `POST /api/bridza/tag/create` and `POST /api/bridza/task/tags` in `server/bridge.js`, and `api.createTag` / `api.setTaskTags` in `src/app/api/client.js`.
+- `const [active, setActive] = useState(CATEGORIES[0].id)` — selection lives in
+  component state and resets to the first category on each open.
+- A `.settings-body` two-column layout: `.settings-cats` rail of `<button>`s
+  (one per registry entry, `aria-current="page"` on the active one) and a
+  `.settings-pane` that renders the active entry's `Panel`.
 
-**Reads.** `readRefs`' `tags` registry rides out on every pipeline projection in `readTasks` as `pipeline.tags` (like `flows`), and each task gets `tags: [{ id, name, color }]` resolved next to `archived` (`server/bridza-store.js:536`) — the UI never has to resolve slugs itself, and a slug whose registry entry is gone simply drops out of the projection.
+**Modal width** — `.modal` is `min(440px, 92vw)`, too narrow for two panes. Add
+an optional `wide` prop to `Modal` in `src/app/ui.jsx` that appends a `wide`
+class, and pass it here. In `src/app/bridza.css` add `.modal.wide { width:
+min(720px, 92vw); }`.
 
-**UI.** In `src/app/features/board.jsx` the existing hover effect keeps its shape, with the bindings swapped: **L** opens `tagMenu` for the hovered card (bound whenever a card is hovered, unlike the flow menu's `flows.length >= 2` guard), **F** opens `flowMenu` on the same condition as today, `Escape` closes either, and the card's hint line reads `press L to tag` (plus `· F for flow` when the pipeline has several flows). The menu reuses `.proj-menu`, positioned like `flowMenu`: every registry tag as a toggleable row showing its colour dot and a check when assigned, a text input at the bottom with a row of palette swatches above it that creates a tag (name + the chosen colour, the swatches starting on the palette's next colour) and assigns it immediately. Toggling posts the new set and refreshes via the existing `onChange`; a failed post flashes the error and leaves the board untouched.
+**CSS** — in `src/app/bridza.css`: `.settings-body` as a two-column grid
+(fixed rail ~160px, flexible pane), `.settings-pane` scrollable with a bounded
+max-height so long categories scroll rather than growing the modal past the
+viewport, `.settings-cats button` styled to match existing sidebar items with a
+visible active state, and a divider between the columns. Use existing
+`--bg-*` / `--line-*` custom properties; do not introduce new colour values.
 
-Chips render from `task.tags` on the card (under the title, next to the running/done chip) and in the task header in `src/app/features/task.jsx:350`, as `.tag.tag-<color>` classes added to `src/app/bridza.css` alongside the existing `.tag.kind-*` rules.
+Unchanged: `src/app/lib/settings.js` (storage keys, defaults, subscribers),
+`src/app/features/nav.jsx` (still renders `<SettingsModal onClose={…} />`), and
+the live-update path into the terminal.
 
-Out of scope: filtering or searching the board by tag, tag rename/delete/recolour after creation, tags on pipelines or on inbox items, per-pipeline tag namespaces, and any use of tags by agents or stage prompts.
+## Verification
+
+- New test `src/app/__tests__/settings-categories.test.jsx`, in the existing
+  raw `react-dom/client` + `act` + jsdom style used by `welcome-dialog.test.jsx`
+  (with the same in-memory `localStorage` stub), covering:
+  - the rail renders one button per `CATEGORIES` entry, first active by default;
+  - the Terminal panel's fields render and Save writes through
+    `getTermSettings()`, i.e. the migrated behaviour still works;
+  - rendering `SettingsModal` with a stubbed two-entry registry switches panes on
+    click — the extensibility claim, tested rather than asserted.
+- `pnpm test`, `pnpm lint`, `pnpm build` pass.
