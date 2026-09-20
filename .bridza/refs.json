@@ -164,7 +164,8 @@
     "engineering/setting-to-hide-columns-in-kanban-that": true,
     "engineering/vs-code-like-setting-page": true,
     "engineering/when-app-is-refreshed-or-page-is": true,
-    "engineering/define-merge-strategy": true
+    "engineering/define-merge-strategy": true,
+    "engineering/merge-preflight-check": true
   },
   "tags": {
     "complex": {
