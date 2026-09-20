@@ -1,25 +1,31 @@
-# Archived cards live in their own box on the plan board
+# The task terminal survives leaving it
 
 ## What
 
-On the plan board (`src/app/features/plan.jsx`), archived tasks stop being drawn inline among the live ones. Every archived task is drawn inside a single **Archive box** — same chrome as a milestone module box, labelled as the archive — that the user can drag around the canvas and park anywhere. The box is not a milestone: it has no deps, no `needs`, no gating, it never appears in a milestone dropdown, and it is never on the critical path. Milestone boxes never contain an archived card.
+Opening **⌨ Terminal** on a task (or at the repo root from the board) starts a shell that keeps running when you navigate away. Switching to Stages/Inspector/Canvas/Chat, opening another task, or leaving the task view detaches the browser from the shell instead of killing it; coming back to that same terminal reattaches to the *same* shell — same process, same cwd, same shell history, same running command — and repaints what it printed while you were gone. The ✕ button remains the way to actually end a shell.
+
+The terminal stays an in-app xterm.js pane. No native window is popped out.
 
 ## Why
 
-The kanban already hides archived tasks; the plan board still draws them inline, so dead work sits loose among live work, gets swept into milestone boxes, and pads the dependency picture. Parking them in one movable box keeps them reachable (they are still real tasks) without letting them clutter the graph the board exists to show.
+`TermDrawer` (`src/app/features/term.jsx`) owns the PTY's lifetime through its WebSocket: its effect cleanup closes the socket on unmount, and `server/bridge.js`'s `ws.on("close")` handler calls `p.kill()`. Every tab switch therefore destroys the shell, so a `pnpm dev` or a long build started in the task terminal dies the moment you look at anything else, and returning shows a dead pane reading "disconnected — close and reopen to restart".
+
+The intent allowed a native-terminal fallback (kitty) if restoration was not possible. It is possible: the PTY already lives in the long-lived bridge process, and only the `close → kill` wiring ties it to a browser tab. Keeping it in-app preserves the existing font/ligature settings, the cwd header, and the worktree resolution — a native window would rebuild all of that and lose the button's meaning.
 
 ## How
 
-**Split the task list.** `tasks` (built from `proj.pipelines`) keeps only `!t.archived`; archived ones go into a separate `archivedTasks` list carrying the same fields. Everything downstream of `tasks` — `byKey`, `planLayout`, `gateOf`'s `byKey.has` filter, `msMembers`'s `byKey.has` filter, `criticalPath`, `stateOf`, the dep pickers, the milestone task dropdown, the right-drag selection box — then excludes archived tasks with no further change. Archived tasks get no `plan.pos`/`plan.sizes` treatment and no side panel; they are not selectable.
+**Server owns session lifetime** (`server/bridge.js`). A module-level `SESSIONS` map, keyed by the resolved `cwd` (which already encodes repo root vs. task worktree, so the board terminal and each task terminal get their own session). Each entry holds the `node-pty` process, a replay buffer, the last known `{cols, rows}`, and the currently attached `ws` (or `null`).
 
-**Milestone membership is filtered, not erased.** Archiving a card does not rewrite `plan.milestones[].tasks`. `msMembers` already drops keys missing from `byKey`, so an archived card disappears from its milestone box, its `done/n` count, and its gating — and restoring the card from the kanban puts it straight back.
+`handleUpgrade` resolves `cwd` exactly as it does today, then **reuses** a live session for that key rather than spawning. Spawning only happens when there is no entry. On attach the server sends the existing `{t:"cwd"}` frame, then replays the buffer as `{t:"out"}` so the pane repaints, then applies the client's first `resize`.
 
-**The box.** One anchor position `plan.archive = { x, y }` holds the box; archived cards are laid out relative to that anchor in a fixed grid (default card width, `PN.H` height, wrapping to a new column after 8 rows) rather than from `plan.pos`. When `plan.archive` is unset, the box defaults to below the live graph (`x = 50`, `y = maxY of live content + gap`). It renders with the milestone box markup (`rect.ms-box`, pins, label) under a `plan-ms archive` class and an archive label (`🗄 Archived · N`), styled in `src/app/bridza.css` so it reads as an archive, not a milestone. With zero archived tasks the box is not rendered.
+**Detach ≠ kill.** `ws.on("close")` clears the entry's `ws` and leaves the PTY running. `p.onData` still runs while detached, appending to the buffer instead of writing to a socket. A new client attaching while another is attached takes over: the old socket is closed, newest wins.
 
-**Dragging.** A mousedown anywhere inside the box (chrome or card) starts a drag of type `"archive"` in the existing drag system; move updates a live anchor, mouseup persists the rounded `{x, y}` via `save({ ...plan, archive })`. A click without movement selects nothing (it must not set `selMs`). Double-clicking an archived card still opens that task. The box contributes to `maxX`/`maxY` so `fit()` frames it, and the canvas renders when there are live **or** archived tasks (the "No tasks yet" empty state only when both are empty).
+**Buffer.** A byte-capped (256 KB) rolling buffer of raw PTY output, trimmed from the front. Replay is best-effort scrollback, not a terminal-state emulation — a long-running full-screen TUI (vim, htop) repaints on its next frame or on the reattach resize, and a very chatty run may lose its oldest output to the cap.
 
-**Persistence.** `readPlan` in `server/bridza-store.js` gains `archive` (an `{x, y}` object or `null` when unset); `savePlan` accepts, validates (finite numbers, rounded) and writes it through like `pos`, keeping it on partial saves. The existing `readPlan` empty-shape assertion in `src/app/__tests__/plan.test.js` is updated for the new key.
+**Killing is explicit.** The ✕ button gains a `{t:"kill"}` frame before `onClose`; the server kills the PTY and drops the session. The button's existing "Close (kills the shell)" title stays accurate; the pane's other exits (tab switch, unmount) no longer kill.
 
-**Topbar.** The task count stays live-only, with `· N archived` appended when `N > 0`, so cards that vanish from the graph are still accounted for.
+**Cleanup.** `p.onExit` notifies any attached socket with the existing `{t:"exit"}` frame and drops the entry, so a shell that exits on its own is not reattached to. Detached sessions are reaped after 30 minutes idle — without this, not killing on detach would leak one shell per terminal the user ever opened, for the life of the bridge process.
 
-Out of scope: archiving or restoring from the plan board (the kanban's 🗄 toggle stays the only control), resizing/collapsing/sorting the archive box, per-card positions inside it, and any change to archived *pipelines*.
+**Client** (`src/app/features/term.jsx`). The effect cleanup keeps closing the socket (that is now a detach). The dead-pane message only applies to a real `err`/`exit`, not to a normal detach. No change to the settings/font path, the cwd header, or `task.jsx`/`board.jsx` beyond what the ✕ frame needs.
+
+Out of scope: surviving a bridge/dev-server restart (sessions are in-process and die with it), any session list or "running terminals" UI, sharing one session across two panes at once, and the native-terminal popout.

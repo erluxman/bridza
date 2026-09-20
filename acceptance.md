@@ -1,15 +1,15 @@
-# Acceptance — Archived cards live in their own box on the plan board
+# Acceptance — The task terminal survives leaving it
 
-- [ ] With at least one archived task, the plan board draws exactly one Archive box, labelled as the archive with its card count, containing every archived card — and no archived card is drawn anywhere else on the canvas.
-- [ ] No archived card appears inside any milestone box, in a milestone's `done/n` count, in the milestone panel's task list, or in the "add task (unassigned only)" dropdown.
-- [ ] The Archive box is not a milestone: it has no requires/needs UI, never appears in "add required milestone…", is never highlighted by the critical path, and adds nothing to the milestone count in the topbar.
-- [ ] No dependency wire, gate, or critical-path segment references an archived task — archiving a task that other tasks depend on removes its wires and leaves the dependents' gates evaluating over the remaining live deps.
-- [ ] Dragging the Archive box (from its chrome or from a card inside it) moves the whole box; releasing parks it there, and the position survives a reload of the plan view.
-- [ ] Dragging a milestone box or a live card never moves the Archive box, and dragging the Archive box never moves live cards.
-- [ ] Right-drag selection over the Archive box selects no archived cards; clicking an archived card opens no side panel; double-clicking one opens that task.
-- [ ] Archiving a task that belongs to a milestone removes it from that milestone's box; restoring it from the kanban puts it back in the same milestone with its previous position.
-- [ ] With zero archived tasks, no Archive box is drawn. With every task archived, the board still renders the canvas and the Archive box (not the "No tasks yet" empty state).
-- [ ] `⌖ Fit` frames the Archive box along with the rest of the board wherever it has been parked.
-- [ ] The topbar counts only live tasks and shows the archived count alongside when it is non-zero.
-- [ ] `savePlan` round-trips the archive box position through `.bridza/plan.json`, rejects non-finite values, and a partial save (deps only) keeps it — covered by a store test.
+- [ ] Start a long-running command (`sleep 300`, `pnpm dev`) in a task's ⌨ Terminal, switch to Stages, switch back: the same shell is there, the command is still running, and its output produced while away is visible.
+- [ ] Leave the task entirely (open another task, then return): same shell, same process — a variable `export`ed before leaving is still set, and `pwd` is still the task's worktree.
+- [ ] Two tasks opened in turn each get their own shell; a variable set in one is not visible in the other, and neither is killed by opening the other.
+- [ ] The board's repo-root terminal is a separate session from any task terminal and survives the same navigation.
+- [ ] ✕ actually ends the shell: after pressing it, reopening the terminal for that task gives a fresh shell (no prior history, no prior running command).
+- [ ] A shell that exits on its own (`exit`) shows the existing "shell exited (N)" message, and reopening starts a new shell rather than reattaching to the dead one.
+- [ ] Reattaching to a terminal resized since detach renders at the pane's current size, with the prompt usable and no stuck rows.
+- [ ] Output exceeding the replay cap keeps the most recent output — the pane is never blank on reattach for a session that has printed anything.
+- [ ] A detached session is reaped after its idle window: its PTY process is gone, and reopening starts a fresh shell.
+- [ ] Navigating away from a terminal leaves no "disconnected" or "couldn't reach the PTY bridge" message behind on return.
+- [ ] Terminal font, size, and ligature settings still apply, and the cwd header still shows the worktree path after a reattach.
+- [ ] A server-side test covers the session map: same cwd reuses the PTY across attach/detach/attach, an explicit kill drops the entry, and PTY exit drops the entry.
 - [ ] `pnpm test`, `pnpm lint`, `pnpm build` pass.
