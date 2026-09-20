@@ -157,11 +157,11 @@
   "tags": {
     "complex": {
       "name": "Complex",
-      "color": "violet"
+      "color": "#d8a03a"
     },
     "bug": {
       "name": "bug",
-      "color": "violet"
+      "color": "#a78bfa"
     }
   },
   "taskTags": {
