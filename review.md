@@ -1,23 +1,28 @@
-# Review — The time complexity for idea to a ticket is high
+# Review — Commands sent to claude are not responding
 
-Branch `bridza/engineering/the-time-complexity-for-idea-to-a` → lands on `main`.
+Branch `bridza/engineering/commands-sent-to-claude-are-not` → lands on `main`.
 
-**Verdict: approved.** The fix addresses the root cause by optimizing task branch lookup from $O(N \times B)$ to $O(1)$, all tests pass cleanly, and the merge into `main` will be clean.
+**Verdict: approved.** The fix addresses the root cause in `repro.md`, regression checks and test suite pass successfully, and the merge into `main` will be clean.
 
 ## 1. Root Cause & Fix Verification
 
-- **Problem**: As the number of tasks and `bridza/*` branches grew, promoting an idea or opening the project state caused $O(N \times B)$ branch scanning overhead (`scanBranches` and `readTaskMetaFromAnyBranch` iterating through all branches and subtrees for every task).
-- **Fix**: `server/bridza-store.js` was modified to construct a `taskToBranch` Map (`pipeline/task` → branch name) during `scanBranches`, reducing task branch resolution in `readTaskMetaFromAnyBranch` from $O(N \times B)$ to $O(1)$ via direct Map lookup.
-- **Verification**: Code inspection confirms the lookup avoids redundant directory tree listings per branch per task.
+- **Problem (`repro.md`)**: When running task stages using the `claude` (Claude Code) CLI tool, the subprocess hangs indefinitely because it lacks a non-interactive bypass flag (`--dangerously-skip-permissions`), blocking on interactive permission/confirmation prompts via stdin.
+- **Fix (`core/domain.js`)**: Added `--dangerously-skip-permissions` to the argument generator for `claude` in `CLI_TOOLS`.
+- **Verification**: Inspecting `core/domain.js:940` confirms `--dangerously-skip-permissions` is included in the argument array for `claude`.
 
 ## 2. Regression Check in Sibling Callers
 
-- `readTaskMetaFromAnyBranch` is called by `readProject`.
-- Sibling callers and consumers of task metadata continue to receive correct task metadata whether tasks reside in the working tree or on `bridza/*` task branches.
-- `pnpm test` ran successfully with **233/233 tests passing**.
+- `CLI_TOOLS` entries for other tools (`opencode`, `codex`, `gemini`) already use non-interactive flags (`--dangerously-skip-permissions`, `--dangerously-bypass-approvals-and-sandbox`, `-y`).
+- Sibling callers in `server/bridza-run.js` and bridge endpoints spawn processes using `tool.args(...)`, which correctly passes the new flag without breaking existing session reuse flags (`--session-id`, `--resume`).
+- Full test suite (`npm test`) ran successfully with **233/233 tests passing**.
 
-## 3. Merge Readiness (into `main`)
+## 3. Regression Test Confirmation
 
-- **Branch Diff**: `git diff main...HEAD` contains only expected pipeline housekeeping files and the optimized `server/bridza-store.js`.
+- Added/updated test in `src/app/__tests__/bridza-model.test.js` validating that `claude.args({ prompt: "p" })` contains `--dangerously-skip-permissions`.
+- Removing `--dangerously-skip-permissions` from `core/domain.js` causes this assertion to fail immediately, confirming the test correctly guards against regressions.
+
+## 4. Merge Readiness (into `main`)
+
+- **Branch Diff**: `git diff main...HEAD` shows clean, minimal changes limited to `core/domain.js`, `src/app/__tests__/bridza-model.test.js`, and pipeline metadata/logs.
 - **Merge Tree**: `git merge-tree main HEAD` reports a clean merge with **0 conflicts**.
 - **Verdict**: The branch is fully merge-ready into `main`.

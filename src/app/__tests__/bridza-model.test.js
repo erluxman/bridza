@@ -178,6 +178,7 @@ describe("CLI_TOOLS — session reuse flags", () => {
     expect(claude.args({ prompt: "p", session: { id: "abc", mode: "start" } })).toEqual(expect.arrayContaining(["--session-id", "abc"]));
     expect(claude.args({ prompt: "p", session: { id: "abc", mode: "resume" } })).toEqual(expect.arrayContaining(["--resume", "abc"]));
     const plain = claude.args({ prompt: "p" });
+    expect(plain).toContain("--dangerously-skip-permissions");
     expect(plain).not.toContain("--resume");
     expect(plain).not.toContain("--session-id");
   });

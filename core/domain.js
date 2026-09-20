@@ -937,7 +937,7 @@ export const CLI_TOOLS = [
     // chosen --session-id, then --resume it on later stages.
     sessionIdSource: "client",
     args: ({ prompt, system, model, session }) => {
-      const a = ["-p", prompt, "--permission-mode", "acceptEdits"];
+      const a = ["-p", prompt, "--dangerously-skip-permissions", "--permission-mode", "acceptEdits"];
       if (model) a.push("--model", model);
       if (system) a.push("--append-system-prompt", system);
       if (session && session.id) a.push(session.mode === "resume" ? "--resume" : "--session-id", session.id);
