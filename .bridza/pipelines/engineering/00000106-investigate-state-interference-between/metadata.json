@@ -23,5 +23,35 @@
   },
   "status": "in-progress",
   "finalized": false,
-  "tracking": {}
+  "tracking": {
+    "repro": {
+      "status": "done",
+      "seconds": 470,
+      "runs": [
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: Investigate state interference between two different tasks in task details.",
+          "startedAt": "2026-09-20T16:11:16.869Z",
+          "status": "running"
+        },
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: Investigate state interference between two different tasks in task details.",
+          "startedAt": "2026-09-20T16:12:57.612Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T16:20:47.190Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/00000106-investigate-state-interference-between/repro/outputs/repro-106-state-interference.test.jsx",
+            "repro.md"
+          ],
+          "sessionId": "de7f5c46-d016-4dc6-b7f1-e6f0e7aba0da",
+          "error": null,
+          "log": "Bash ls -d node_modules 2>&1; cat .git; echo \"---\"; ls /Users/risky/projects/erluxman.com/ 2>/…\n· Bash ls -d /Users/risky/projects/erluxman.com/bridza/node_modules 2>&1 && ls /Users/risky/proj…\n· Bash ln -s /Users/risky/projects/erluxman.com/bridza/node_modules node_modules && grep -n node…\n· Bash cat src/app/api/client.js\n· Write /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/investigate-state-inte…\n· Bash ./node_modules/.bin/vitest run src/app/__tests__/repro-106-state-interference.test.jsx 2>…\n· Bash ./node_modules/.bin/vitest run src/app/__tests__/repro-106-state-interference.test.jsx --…\n· Bash ./node_modules/.bin/vitest run src/app/__tests__/repro-106-state-interference.test.jsx --…\n· Bash cat > /tmp/dbg.patch.js <<'EOF'\n· Bash python3 - <<'PY'\n· Bash python3 - <<'PY'\n· Bash python3 - <<'PY'\n· Bash python3 - <<'PY'\n· Bash python3 - <<'PY'\n· Bash python3 - <<'PY'\n· Bash find .bridza/pipelines/engineering/00000106-investigate-state-interference-between/repro …\n· Bash python3 - <<'PY'\n· Bash sed -n '1,20p' src/app/lib/format.js && echo \"=== saveTime server ===\" && grep -rn \"time.…\n· Bash ./node_modules/.bin/vitest run 2>/dev/null | tail -15\n· Bash sed -n '326,365p' server/bridza-store.js\n· Bash D=.bridza/pipelines/engineering/00000106-investigate-state-interference-between/repro/out…\n· Bash D=.bridza/pipelines/engineering/00000106-investigate-state-interference-between/repro/out…\n· Bash grep -n \"TaskDetail dir=\" src/app/App.jsx && grep -n \"useState\" src/app/features/task.jsx…\nNow writing repro.md and parking the repro test.\n· Bash rm src/app/__tests__/repro-106-state-interference.test.jsx && ls .bridza/pipelines/engine…\n· Write /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/investigate-state-inte…\n· Bash grep -n \"cur.tasks\\[key\\] = { ...prev\" server/bridza-store.js && sed -n '156,164p' src/ap…\n· Bash rm -f node_modules && git status --short\nReproduced. `repro.md` rewritten. Nothing fixed.\n\n## Answer to report\n\nYes — and worse than tabs. Inside **one** tab: click task A in sidebar → click task B in sidebar → `TaskDetail` never unmounts, task A's state bleeds into task B.\n\nRoot cause: `src/app/App.jsx:128` renders `<TaskDetail>` with **no `key`**. React reuses the instance on `task` prop change. One reset effect (`task.jsx:83-87`) clears 4 of ~16 state slots. Rest survive and get combined with the **new** task's props in handlers → requests that name task B carrying task A's payload.\n\n## Reproduced (7 failing assertions)\n\nRunnable test parked at `.bridza/pipelines/engineering/00000106-.../repro/outputs/repro-106-state-interference.test.jsx` (outside `src/` → `pnpm test` stays green: 244 passed).\n\n| | Leak | Observed |\n|---|---|---|\n| A | `openStage` | B renders with every stage card collapsed |\n| B | stage clock | `POST /time` for `t-bravo` writes `{\"repro\":0,\"fix\":0,\"build\":9}` — `build` is A's stage; server merges (`bridza-store.js:355`) → sticks |\n| C/C2 | `conflict` | A's CONFLICT dialog stays over B; **✓ Finish merge** → `finishConflict({dir:\".../wt/alpha\", task:\"t-bravo\"})` |\n| D | `diffCommit` | `DiffView` gets A's sha + B's task/timeline |\n| E | `bridza.taskView` | one global key — B opens in the view A was left in (this is the cross-tab half) |\n| F | `views.jsx:44` deps `[task.id, def.id]` — no `pipeline.id` | same-id task in another pipeline keeps the typed prompt/agent/model |\n\nAlso leaking, untested: `fileOpen` (saves A's path → commits to **B's** branch), `diffBranch`, `resolveOpen`, `activeStage`; `Stage` keyed `def.id` only (`task.jsx:766`).\n\n## Fix-stage notes (in repro.md)\n\n`key={pipeline.id + \"/\" + task.id}` on `App.jsx:128` kills A–D at once — but check two things it changes: the unmount time-flush (`task.jsx:158-163`) now fires on every task switch, and the run-log pane (already safe, lives in `autolog` module store). `views.jsx:44` needs `pipeline.id` regardless. Global view-pref keys need a deliberate call: app-wide or per-task.\n· done · 49 turns · 466s · $3.6484"
+        }
+      ]
+    }
+  }
 }
