@@ -440,13 +440,14 @@ export function readPipelineDef(root, pipeline) {
 // The scan is CACHED on the branch-tip shas: the UI polls /state every few
 // seconds, and each ls-tree/show is a synchronous git spawn — rescanning only
 // when some bridza branch tip actually moved keeps the poll at one git call.
-let BRANCH_SCAN = { root: null, key: null, found: new Map(), metas: new Map() };
+let BRANCH_SCAN = { root: null, key: null, found: new Map(), taskToBranch: new Map(), metas: new Map() };
 function scanBranches(root) {
   let refs = "";
   try { refs = git(root, ["for-each-ref", "--format=%(refname:short) %(objectname)", "refs/heads/bridza/"]).trim(); }
   catch (e) { refs = ""; }
   if (BRANCH_SCAN.root === root && BRANCH_SCAN.key === refs) return BRANCH_SCAN;
   const found = new Map();   // pipelineId → Set<taskId> discovered at branch tips
+  const taskToBranch = new Map(); // "pipeline/task" → branch name
   const branches = refs ? refs.split("\n").map((l) => l.split(" ")[0]) : [];
   for (const b of branches) {
     let out = "";
@@ -462,10 +463,11 @@ function scanBranches(root) {
         if (tid === ".metadata") continue;
         if (!found.has(pid)) found.set(pid, new Set());
         found.get(pid).add(tid);
+        taskToBranch.set(pid + "/" + tid, b);
       }
     }
   }
-  BRANCH_SCAN = { root, key: refs, found, metas: new Map(), branches };
+  BRANCH_SCAN = { root, key: refs, found, taskToBranch, metas: new Map(), branches };
   return BRANCH_SCAN;
 }
 
@@ -481,13 +483,14 @@ function readTaskMetaFromAnyBranch(root, scan, pipeline, task) {
     scan.metas.set(key, own);
     return own;
   }
-  for (const b of scan.branches || []) {
+  const b = scan.taskToBranch && scan.taskToBranch.get(key);
+  if (b) {
     try {
       const j = JSON.parse(git(root, ["show", b + ":" + rel.taskMeta(pipeline, taskDirAt(root, b, pipeline, task))]));
       j._live = true; j._onBranch = b;
       scan.metas.set(key, j);
       return j;
-    } catch (e) { /* next branch */ }
+    } catch (e) { /* ignore */ }
   }
   scan.metas.set(key, own);
   return own;
