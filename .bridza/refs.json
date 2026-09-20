@@ -178,7 +178,8 @@
     "engineering/migration-existing-tasks": true,
     "engineering/naming-contract-tests": true,
     "engineering/task-creation-write-path": true,
-    "engineering/task-enumeration-read-path": true
+    "engineering/task-enumeration-read-path": true,
+    "engineering/task-target-branch-selector": true
   },
   "tags": {
     "complex": {
