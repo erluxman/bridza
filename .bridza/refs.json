@@ -175,7 +175,8 @@
     "engineering/merge-strategy-goal-ranking": true,
     "engineering/url-path-sync-for-selected-task": true,
     "engineering/logo-welcome-screen-integration": true,
-    "engineering/migration-existing-tasks": true
+    "engineering/migration-existing-tasks": true,
+    "engineering/naming-contract-tests": true
   },
   "tags": {
     "complex": {
