@@ -167,6 +167,9 @@
   "taskTags": {
     "engineering/should-give-me-output-or-run-the": [
       "bug"
+    ],
+    "engineering/in-the-plan-board-there-should-be-an": [
+      "bug"
     ]
   }
 }
