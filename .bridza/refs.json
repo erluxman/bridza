@@ -162,7 +162,8 @@
     "engineering/creating-pr-failed-it-should-take-the": true,
     "engineering/create-pr-via-gh-cli": true,
     "engineering/setting-to-hide-columns-in-kanban-that": true,
-    "engineering/vs-code-like-setting-page": true
+    "engineering/vs-code-like-setting-page": true,
+    "engineering/when-app-is-refreshed-or-page-is": true
   },
   "tags": {
     "complex": {
