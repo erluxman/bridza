@@ -1,71 +1,15 @@
 {
   "v": 1,
   "deps": {
-    "engineering/per-day-dismissal": {
-      "all": [
-        "engineering/welcome-dialog-on-open"
-      ],
-      "any": []
-    },
-    "engineering/time-aware-greeting": {
-      "all": [
-        "engineering/welcome-dialog-on-open"
-      ],
-      "any": []
-    },
-    "engineering/okay-i-just-have-an-idea-that-when-i-ope": {
-      "all": [
-        "engineering/welcome-dialog-on-open"
-      ],
-      "any": []
-    },
-    "engineering/task-enumeration-read-path": {
-      "all": [
-        "engineering/number-prefix-contract"
-      ],
-      "any": []
-    },
-    "engineering/task-creation-write-path": {
-      "all": [
-        "engineering/number-prefix-contract"
-      ],
-      "any": []
-    },
-    "engineering/naming-contract-tests": {
-      "all": [
-        "engineering/number-prefix-contract"
-      ],
-      "any": []
-    },
-    "engineering/ui-ref-display": {
-      "all": [
-        "engineering/number-prefix-contract"
-      ],
-      "any": []
-    },
-    "engineering/migration-existing-tasks": {
-      "all": [
-        "engineering/number-prefix-contract",
-        "engineering/task-enumeration-read-path",
-        "engineering/task-creation-write-path"
-      ],
-      "any": []
-    },
     "engineering/implement-merge-strategy": {
       "all": [
         "engineering/define-merge-strategy"
       ],
       "any": []
     },
-    "engineering/verify-merge-strategy": {
+    "engineering/conflict-open-in-vscode": {
       "all": [
-        "engineering/implement-merge-strategy"
-      ],
-      "any": []
-    },
-    "engineering/url-path-sync-for-selected-task": {
-      "all": [
-        "engineering/highlight-running-task-in-sidebar"
+        "engineering/merge-preflight-check"
       ],
       "any": []
     },
@@ -93,11 +37,18 @@
       ],
       "any": []
     },
-    "engineering/define-merge-strategy": {
-      "all": [],
-      "any": [
-        "engineering/better-merging-strategy-to-reference"
-      ]
+    "engineering/creating-pr-failed-it-should-take-the": {
+      "all": [
+        "engineering/create-pr-via-gh-cli"
+      ],
+      "any": []
+    },
+    "engineering/migration-existing-tasks": {
+      "all": [
+        "engineering/task-enumeration-read-path",
+        "engineering/task-creation-write-path"
+      ],
+      "any": []
     },
     "engineering/logo-welcome-screen-integration": {
       "all": [
@@ -109,80 +60,27 @@
   },
   "milestones": [
     {
-      "id": "ms-welcome-dialog",
-      "title": "Welcome dialog on app open",
+      "id": "ms-git-merge",
+      "title": "Merging & conflicts",
       "due": "",
       "tasks": [
-        "engineering/welcome-dialog-on-open",
-        "engineering/per-day-dismissal",
-        "engineering/time-aware-greeting",
-        "engineering/okay-i-just-have-an-idea-that-when-i-ope"
-      ],
-      "needs": []
-    },
-    {
-      "id": "ms-better-merging",
-      "title": "Better Merging Strategy",
-      "due": "",
-      "tasks": [
+        "engineering/merge-preflight-check",
+        "engineering/conflict-auto-union-bridza-state",
+        "engineering/conflict-open-in-vscode",
+        "engineering/task-target-branch-selector",
         "engineering/define-merge-strategy",
-        "engineering/implement-merge-strategy",
-        "engineering/verify-merge-strategy",
-        "engineering/better-merging-strategy-to-reference"
+        "engineering/implement-merge-strategy"
       ],
       "needs": []
     },
     {
-      "id": "ms-ay5tg",
-      "title": "Major Bug Fix",
+      "id": "ms-agent-reliability",
+      "title": "Agent execution reliability",
       "due": "",
       "tasks": [
-        "engineering/every-stage-floor-should-be-in-auto",
-        "engineering/you-just-should-be-able-to-change-the",
-        "engineering/more-conflicts-user-experience-should",
-        "engineering/every-task-when-they-are-converted-into"
-      ],
-      "needs": [
-        "ms-welcome-dialog"
-      ]
-    },
-    {
-      "id": "ms-xyzmr",
-      "title": "UX Impromement",
-      "due": "",
-      "tasks": [
-        "engineering/i-should-be-able-to-rearrange-the",
-        "engineering/kanban-archive-issue-cards",
-        "engineering/kanban-columns-drag-reorder",
-        "engineering/highlight-selected-task-or-work-item-if",
-        "engineering/auto-advance-seems-to-only-works-at-the",
-        "engineering/ok-when-i-press-command-and-mouse-will"
-      ],
-      "needs": [
-        "ms-ay5tg"
-      ]
-    },
-    {
-      "id": "ms-numbered-folders",
-      "title": "Numbered-prefix folder naming at scale",
-      "due": "",
-      "tasks": [
-        "engineering/number-prefix-contract",
-        "engineering/task-enumeration-read-path",
-        "engineering/task-creation-write-path",
-        "engineering/naming-contract-tests",
-        "engineering/ui-ref-display",
-        "engineering/migration-existing-tasks"
-      ],
-      "needs": []
-    },
-    {
-      "id": "ms-highlight-selected-running-item",
-      "title": "Highlight selected running task & URL path sync",
-      "due": "",
-      "tasks": [
-        "engineering/highlight-running-task-in-sidebar",
-        "engineering/url-path-sync-for-selected-task"
+        "engineering/commands-sent-to-claude-are-not",
+        "engineering/only-claude-can-auto-advance-opencode",
+        "engineering/purchase-the-selected-model-and-display"
       ],
       "needs": []
     },
@@ -196,21 +94,53 @@
         "engineering/auto-advance-progress-badges",
         "engineering/auto-advance-stop-and-resume"
       ],
-      "needs": []
+      "needs": [
+        "ms-agent-reliability"
+      ]
     },
     {
-      "id": "ms-create-pr-button",
-      "title": "Create PR button in task detail",
+      "id": "ms-create-pr",
+      "title": "Create PR from a task",
       "due": "",
       "tasks": [
         "engineering/create-pr-browser-compose-link",
-        "engineering/create-pr-via-gh-cli"
+        "engineering/create-pr-via-gh-cli",
+        "engineering/creating-pr-failed-it-should-take-the"
+      ],
+      "needs": [
+        "ms-git-merge"
+      ]
+    },
+    {
+      "id": "ms-numbered-folders",
+      "title": "Numbered task folders",
+      "due": "",
+      "tasks": [
+        "engineering/task-enumeration-read-path",
+        "engineering/task-creation-write-path",
+        "engineering/naming-contract-tests",
+        "engineering/ui-ref-display",
+        "engineering/migration-existing-tasks"
+      ],
+      "needs": [
+        "ms-git-merge"
+      ]
+    },
+    {
+      "id": "ms-app-ux-polish",
+      "title": "App UX polish",
+      "due": "",
+      "tasks": [
+        "engineering/url-path-sync-for-selected-task",
+        "engineering/setting-to-hide-columns-in-kanban-that",
+        "engineering/i-should-be-able-to-change-any-details",
+        "engineering/display-terminal-despite-not-being-in"
       ],
       "needs": []
     },
     {
-      "id": "ms-logo-first-launch",
-      "title": "Logo animation on first launch",
+      "id": "ms-first-launch-delight",
+      "title": "First-launch delight",
       "due": "",
       "tasks": [
         "engineering/logo-first-launch-detection",
@@ -218,230 +148,44 @@
         "engineering/logo-welcome-screen-integration"
       ],
       "needs": []
+    },
+    {
+      "id": "ms-settings-and-adaptive-ui",
+      "title": "Settings page & adaptive UI",
+      "due": "",
+      "tasks": [
+        "engineering/vs-code-like-setting-page",
+        "engineering/usage-based-design-changes-automatically"
+      ],
+      "needs": []
+    },
+    {
+      "id": "ms-scale-and-insight",
+      "title": "Scale & codebase insight",
+      "due": "",
+      "tasks": [
+        "engineering/the-time-complexity-for-idea-to-a",
+        "engineering/system-design-diagrams-to-understand"
+      ],
+      "needs": [
+        "ms-numbered-folders"
+      ]
+    },
+    {
+      "id": "ms-launch-marketing",
+      "title": "Launch marketing",
+      "due": "",
+      "tasks": [
+        "marketing-growth/a-tiktok-video-about-what-bridza-harness"
+      ],
+      "needs": []
     }
   ],
-  "pos": {
-    "marketing-growth/a-tiktok-video-about-what-bridza-harness": {
-      "x": 709,
-      "y": 1045
-    },
-    "engineering/welcome-dialog-on-open": {
-      "x": -469,
-      "y": 176
-    },
-    "engineering/per-day-dismissal": {
-      "x": 80,
-      "y": 135
-    },
-    "engineering/time-aware-greeting": {
-      "x": 51,
-      "y": 48
-    },
-    "engineering/okay-i-just-have-an-idea-that-when-i-ope": {
-      "x": -626,
-      "y": 58
-    },
-    "engineering/every-stage-floor-should-be-in-auto": {
-      "x": 526,
-      "y": -9
-    },
-    "engineering/you-just-should-be-able-to-change-the": {
-      "x": 525,
-      "y": 78
-    },
-    "engineering/more-conflicts-user-experience-should": {
-      "x": 525,
-      "y": 143
-    },
-    "engineering/every-task-when-they-are-converted-into": {
-      "x": 531,
-      "y": 236
-    },
-    "engineering/i-should-be-able-to-rearrange-the": {
-      "x": 1032,
-      "y": -4
-    },
-    "engineering/kanban-archive-issue-cards": {
-      "x": 1032,
-      "y": 82
-    },
-    "engineering/kanban-columns-drag-reorder": {
-      "x": 1032,
-      "y": 168
-    },
-    "engineering/ok-when-i-press-command-and-mouse-will": {
-      "x": 1404,
-      "y": 240
-    },
-    "engineering/highlight-selected-task-or-work-item-if": {
-      "x": 1403,
-      "y": 85
-    },
-    "engineering/auto-advance-seems-to-only-works-at-the": {
-      "x": 1399,
-      "y": 164
-    },
-    "engineering/better-merging-strategy-to-reference": {
-      "x": -1157,
-      "y": 932
-    },
-    "engineering/define-merge-strategy": {
-      "x": -834,
-      "y": 933
-    },
-    "engineering/implement-merge-strategy": {
-      "x": -482,
-      "y": 919
-    },
-    "engineering/verify-merge-strategy": {
-      "x": -687,
-      "y": 769
-    },
-    "engineering/card-archiving-is-not-working-when": {
-      "x": 278,
-      "y": 764
-    },
-    "engineering/reduce-the-amount-of-commits-for-the": {
-      "x": 305,
-      "y": 959
-    },
-    "engineering/purchase-the-selected-model-and-display": {
-      "x": 118,
-      "y": 863
-    },
-    "engineering/when-opening-a-task-or-card-it-should": {
-      "x": 476,
-      "y": 865
-    },
-    "engineering/setting-to-hide-columns-in-kanban-that": {
-      "x": 340,
-      "y": 1045
-    },
-    "engineering/animate-the-logo-when-app-starts-for": {
-      "x": 22,
-      "y": 1041
-    },
-    "engineering/number-prefix-contract": {
-      "x": -146,
-      "y": 1214
-    },
-    "engineering/task-enumeration-read-path": {
-      "x": 303,
-      "y": 1356
-    },
-    "engineering/task-creation-write-path": {
-      "x": 303,
-      "y": 1270
-    },
-    "engineering/naming-contract-tests": {
-      "x": 303,
-      "y": 1184
-    },
-    "engineering/ui-ref-display": {
-      "x": 303,
-      "y": 1442
-    },
-    "engineering/migration-existing-tasks": {
-      "x": 569,
-      "y": 1184
-    },
-    "engineering/create-pr-button-in-task-detail": {
-      "x": 1538,
-      "y": 1768
-    },
-    "engineering/when-merging-to-main-does-not-happen": {
-      "x": 1213,
-      "y": 1854
-    },
-    "engineering/do-not-allow-merge-domain-until-the": {
-      "x": 1298,
-      "y": 1890
-    },
-    "engineering/i-should-be-able-to-change-any-details": {
-      "x": 1582,
-      "y": 1941
-    },
-    "engineering/archive-tag-backfill-policy": {
-      "x": -331,
-      "y": 2655
-    },
-    "engineering/finalize-merge-style-surface": {
-      "x": 1233,
-      "y": 2032
-    },
-    "engineering/merge-method-decision-adr": {
-      "x": 878,
-      "y": 2352
-    },
-    "engineering/merge-strategy-acceptance-matrix": {
-      "x": 630,
-      "y": 2098
-    },
-    "engineering/merge-strategy-goal-ranking": {
-      "x": 754,
-      "y": 1736
-    },
-    "engineering/run-ledger-reachability-contract": {
-      "x": 1278,
-      "y": 1551
-    },
-    "engineering/task-branch-deletion-policy": {
-      "x": -466,
-      "y": 1968
-    },
-    "engineering/only-claude-can-auto-advance-opencode": {
-      "x": 1190,
-      "y": 1718
-    },
-    "engineering/a-shortcut-to-search-among-the-tasks-or": {
-      "x": 966,
-      "y": 1464
-    },
-    "engineering/long-press-and-drag-to-create-a": {
-      "x": 738,
-      "y": 1890
-    },
-    "engineering/when-the-inbox-is-0-show-a-confetti": {
-      "x": 778,
-      "y": 1980
-    }
-  },
+  "pos": {},
   "sizes": {
-    "engineering/the-title-is-taking-a-lot-of-vertical-sp": {
-      "w": 345,
-      "h": 59
-    },
-    "engineering/when-i-am-recording-an-idea-in-the-inbox": {
-      "w": 377,
-      "h": 62
-    },
-    "engineering/okay-i-just-have-an-idea-that-when-i-ope": {
-      "w": 504,
-      "h": 65
-    },
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": {
       "w": 399,
       "h": 46
-    },
-    "engineering/you-just-should-be-able-to-change-the": {
-      "w": 357,
-      "h": 44
-    },
-    "engineering/more-conflicts-user-experience-should": {
-      "w": 331,
-      "h": 58
-    },
-    "engineering/every-stage-floor-should-be-in-auto": {
-      "w": 305,
-      "h": 66
-    },
-    "engineering/ok-when-i-press-command-and-mouse-will": {
-      "w": 514,
-      "h": 40
-    },
-    "engineering/auto-advance-seems-to-only-works-at-the": {
-      "w": 389,
-      "h": 50
     },
     "engineering/task-creation-write-path": {
       "w": 417,
@@ -456,32 +200,7 @@
       "h": 38
     }
   },
-  "links": {
-    "engineering/ui-ref-display": [
-      "engineering/every-task-when-they-are-converted-into"
-    ],
-    "engineering/task-enumeration-read-path": [
-      "engineering/every-task-when-they-are-converted-into"
-    ],
-    "engineering/task-creation-write-path": [
-      "engineering/every-task-when-they-are-converted-into"
-    ],
-    "engineering/naming-contract-tests": [
-      "engineering/every-task-when-they-are-converted-into"
-    ],
-    "engineering/number-prefix-contract": [
-      "engineering/every-task-when-they-are-converted-into"
-    ],
-    "engineering/define-merge-strategy": [
-      "engineering/better-merging-strategy-to-reference"
-    ],
-    "engineering/implement-merge-strategy": [
-      "engineering/better-merging-strategy-to-reference"
-    ],
-    "engineering/migration-existing-tasks": [
-      "engineering/better-merging-strategy-to-reference"
-    ]
-  },
+  "links": {},
   "pipeDeps": [
     {
       "from": "product",
@@ -489,28 +208,38 @@
     }
   ],
   "est": {
-    "engineering/welcome-dialog-on-open": 3,
-    "engineering/per-day-dismissal": 2,
-    "engineering/time-aware-greeting": 1,
-    "engineering/number-prefix-contract": 3,
+    "engineering/define-merge-strategy": 2,
+    "engineering/implement-merge-strategy": 6,
+    "engineering/merge-preflight-check": 5,
+    "engineering/conflict-auto-union-bridza-state": 5,
+    "engineering/conflict-open-in-vscode": 4,
+    "engineering/task-target-branch-selector": 4,
+    "engineering/commands-sent-to-claude-are-not": 6,
+    "engineering/only-claude-can-auto-advance-opencode": 4,
+    "engineering/purchase-the-selected-model-and-display": 4,
+    "engineering/auto-advance-chain-registry": 4,
+    "engineering/auto-advance-state-truth-toggle": 3,
+    "engineering/auto-advance-progress-badges": 3,
+    "engineering/auto-advance-stop-and-resume": 4,
+    "engineering/create-pr-browser-compose-link": 3,
+    "engineering/create-pr-via-gh-cli": 4,
+    "engineering/creating-pr-failed-it-should-take-the": 2,
     "engineering/task-enumeration-read-path": 4,
     "engineering/task-creation-write-path": 3,
     "engineering/naming-contract-tests": 2,
     "engineering/ui-ref-display": 3,
     "engineering/migration-existing-tasks": 4,
-    "engineering/define-merge-strategy": 2,
-    "engineering/implement-merge-strategy": 4,
-    "engineering/verify-merge-strategy": 2,
-    "engineering/highlight-running-task-in-sidebar": 2,
     "engineering/url-path-sync-for-selected-task": 3,
-    "engineering/auto-advance-chain-registry": 5,
-    "engineering/auto-advance-state-truth-toggle": 5,
-    "engineering/auto-advance-progress-badges": 3,
-    "engineering/auto-advance-stop-and-resume": 4,
-    "engineering/create-pr-browser-compose-link": 3,
-    "engineering/create-pr-via-gh-cli": 4,
+    "engineering/setting-to-hide-columns-in-kanban-that": 2,
+    "engineering/i-should-be-able-to-change-any-details": 4,
+    "engineering/display-terminal-despite-not-being-in": 5,
     "engineering/logo-first-launch-detection": 1,
     "engineering/logo-animation-component": 2,
-    "engineering/logo-welcome-screen-integration": 2
+    "engineering/logo-welcome-screen-integration": 2,
+    "engineering/vs-code-like-setting-page": 8,
+    "engineering/usage-based-design-changes-automatically": 10,
+    "engineering/the-time-complexity-for-idea-to-a": 6,
+    "engineering/system-design-diagrams-to-understand": 10,
+    "marketing-growth/a-tiktok-video-about-what-bridza-harness": 6
   }
 }

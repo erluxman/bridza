@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "id": "merge-preflight-check",
+  "pipeline": "engineering",
+  "title": "Merge preflight check: is this branch clean to land on its target?",
+  "type": "subtask",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "tracking": {}
+}

@@ -125,6 +125,12 @@
     "engineering/long-press-and-drag-to-create-a": true,
     "engineering/when-the-inbox-is-0-show-a-confetti": true,
     "engineering/create-pr-button-in-task-detail": true,
-    "engineering/animate-the-logo-when-app-starts-for": true
+    "engineering/animate-the-logo-when-app-starts-for": true,
+    "engineering/verify-merge-strategy": true,
+    "engineering/when-merging-to-main-does-not-happen": true,
+    "engineering/do-not-allow-merge-domain-until-the": true,
+    "engineering/there-should-be-a-separate-step-called": true,
+    "engineering/merge-button-gating": true,
+    "engineering/ai-assisted-conflict-merge": true
   }
 }

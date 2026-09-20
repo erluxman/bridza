@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "id": "conflict-open-in-vscode",
+  "pipeline": "engineering",
+  "title": "Resolve a conflicted merge in VS Code, launched from the app",
+  "type": "subtask",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "tracking": {}
+}

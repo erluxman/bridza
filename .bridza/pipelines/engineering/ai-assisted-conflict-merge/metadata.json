@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "id": "ai-assisted-conflict-merge",
+  "pipeline": "engineering",
+  "title": "Hand an unresolved merge conflict to the configured AI agent",
+  "type": "subtask",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "tracking": {}
+}

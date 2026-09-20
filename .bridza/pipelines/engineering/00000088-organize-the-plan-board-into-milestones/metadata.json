@@ -16,5 +16,43 @@
   "routing": {},
   "status": "in-progress",
   "finalized": false,
-  "tracking": {}
+  "tracking": {
+    "dissect": {
+      "status": "done",
+      "seconds": 411,
+      "runs": [
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: Organize the plan board into milestones and also update git mods related tickets.\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-20T13:36:53.826Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T13:43:44.933Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/00000070-creating-pr-failed-it-should-take-the/context.md",
+            ".bridza/pipelines/engineering/00000072-there-should-be-a-separate-step-called/context.md",
+            ".bridza/pipelines/engineering/ai-assisted-conflict-merge/context.md",
+            ".bridza/pipelines/engineering/ai-assisted-conflict-merge/metadata.json",
+            ".bridza/pipelines/engineering/conflict-auto-union-bridza-state/context.md",
+            ".bridza/pipelines/engineering/conflict-auto-union-bridza-state/metadata.json",
+            ".bridza/pipelines/engineering/conflict-open-in-vscode/context.md",
+            ".bridza/pipelines/engineering/conflict-open-in-vscode/metadata.json",
+            ".bridza/pipelines/engineering/define-merge-strategy/context.md",
+            ".bridza/pipelines/engineering/merge-button-gating/context.md",
+            ".bridza/pipelines/engineering/merge-button-gating/metadata.json",
+            ".bridza/pipelines/engineering/merge-preflight-check/context.md",
+            ".bridza/pipelines/engineering/merge-preflight-check/metadata.json",
+            ".bridza/pipelines/engineering/reduce-the-amount-of-commits-for-the/context.md",
+            ".bridza/pipelines/engineering/task-target-branch-selector/context.md",
+            ".bridza/pipelines/engineering/task-target-branch-selector/metadata.json",
+            ".bridza/plan.json"
+          ],
+          "sessionId": "db0b2c7f-e112-4e2a-aaa0-922a9b18b661",
+          "error": null,
+          "log": "s. Findings:\n\n**Dead — removed from board:** 7 nodes (`merge-strategy-goal-ranking`, `merge-method-decision-adr`, `run-ledger-reachability-contract`, `task-branch-deletion-policy`, `finalize-merge-style-surface`, `merge-strategy-acceptance-matrix`, `archive-tag-backfill-policy`). Created by `define-merge-strategy/dissect` (commit `af16342`), never landed on main — only stale `pos` entries survived. 7 tickets to write 1 spec = the over-dissection already rejected on #23. Their questions folded back into `define-merge-strategy` as criteria.\n\n**Redundant — kept, downscoped, noted in context.md:**\n- #72 \"separate squashing step\" → squash is *already* `finalizeTask`'s default. Now a decision check gated on `define-merge-strategy`, not a build ticket.\n- #37 \"too many commits\" → same problem as #23, stated twice. Kept only its unique part (promote-idea commit count) as a 2h verification against the implemented strategy.\n- #70 \"PR creation failed\" → title already covered by `create-pr-via-gh-cli`. Residue = description from `context.md` + reproduce with real `gh` stderr.\n\n### 6 new sub-tasks (vertical slices, `spec→build→review`)\n\n| id | est | delivers |\n|---|---|---|\n| `merge-preflight-check` | 4h | side-effect-free `merge-tree` readiness answer — the foundation the rest consume |\n| `merge-button-gating` | 3h | #50 — disable Finalize when not clean, never trap on `unknown` |\n| `conflict-open-in-vscode` | 4h | #15a — start merge, hand off to VS Code conflict UI, clean abort |\n| `conflict-auto-union-bridza-state` | 5h | #15b + root cause of #36 — union merge driver for `refs.json`/`plan.json` |\n| `ai-assisted-conflict-merge` | 6h | #49 — agent resolves, user accepts; task branch only, never main |\n| `task-target-branch-selector` | 4h | #14 — editable `target`, no surface hardcodes main |\n\nChain: `define-merge-strategy → merge-preflight-check → {gating, vscode, ai-merge}`. Union-driver and target-selector are independent (no invented ordering). Parent ideas gated on their slices, per the board's existing convention.\n\n### 13 milestones — 64 tasks, 209h, every task estimated\n\n```\nms-git-merge                    16  43h  ←  one milestone, as asked\nms-kanban-board-ux               8  28h\nms-numbered-folders              7  20h  needs ms-git-merge\nms-agent-reliability             5  20h\nms-auto-advance-transparency     5  18h  needs ms-agent-reliability\nms-settings-and-adaptive-ui      2  18h\nms-scale-and-insight             2  16h  needs ms-numbered-folders\nms-create-pr-button              4  10h  needs ms-git-merge\nms-task-detail-editing           2   9h\nms-logo-first-launch             5   8h  needs ms-welcome-dialog\nms-welcome-dialog                4   7h\nms-highlight-selected-running…   3   6h\nms-launch-marketing              1   6h\n```\n\nOrdering edges are real, not decorative: numbered-folders renames *every* task folder → must wait for merge strategy + conflict tooling or it conflicts across all open branches; #87 time-complexity optimizes the enumeration path that `task-enumeration-read-path` rewrites; logo integrates into the Welcome screen.\n\nRetired auto-named milestones `ms-ay5tg` (\"Major Bug Fix\") and `ms-xyzmr` (\"UX Impromement\") — contents redistributed. `ms-better-merging` absorbed into `ms-git-merge`.\n\n**Validated:** no dangling refs, no dep cycles, no milestone-`needs` cycles, no task in two milestones, no task without an estimate. Only #88 itself is unmilestoned — intentional, it's the planning task.\n\n### Merge into `main`\n\n**Clean.** `main` is an ancestor of this branch (`git merge-tree --write-tree main <staged>` → no conflicts; fast-forward). 20 files: 12 new sub-task files, 4 context.md appends, `plan.json`.\n\nOne caveat worth naming: `plan.json` is the hottest conflict file in this repo, and this change rewrites most of it. If you've moved cards on the board since this task started, expect a conflict there — which is exactly the class `conflict-auto-union-bridza-state` exists to kill.\n· done · 28 turns · 410s · $2.4156"
+        }
+      ]
+    }
+  }
 }
