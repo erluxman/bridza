@@ -19,6 +19,10 @@
     "repro": {
       "tool": "claude",
       "model": ""
+    },
+    "fix": {
+      "tool": "claude",
+      "model": ""
     }
   },
   "status": "in-progress",
@@ -43,6 +47,19 @@
           "sessionId": "b28cdb24-ac86-45a6-9ca0-e2daecbb83a7",
           "error": null,
           "log": "cally: **one `focus()` per render**, not one at mount. Let me clean up and verify the poll context.\n· Bash cd /home/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/remove-automatic-foc…\n· Bash cd /home/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/remove-automatic-foc…\nOne more trigger worth capturing: `setHover` on card mouse-enter also re-renders the Board. Let me verify that path too.\n· Edit /home/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/remove-automatic-focus-…\n· Bash cd /home/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/remove-automatic-foc…\nBoth failure paths confirmed. Let me check the rest of the suite is unaffected.\n· Bash cd /home/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/remove-automatic-foc…\n· Bash cd /home/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/remove-automatic-foc…\n· Bash which gh && echo \"gh IS on PATH — explains the unrelated create-pr failure\"\nNow writing `repro.md`.\n· Write /home/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/remove-automatic-focus-…\n· Bash cd /home/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/remove-automatic-foc…\n· Bash cd /home/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/remove-automatic-foc…\n· Write /home/risky/.claude/projects/-home-risky-projects-erluxman-com-bridza/memory/bridza-workt…\n· Bash cd /home/risky/.claude/projects/-home-risky-projects-erluxman-com-bridza/memory/ && print…\nReproduced and root-caused. Nothing fixed.\n\n## The bug\n\n`src/app/features/board.jsx:191`:\n\n```jsx\nref={(el) => el && setTimeout(() => el.focus(), 0)}\n```\n\nThis looks like \"focus the search box when it appears.\" It isn't. An **inline** ref callback is a fresh function identity every render, so React detaches and re-attaches it on every commit — meaning `focus()` fires on **every render of `<Board>`**, not once at mount.\n\nI measured it rather than assuming: instrumenting `input.focus` and forcing three unrelated re-renders gave **3 renders → 3 focus calls**.\n\n## Why it bites constantly\n\nTwo independent render sources keep firing while the box is open:\n\n- `App.jsx:78` polls every 4s and `setProj(s)` assigns a **fresh object**, so Board's props change identity every 4 seconds. Board isn't memoised.\n- Each card's `onMouseEnter` calls `setHover` (`board.jsx:219`) — so merely moving the mouse across the board steals focus instantly, no poll needed.\n\nThe `setTimeout(…, 0)` makes it worse: the steal lands a macrotask after the commit, so it beats React's own focus restoration and can't be traced back to the render that caused it.\n\n## The masking detail worth knowing\n\n`onBlur` closes the box when the query is empty (`board.jsx:196`), so the input unmounts before it can steal anything. **The bug only shows once you've typed a query** — which is exactly the state a searching user is in. Any repro attempt without typing will look fine.\n\n## Two things that change the fix\n\n- **⌘K and `/` already exist** and work (`board.jsx:120-123`). Nothing to add there.\n- **Deleting the ref is not sufficient** — those shortcuts set `searchOpen` but depend on this ref to actually place the caret. The fix has to key off *the intent to open*, not off rendering.\n\n## Artifacts\n\n- `repro.md` — rewritten (it held a stale repro from task #105).\n- `src/app/__tests__/board-search-focus.test.jsx` — 4 cases: 2 fail (the bug: poll re-render, card hover), 2 pass (behaviour a fix must preserve: click-to-open focuses, first render doesn't).\n\nNo source files touched; `git status` shows only `repro.md` and the new spec.\n\nOne caveat on the suite: the full run is **283 tests, 3 failed**. The third, `create-pr.test.js > falls back with the compose URL when gh is not on PATH`, is pre-existing and environmental — it asserts behaviour for a machine without the GitHub CLI, and `gh` is installed here at `/usr/bin/gh`. Unrelated to this task; I flagged it in `repro.md` but left it alone.\n· done · 41 turns · 239s · $1.9725"
+        }
+      ]
+    },
+    "fix": {
+      "status": "running",
+      "seconds": 0,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Remove automatic focus on search field in Kanban View.\n\nAlright, so, when I do not focus  search text field in dashboard (pipeline kanban view ) with shortcut or click, the focus should stay on whichever element is it at . it should not automatically focus on it (search field) , But to focus on that search either we click on it, or press a shortcut like command + K to to focus on it\n\nFit check — this task was filed under the \"Bugfix\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Bugfix\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Feature\" (Spec → Build → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-20T17:09:46.694Z",
+          "status": "running"
         }
       ]
     }
