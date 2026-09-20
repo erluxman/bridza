@@ -2,14 +2,14 @@
 
 `bridza/engineering/terminal-state-restoration-in-task`  ·  pipeline `engineering`
 
-`█████░░░░░░░░░░░`  **1/3** stages  ·  1m 39s tracked  ·  in-progress
+`███████████░░░░░`  **2/3** stages  ·  6m 25s tracked  ·  in-progress
 
 ## At a glance
 
 | # | Stage | Status | Time | Output | Runs |
 |--:|-------|--------|------|--------|-----:|
 | 1 | spec | ✅ done | 1m 39s | 2 files | 1 |
-| 2 | build | ⏳ idle | — | — | — |
+| 2 | build | ✅ done | 4m 46s | — | 2 |
 | 3 | review | ⏳ idle | — | — | — |
 
 ## The story
@@ -22,9 +22,11 @@
 
 <sub>claude · session `d4b4fae2-4fa5-40ac-84c3-d34ce562c4ca` · exit 0</sub>
 
-### 2. build — ⏳ idle
+### 2. build — ✅ done · 4m 46s · 2 runs
 
-_not run yet_
+**Asked** — Task: terminal state restoration in task details when we press on terminal on a card/task details it should pop out a terminal in that particular directory/branch instead of showing it as a react component because it does not persist when i make it away from it, when i come back to terminal after go
+
+<sub>claude · session `8ef00d4b-30fa-4987-bf30-a294d76d45d8` · exit 0</sub>
 
 ### 3. review — ⏳ idle
 
