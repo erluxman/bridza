@@ -102,6 +102,7 @@
     "engineering/a-shortcut-to-search-among-the-tasks-or": true,
     "engineering/long-press-and-drag-to-create-a": true,
     "engineering/when-the-inbox-is-0-show-a-confetti": true,
-    "engineering/create-pr-button-in-task-detail": true
+    "engineering/create-pr-button-in-task-detail": true,
+    "engineering/animate-the-logo-when-app-starts-for": true
   }
 }
