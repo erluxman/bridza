@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "terminal-state-restoration-in-task",
+  "pipeline": "engineering",
+  "title": "terminal state restoration in task details",
+  "ref": 102,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/terminal-state-restoration-in-task",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
