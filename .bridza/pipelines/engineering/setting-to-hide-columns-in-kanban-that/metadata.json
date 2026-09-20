@@ -69,6 +69,27 @@
           "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are an implementer. Read repro.md and fix the root cause with the smallest correct change — check every caller of the code you touch…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n· step · 13921 tokens\n· step · 19109 tokens\n· step · 22024 tokens\n· step · 23279 tokens\n· step · 23932 tokens\n· step · 24930 tokens\n· step · 25207 tokens\n· step · 25486 tokens\n· step · 26680 tokens\n· step · 27116 tokens\n· step · 30576 tokens\n· step · 37692 tokens\n· step · 39058 tokens\n· step · 40630 tokens\n· step · 43296 tokens\n· step · 51075 tokens\n· step · 52171 tokens\n· step · 52961 tokens\n· step · 55597 tokens\n· step · 53329 tokens\n· step · 53603 tokens\n· step · 56401 tokens\n· step · 59437 tokens\n· step · 60732 tokens\n· step · 62469 tokens\n· step · 60290 tokens\n· step · 62820 tokens\n· step · 66343 tokens\n· step · 66359 tokens\n· step · 64235 tokens\n· step · 64744 tokens\n· step · 68632 tokens\n· step · 66628 tokens\n· step · 67470 tokens\n· step · 71105 tokens\nI have implemented the setting to hide empty columns in the Kanban board.\n\n**Summary of changes:**\n- **State Management:** Added `showAllColumns` state in `Board` (`src/app/features/board.jsx`), persisted in `localStorage` per pipeline for consistent behavior.\n- **UI:** Added a \"Show all columns\" checkbox toggle in the pipeline topbar, which hides empty columns by default.\n- **Logic:** Updated `Board` to derive `visibleColumns` by filtering empty columns when the toggle is off.\n- **Drag-and-Drop:** Updated `onColDrop` to correctly map the drag-and-drop insertion index from the visible view to the full, underlying column order, ensuring hidden columns are preserved correctly during reordering.\n- **Verification:** Ran `pnpm lint`, `pnpm build` (including `tsc`), and `pnpm test`, all of which passed successfully.\n· step · 74255 tokens"
         }
       ]
+    },
+    "fix-review": {
+      "status": "done",
+      "seconds": 243,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: Setting to hide columns in Kanban that do not have any item.\n\nI don't think it's a nice idea to show all the columns in the Kanban. Please put a toggle somewhere on the pipeline view that will by default be disabled to show all the columns but when enabled it will show all columns. By default it will only show columns which has card in them.\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-20T15:16:08.291Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T15:20:11.082Z",
+          "exit": 0,
+          "files": [
+            "review.md"
+          ],
+          "sessionId": "ses_f409c6dffffen7uAqz6W0mzNpb",
+          "error": null,
+          "log": "$ opencode run --format json --dangerously-skip-permissions \"System instructions:\\nYou are a reviewer. Verify the fix addresses the root cause in repro.md, check for regressions in sibling callers, and confirm the regre…\"\n· model: TOOL DEFAULT (no --model/-m flag — opencode's own config decides)\n· step · 14187 tokens\n· step · 14716 tokens\n· step · 15027 tokens\n· step · 17932 tokens\n· step · 20053 tokens\n· step · 20534 tokens\n· step · 20181 tokens\n· step · 25191 tokens\n· step · 25888 tokens\n· step · 26463 tokens\n· step · 27167 tokens\n· step · 26829 tokens\n· step · 27883 tokens\n· step · 40118 tokens\n· step · 40079 tokens\n· step · 41288 tokens\n· step · 41997 tokens\nReview complete. `review.md` written and verified; all tests, lint, and build checks passed successfully.\n· step · 42308 tokens"
+        }
+      ]
     }
   }
 }
