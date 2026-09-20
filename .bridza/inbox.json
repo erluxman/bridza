@@ -1,11 +1,4 @@
 {
   "v": 1,
-  "items": [
-    {
-      "id": "in-twf3tt",
-      "kind": "idea",
-      "text": "When starting to change code for any task at all, it should always fork from the base or reference branch that task is referenced with.",
-      "time": "2026-09-20T17:30:46.147Z"
-    }
-  ]
+  "items": []
 }

@@ -1,0 +1,3 @@
+# Always fork from the reference branch that will finally be merged into if you are going to change the code or any…
+
+When starting to change code for any task at all, it should always fork from the base or reference branch that task is referenced with.
