@@ -152,6 +152,11 @@
     "engineering/creating-pr-failed-it-should-take-the": true,
     "engineering/create-pr-via-gh-cli": true
   },
-  "tags": {},
+  "tags": {
+    "complex": {
+      "name": "Complex",
+      "color": "violet"
+    }
+  },
   "taskTags": {}
 }
