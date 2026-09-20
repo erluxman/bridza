@@ -109,7 +109,8 @@
     "engineering/this-is-a-test-issue-and-i-think-it",
     "engineering/create-a-setting-page-on-the-bottom-of",
     "engineering/commands-sent-to-cloud-are-not",
-    "engineering/display-terminal-despite-not-being-in"
+    "engineering/display-terminal-despite-not-being-in",
+    "engineering/tags-or-badges-like-trello-or-github"
   ],
   "archived": {
     "engineering/card-archiving-is-not-working-when": true,
