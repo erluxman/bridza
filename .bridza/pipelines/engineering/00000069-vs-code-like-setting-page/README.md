@@ -1,8 +1,8 @@
-# ⏳ VS code like setting page
+# ✅ VS code like setting page
 
 `bridza/engineering/vs-code-like-setting-page`  ·  pipeline `engineering`
 
-`███████████░░░░░`  **2/3** stages  ·  17m 3s tracked  ·  in-progress
+`████████████████`  **3/3** stages  ·  19m 47s tracked  ·  🎉 all stages done
 
 ## At a glance
 
@@ -10,7 +10,7 @@
 |--:|-------|--------|------|--------|-----:|
 | 1 | spec | ✅ done | 11m 27s | 2 files | 2 |
 | 2 | build | ✅ done | 5m 36s | 4 files | 1 |
-| 3 | review | ⏳ idle | — | — | — |
+| 3 | review | ✅ done | 2m 44s | 1 file | 1 |
 
 ## The story
 
@@ -30,9 +30,13 @@
 
 <sub>opencode · session `ses_f4193c23affeLKg2TAdiM5dQiR` · exit 0</sub>
 
-### 3. review — ⏳ idle
+### 3. review — ✅ done · 2m 44s
 
-_not run yet_
+**Asked** — Task: VS code like setting page the settings should be should have a category like VS code we may not have all the features but that's the way we eventually will go Merge readiness — this task's change will be merged into the branch "main" (on finalize Bridza merges this task's branch into it). Make
+
+**Output** — `review.md`
+
+<sub>opencode · session `ses_f418ea218ffemiIjttHMioiepE` · exit 0</sub>
 
 ---
 
