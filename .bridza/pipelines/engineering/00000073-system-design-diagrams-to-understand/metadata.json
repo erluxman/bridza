@@ -1,0 +1,20 @@
+{
+  "v": 1,
+  "id": "system-design-diagrams-to-understand",
+  "pipeline": "engineering",
+  "title": "System design diagrams to understand the code base better.",
+  "ref": 73,
+  "type": "idea",
+  "flow": "dissection",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/system-design-diagrams-to-understand",
+  "target": "main",
+  "stages": [
+    "dissect"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
