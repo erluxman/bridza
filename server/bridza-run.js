@@ -879,6 +879,15 @@ export function runStage(root, body, emit) {
     let toolError = null;
     const onJsonEvent = (ev) => {
       if (!ev || typeof ev !== "object") return;
+      // tools that ship their own event mapper (claude) translate their schema
+      // themselves; everything below is the opencode shape.
+      if (typeof tool.onEvent === "function") {
+        const r = tool.onEvent(ev) || {};
+        if (r.session && !sessionId) { sessionId = r.session; emit({ t: "session", tool: toolId, sessionId }); }
+        if (r.out) emit({ t: "out", d: r.out });
+        if (r.error) { toolError = r.error; emit({ t: "out", d: "\u2716 " + r.error + "\n" }); }
+        return;
+      }
       if (ev.sessionID && !sessionId) { sessionId = ev.sessionID; emit({ t: "session", tool: toolId, sessionId }); }
       const p = ev.part || {};
       if (ev.type === "text" && typeof p.text === "string") emit({ t: "out", d: p.text + "\n" });
