@@ -39,7 +39,7 @@ const pipeline = {
       progress: 60, stages: ["research", "plan"], tracking: { research: { status: "done" }, plan: { status: "running" } } },
   ],
 };
-const ALL = ["Research", "Plan", "Reproduce", "Fix", "Ship", "Delivered", "Archived"];
+const ALL = ["Research", "Plan", "Reproduce", "Fix", "Ship", "Delivered"];
 const OCCUPIED = ["Plan", "Reproduce"];
 
 let host, root, store;

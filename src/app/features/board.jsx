@@ -10,23 +10,21 @@ import { applyKanbanOrder } from "./kanban-order.js";
 import { TagMenu, TagChips, useTagActions } from "./tags.jsx";
 
 const DONE_COL = "__done__";
-const ARCHIVED_COL = "__archived__";
 
 function kanbanColumns(pipeline) {
   const order = [], nameOf = {};
   (pipeline.stages || []).forEach((s) => { if (!order.includes(s.id)) { order.push(s.id); nameOf[s.id] = s.name; } });
   (pipeline.tasks || []).forEach((t) => (t.stages || []).forEach((sid) => { if (!order.includes(sid)) { order.push(sid); nameOf[sid] = nameOf[sid] || sid; } }));
   nameOf[DONE_COL] = "Delivered";
-  nameOf[ARCHIVED_COL] = "Archived";
-  return { columns: [...order, DONE_COL, ARCHIVED_COL], nameOf };
+  return { columns: [...order, DONE_COL], nameOf };
 }
 function currentStage(t) {
-  if (t.archived) return ARCHIVED_COL;
   if (t.finalized) return DONE_COL;
   return (t.stages || []).find((s) => (t.tracking[s] || {}).status !== "done") || DONE_COL;
 }
 
 export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, onChange, flash, collapsed, onExpandSide }) {
+  const [showArchived, setShowArchived] = useState(false);
   const derived = kanbanColumns(pipeline);
   const nameOf = derived.nameOf;
   // optimistic order right after a drop, until the reloaded pipeline carries it
@@ -73,7 +71,7 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
   const [searchQuery, setSearchQuery] = useState("");
   const searchRef = useRef(null);
   const byCol = {}; columns.forEach((c) => (byCol[c] = []));
-  (pipeline.tasks || []).forEach((t) => { const c = currentStage(t); (byCol[c] || byCol[DONE_COL]).push(t); });
+  (pipeline.tasks || []).filter(t => !t.archived).forEach((t) => { const c = currentStage(t); (byCol[c] || byCol[DONE_COL]).push(t); });
   const q = searchQuery.toLowerCase();
   const filtered = q ? { title: q, ref: q.replace(/^#/, ""), branch: q } : null;
   const matches = (t) => !filtered ||
@@ -155,6 +153,8 @@ const changeFlow = async (t, nf) => {
     if (r.ok) { flash && flash(r.archived ? "task archived" : "task restored", 3000); onChange && onChange(); }
     else flash && flash(r.error);
   };
+  const archivedTasks = (pipeline.tasks || []).filter(t => t.archived);
+
   return (
     <>
       <div className="topbar">
@@ -178,9 +178,23 @@ const changeFlow = async (t, nf) => {
             Show all columns
           </label>
           <button className="btn ghost" onClick={onFlow}>⚙ Stage flow</button>
+          <button className="btn ghost" onClick={() => setShowArchived(!showArchived)}>🗄 Archived</button>
           <button className="btn primary" onClick={onNewTask}>＋ New task</button>
         </div>
       </div>
+      {showArchived && (
+        <div className="archive-panel" style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: "320px", background: "var(--bg-1)", borderLeft: "1px solid var(--line)", zIndex: 100, overflowY: "auto", padding: "20px", boxShadow: "-10px 0 20px #0004" }}>
+          <div className="spread" style={{ marginBottom: 16 }}>
+            <h2 style={{ fontSize: 17, margin: 0 }}>Archived ({archivedTasks.length})</h2>
+            <button className="btn ghost sm" onClick={() => setShowArchived(false)}>✕</button>
+          </div>
+          {archivedTasks.map(t => (
+            <div key={t.id} className="kcard" style={{ marginBottom: 8 }} onClick={() => onOpen(t.id)}>
+              <div className="spread"><b>{t.title}</b><button className="btn sm ghost" onClick={(e) => toggleArchive(e, t)}>Restore</button></div>
+            </div>
+          ))}
+        </div>
+      )}
       {termOpen && <TermDrawer dir={dir} onClose={() => setTermOpen(false)} />}
       {pipeline.tasks.length === 0 ? (
         <div className="content"><p className="muted">No tasks yet. Create one — it gets its own branch <code>bridza/{pipeline.id}/&lt;task&gt;</code>.</p></div>
@@ -191,7 +205,7 @@ const changeFlow = async (t, nf) => {
               className={"kcol" + (drag && drag.to === i ? " drop-before" : "") + (drag && drag.to === visibleColumns.length && i === visibleColumns.length - 1 ? " drop-after" : "")}>
               <div className={"kcol-h" + (drag && drag.id === c ? " grabbed" : "")} draggable
                 onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", c); setDrag({ id: c, to: null }); }}
-                onDragEnd={() => setDrag(null)}><span className={c === DONE_COL ? "done" : c === ARCHIVED_COL ? "archived" : ""}>{nameOf[c] || c}</span><span className="n">{filteredByCol[c].length}</span></div>
+                onDragEnd={() => setDrag(null)}><span className={c === DONE_COL ? "done" : ""}>{nameOf[c] || c}</span><span className="n">{filteredByCol[c].length}</span></div>
               <div className="kcol-body">
                 {filteredByCol[c].map((t) => (
                    <div className="kcard" key={t.id} style={{ position: "relative" }} onClick={() => onOpen(t.id)}
