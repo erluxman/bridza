@@ -6,11 +6,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { ensureDataDir, readProject, readPlan, savePlan, createPipeline, savePipeline, archivePipeline, saveKanbanOrder, createTask, deleteTask, readContext, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox, setTaskArchived, deletePipeline, createTag, setTaskTags } from "../../../server/bridza-store.js";
+import { TAG_PALETTE, LEGACY_TAG_COLORS } from "../../../core/domain.js";
+import { ensureDataDir, readProject, readPlan, savePlan, createPipeline, savePipeline, archivePipeline, saveKanbanOrder, createTask, deleteTask, readContext, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox, setTaskArchived, deletePipeline, createTag, updateTag, setTaskTags } from "../../../server/bridza-store.js";
 import { runStage, git, ensureTaskWorktree, taskDirOn } from "../../../server/bridza-run.js";
 import { STARTER_PIPELINES, rel, judgeStageId, pipelineFlows, exportFlow, parseFlowFile, exportPipeline, parsePipelineFile, shortTitle } from "../../../core/domain.js";
 
 vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
+
+// tag colours are values; these two are presets, so they read as names here
+const [VIOLET, , , , , ROSE] = TAG_PALETTE;
 
 // A minimal single-flow pipeline fixture (the starters are all multi-flow
 // categories now; these tests need a plain 3-stage pipeline).
@@ -668,27 +672,91 @@ describe("task tags", () => {
   });
 
   it("createTag slugifies, validates the colour, and is idempotent on the slug", () => {
-    expect(createTag(root, { name: "Billing", color: "violet" })).toMatchObject({ ok: true, id: "billing", created: true });
-    expect(refsJson(root).tags.billing).toEqual({ name: "Billing", color: "violet" });
+    expect(createTag(root, { name: "Billing", color: VIOLET })).toMatchObject({ ok: true, id: "billing", created: true });
+    expect(refsJson(root).tags.billing).toEqual({ name: "Billing", color: VIOLET });
     expect(git(root, ["status", "--porcelain"]).trim()).toBe("");
 
     // same slug → the existing entry comes back untouched, never a recolour
-    expect(createTag(root, { name: "billing", color: "rose" })).toMatchObject({ ok: true, id: "billing", created: false });
-    expect(refsJson(root).tags.billing).toEqual({ name: "Billing", color: "violet" });
+    expect(createTag(root, { name: "billing", color: ROSE })).toMatchObject({ ok: true, id: "billing", created: false });
+    expect(refsJson(root).tags.billing).toEqual({ name: "Billing", color: VIOLET });
 
-    expect(createTag(root, { name: "", color: "violet" }).error).toMatch(/name/);
-    expect(createTag(root, { name: "x", color: "#ff0000" }).error).toMatch(/color/);
+    expect(createTag(root, { name: "", color: VIOLET }).error).toMatch(/name/);
 
     // a name with no letter or digit slugs to the literal "x" — two unrelated
     // tags would silently become one, so it is rejected outright
-    expect(createTag(root, { name: "!!!", color: "violet" }).ok).toBe(false);
-    expect(createTag(root, { name: "???", color: "violet" }).error).toMatch(/tag name/);
+    expect(createTag(root, { name: "!!!", color: VIOLET }).ok).toBe(false);
+    expect(createTag(root, { name: "???", color: VIOLET }).error).toMatch(/tag name/);
     expect(refsJson(root).tags.x).toBeUndefined();
   });
 
+  it("createTag takes any colour, not just the presets, and normalizes it", () => {
+    expect(createTag(root, { name: "teal", color: "#0FA" })).toMatchObject({ ok: true });
+    expect(refsJson(root).tags.teal.color).toBe("#00ffaa");      // shorthand expands
+    expect(createTag(root, { name: "brand", color: "#1B2C3D" })).toMatchObject({ ok: true });
+    expect(refsJson(root).tags.brand.color).toBe("#1b2c3d");     // and folds to lower case
+
+    // a palette NAME is what a pre-free-colour client sent, and still resolves
+    expect(createTag(root, { name: "legacy", color: "violet" })).toMatchObject({ ok: true });
+    expect(refsJson(root).tags.legacy.color).toBe(VIOLET);
+
+    for (const bad of ["chartreuse", "#gg0000", "#12345", "rgb(1,2,3)", "", null, 7]) {
+      expect(createTag(root, { name: "nope", color: bad })).toEqual({ ok: false, error: "invalid color" });
+    }
+    expect(refsJson(root).tags.nope).toBeUndefined();
+  });
+
+  it("updateTag recolours an existing tag and leaves its name and assignments alone", () => {
+    createTag(root, { name: "Billing", color: VIOLET });
+    setTaskTags(root, "marketing", "t1", ["billing"]);
+
+    expect(updateTag(root, { id: "billing", color: ROSE })).toMatchObject({ ok: true, id: "billing", color: ROSE });
+    expect(refsJson(root).tags.billing).toEqual({ name: "Billing", color: ROSE });
+    expect(refsJson(root).taskTags["marketing/t1"]).toEqual(["billing"]);
+    expect(tagsOf(root, "t1")).toEqual([{ id: "billing", name: "Billing", color: ROSE }]);
+    expect(git(root, ["status", "--porcelain"]).trim()).toBe("");
+
+    // an off-palette colour is now perfectly valid — that is the whole point
+    expect(updateTag(root, { id: "billing", color: "#123456" })).toMatchObject({ ok: true, color: "#123456" });
+    expect(tagsOf(root, "t1")).toEqual([{ id: "billing", name: "Billing", color: "#123456" }]);
+
+    // an unparseable colour and an unknown id both change nothing on disk
+    expect(updateTag(root, { id: "billing", color: "burnt sienna" })).toEqual({ ok: false, error: "invalid color" });
+    expect(updateTag(root, { id: "ghost", color: ROSE }).ok).toBe(false);
+    expect(updateTag(root, { id: "ghost", color: ROSE }).error).toMatch(/ghost/);
+    expect(refsJson(root).tags.billing).toEqual({ name: "Billing", color: "#123456" });
+    expect(refsJson(root).tags.ghost).toBeUndefined();
+    expect(git(root, ["status", "--porcelain"]).trim()).toBe("");
+  });
+
+  // `refs.tags["constructor"]` is a function inherited from Object.prototype, so
+  // a truthiness check read it as a tag that exists and wrote a nameless entry
+  it("updateTag rejects an Object.prototype key as an unknown tag", () => {
+    createTag(root, { name: "Billing", color: VIOLET });
+    for (const id of ["constructor", "__proto__", "toString", "hasOwnProperty"]) {
+      expect(updateTag(root, { id, color: ROSE })).toMatchObject({ ok: false });
+      expect(updateTag(root, { id, color: ROSE }).error).toMatch(/unknown tag/);
+    }
+    expect(Object.keys(refsJson(root).tags)).toEqual(["billing"]);
+    expect(git(root, ["status", "--porcelain"]).trim()).toBe("");
+  });
+
+  // a repo tagged before free colours holds a palette NAME on disk; it resolves
+  // on read, so nothing needs migrating and nothing renders colourless
+  it("reads a legacy palette name out of an existing refs.json as its hex", () => {
+    createTag(root, { name: "Billing", color: VIOLET });
+    setTaskTags(root, "marketing", "t1", ["billing"]);
+    const f = path.join(root, ".bridza", "refs.json");
+    const raw = JSON.parse(fs.readFileSync(f, "utf8"));
+    raw.tags.billing.color = "emerald";
+    fs.writeFileSync(f, JSON.stringify(raw, null, 2));
+
+    expect(tagsOf(root, "t1")).toEqual([{ id: "billing", name: "Billing", color: LEGACY_TAG_COLORS.emerald }]);
+    expect(readProject(root).pipelines[0].tags.billing.color).toBe(LEGACY_TAG_COLORS.emerald);
+  });
+
   it("setTaskTags keeps only known slugs, de-duplicates, and clears on empty", () => {
-    createTag(root, { name: "billing", color: "violet" });
-    createTag(root, { name: "regression", color: "rose" });
+    createTag(root, { name: "billing", color: VIOLET });
+    createTag(root, { name: "regression", color: ROSE });
 
     expect(setTaskTags(root, "marketing", "t1", ["billing", "billing", "ghost", "regression"]))
       .toEqual({ ok: true, tags: ["billing", "regression"] });
@@ -701,16 +769,16 @@ describe("task tags", () => {
 
   it("the task projection resolves slugs to { id, name, color } and drops unknown ones", () => {
     expect(tagsOf(root, "t1")).toEqual([]);
-    createTag(root, { name: "Billing", color: "violet" });
+    createTag(root, { name: "Billing", color: VIOLET });
     setTaskTags(root, "marketing", "t1", ["billing"]);
-    expect(tagsOf(root, "t1")).toEqual([{ id: "billing", name: "Billing", color: "violet" }]);
-    expect(readProject(root).pipelines[0].tags).toEqual({ billing: { name: "Billing", color: "violet" } });
+    expect(tagsOf(root, "t1")).toEqual([{ id: "billing", name: "Billing", color: VIOLET }]);
+    expect(readProject(root).pipelines[0].tags).toEqual({ billing: { name: "Billing", color: VIOLET } });
 
     // a hand-edited refs.json naming a tag the registry lost: ignored, no crash
     const f = path.join(root, ".bridza", "refs.json");
     const j = refsJson(root); j.taskTags["marketing/t1"] = ["billing", "ghost"];
     fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");
-    expect(tagsOf(root, "t1")).toEqual([{ id: "billing", name: "Billing", color: "violet" }]);
+    expect(tagsOf(root, "t1")).toEqual([{ id: "billing", name: "Billing", color: VIOLET }]);
   });
 
   it("a refs.json predating tags reads as no tags, and deleting a task drops its entry", () => {
@@ -719,7 +787,7 @@ describe("task tags", () => {
     fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");
     expect(tagsOf(root, "t1")).toEqual([]);
 
-    createTag(root, { name: "billing", color: "violet" });
+    createTag(root, { name: "billing", color: VIOLET });
     setTaskTags(root, "marketing", "t1", ["billing"]);
     deleteTask(root, { pipeline: "marketing", task: "t1" });
     expect(refsJson(root).taskTags["marketing/t1"]).toBeUndefined();

@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import * as api from "../api/client.js";
 import { gateSatisfied, criticalPath } from "../../../core/domain.js";
 import { Hamburger } from "../ui.jsx";
+import { TagMenu, TagChips, useTagActions } from "./tags.jsx";
 
 const PN = { H: 50, ROW: 86, GW: 34, GH: 18, SLOT: 15 };   // SLOT = vertical room per gate input
 // #16 — palette assigned to pipelines by order; nodes carry their pipeline's colour
@@ -58,7 +59,7 @@ const tracePath = (px, py, ix, iy) => {
   return { d: `M ${px} ${py} L ${mid} ${py} L ${mid} ${iy} L ${ix} ${iy}`, vias: py === iy ? [] : [[mid, py], [mid, iy]] };
 };
 
-export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed, onExpandSide }) {
+export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, onChange, collapsed, onExpandSide }) {
   const [plan, setPlan] = useState(null);
   const [sel, setSel] = useState(null);      // selected task key
   const [selMs, setSelMs] = useState(null);  // selected milestone id
@@ -70,6 +71,10 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
   const [linkFrom, setLinkFrom] = useState(null);   // pipeline-timeline: edge source being connected
   const [selBox, setSelBox] = useState(null);   // selection box: {x, y, w, h} or null
   const [selectedKeys, setSelectedKeys] = useState(new Set());   // keys of tasks in the selection box
+  const [tagPick, setTagPick] = useState(false);   // the panel's tag picker
+  // the tag registry is per-pipeline and this board spans every pipeline, so it
+  // is looked up from the selected task's own pid at the call site below
+  const { toggleTag, recolorTag, createAndAssign } = useTagActions(dir, onChange, flash);
   const svgRef = useRef(null);
   const dragRef = useRef(null);
   const viewRef = useRef(view);
@@ -115,7 +120,7 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
   const tasks = [], archivedTasks = [];
   proj.pipelines.forEach((p) => (p.tasks || []).forEach((t) => (t.archived ? archivedTasks : tasks).push({
     key: p.id + "/" + t.id, pid: p.id, tid: t.id, title: (t.ref ? "#" + t.ref + " " : "") + t.title, pipe: p.label,
-    progress: t.progress, done: t.finalized || (t.stages.length > 0 && t.progress === 100),
+    progress: t.progress, done: t.finalized || (t.stages.length > 0 && t.progress === 100), tags: t.tags || [],
   })));
   const byKey = new Map(tasks.map((t) => [t.key, t]));
   const doneSet = new Set(tasks.filter((t) => t.done).map((t) => t.key));
@@ -562,14 +567,26 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
                    <g key={t.key} transform={`translate(${x},${y})`} className={"plan-node " + st + (sel === t.key ? " sel" : "") + (selectedKeys.has(t.key) ? " sel-multi" : "") + (critSet.has(t.key) ? " crit" : "")}
                      onMouseDown={(e) => startDrag(e, { type: "node", keys: [t.key], orig: { [t.key]: pos[t.key] } })}
                      onDoubleClick={() => onOpenTask(t.pid, t.tid)}>
+                    {/* on the node, not on the dots: the dots are 7px, and for a
+                        task with more than four tags this list is the only place
+                        the rest are named. */}
+                    {t.tags.length > 0 && <title>{t.tags.map((g) => g.name).join(", ")}</title>}
                     <rect className="pn-box" width={nw} height={nh} rx="9" />
                     <rect className="pn-accent" x="0" y="7" width="3.5" height={nh - 14} rx="1.75" fill={pipeColor(t.pid)} />
                     <rect className="pn-prog" x="1" y={nh - 4} width={Math.max(0, (nw - 2) * t.progress / 100)} height="3" rx="1.5" />
                     <circle className="pn-pin" cx="0" cy={nh / 2} r="3" />
                     <circle className="pn-pin" cx={nw} cy={nh / 2} r="3" />
                     <text className="pn-title" x="14" y="20">{trunc(t.title, titleCharsFor(nw))}</text>
-                    <text className="pn-sub" x="14" y="36"><tspan fill={pipeColor(t.pid)} style={{ fontWeight: 600 }}>{trunc(t.pipe, wide ? 40 : 12)}</tspan> · {st === "done" ? "✓ done" : st === "running" ? "● running" : st === "blocked" ? "⛔ blocked" : "○ ready"}</text>
+                    <text className="pn-sub" x="14" y="36"><tspan fill={pipeColor(t.pid)} style={{ fontWeight: 600 }}>{trunc(t.pipe, wide ? 40 : t.tags.length ? 7 : 12)}</tspan> · {st === "done" ? "✓ done" : st === "running" ? "● running" : st === "blocked" ? "⛔ blocked" : "○ ready"}</text>
                     {est[t.key] > 0 && <text className="pn-est" x={nw - 10} y="20" textAnchor="end">~{est[t.key]}h</text>}
+                    {/* tag dots ride the sub-text line: the title line holds the ~Nh
+                        estimate, the bottom edge the progress bar, the corner the
+                        resize handle, whose 12px corner the right edge clears. Four
+                        at most — the <title> names them all. */}
+                    {t.tags.slice(0, 4).map((g, i, dots) => (
+                      <circle key={g.id} fill={g.color}
+                        cx={nw - 16 - (dots.length - 1 - i) * 10} cy="33" r="3.5" />
+                    ))}
                     {/* #13 — resize handle (⌘/Ctrl-drag resizes every card) */}
                     <path className="pn-resize" d={`M ${nw - 12} ${nh} L ${nw} ${nh - 12} L ${nw} ${nh} Z`}
                       onMouseDown={(e) => startResize(e, t.key)}><title>Drag to resize · ⌘-drag resizes all cards</title></path>
@@ -592,7 +609,7 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
                         <rect className="pn-box" width={W} height={PN.H} rx="9" />
                         <rect className="pn-accent" x="0" y="7" width="3.5" height={PN.H - 14} rx="1.75" fill={pipeColor(t.pid)} />
                         <text className="pn-title" x="14" y="20">{trunc(t.title, titleCharsFor(W))}</text>
-                        <text className="pn-sub" x="14" y="36"><tspan fill={pipeColor(t.pid)} style={{ fontWeight: 600 }}>{trunc(t.pipe, wide ? 40 : 12)}</tspan> · 🗄 archived</text>
+                        <text className="pn-sub" x="14" y="36"><tspan fill={pipeColor(t.pid)} style={{ fontWeight: 600 }}>{trunc(t.pipe, wide ? 40 : t.tags.length ? 7 : 12)}</tspan> · 🗄 archived</text>
                       </g>
                     );
                   })}
@@ -651,6 +668,18 @@ export function PlanView({ dir, proj, runningTasks, onOpenTask, flash, collapsed
                 <button className="btn ghost sm" onClick={() => setSel(null)}>✕</button>
               </div>
               <div className="muted" style={{ fontSize: 11, marginBottom: 10 }}>{selTask.pipe} · <span className={"tag " + stateOf(selTask)}>{stateOf(selTask)}</span></div>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 10 }}>
+                <TagChips tags={selTask.tags} style={{ flex: 1, marginTop: 0 }} />
+                <button className="btn ghost sm" style={{ marginLeft: "auto" }} title="Tags"
+                  onClick={() => setTagPick((v) => !v)}>🏷 {selTask.tags.length || ""}</button>
+              </div>
+              {tagPick && (
+                <TagMenu task={selTask} registry={(proj.pipelines.find((p) => p.id === selTask.pid) || {}).tags || {}}
+                  style={{ position: "static", right: "auto", top: "auto", minWidth: 0, marginBottom: 10 }}
+                  onToggle={(id) => toggleTag(selTask.pid, selTask.tid, selTask.tags, id)}
+                  onCreate={(name, color) => createAndAssign(selTask.pid, selTask.tid, selTask.tags, name, color)}
+                  onRecolor={recolorTag} onClose={() => setTagPick(false)} />
+              )}
               <div className="side-label" style={{ padding: "0 0 4px" }}>Needs ALL of <span className="muted">(AND)</span></div>
               {g.all.map((d) => depRow(d, "all"))}
               {depPicker(sel, "all")}

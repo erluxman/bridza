@@ -8,6 +8,7 @@ import { slug, runPrompt, fmt, workFiles, base, ago } from "../lib/format.js";
 import { buildStageRecords, lastRunTool, lastRunModel } from "../lib/record.js";
 import { logKey, readLog, appendLog as storeLog } from "../lib/autolog.js";
 import { InspectorView, CanvasView, ChatView, StageRunner } from "./views.jsx";
+import { TagMenu, TagChips, useTagActions } from "./tags.jsx";
 import { Hamburger, ColGrip, useColWidth, Kv, Expandable } from "../ui.jsx";
 import { DiffView, FileModal } from "./diff.jsx";
 import { TermDrawer } from "./term.jsx";
@@ -76,6 +77,8 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   const toggleRail = () => setRailHidden((h) => { const n = !h; try { localStorage.setItem("bridza.railHidden", n ? "1" : "0"); } catch (e) { /* ignore */ } return n; });
   const [plan, setPlan] = useState(null);   // project plan: deps (blocks/needs) + focused-context links
   const [branches, setBranches] = useState([]);   // local branches — the menu for the task's target
+  const [tagPick, setTagPick] = useState(false);   // the rail's Tags row picker
+  const { toggleTag, recolorTag, createAndAssign } = useTagActions(dir, onChange, flash);
   const autoRef = useRef(null);
   const timeRef = useRef({}); const dirtyRef = useRef(false);
   // changing task: restore THIS task's background-run log from the module store
@@ -362,7 +365,6 @@ setResolveOpen(false);
           {/* one line, ellipsised: a long title must never push the toolbar
               around — the full text lives in the Brief card below */}
           <h1 className="task-title" style={{ marginLeft: 6 }} title={task.title}>{task.ref ? <span className="tref">#{task.ref}</span> : null}{task.title}</h1>
-          {(task.tags || []).map((g) => <span className={"tag tag-" + g.color} key={g.id}>{g.name}</span>)}
         </div>
         <div className="row">
           <div className="seg" title="How to view this task's stages. Stages: the classic runner. Inspector / Canvas / Chat: read & audit what each stage did. Terminal: a real shell in this task's worktree.">
@@ -449,6 +451,21 @@ setResolveOpen(false);
             {task.ref && <Kv k="Ref" v={<span className="mono">#{task.ref}</span>} />}
             <Kv k="Status" v={task.finalized ? "finalized" : task.status} />
             <Kv k="Branch" v={<span className="mono" style={{ fontSize: 11 }}>{task.branch}</span>} />
+            <div className="kv" style={{ alignItems: "flex-start", flexWrap: "wrap" }}>
+              <span>Tags</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, flexWrap: "wrap" }}>
+                <TagChips tags={task.tags} style={{ marginTop: 0, justifyContent: "flex-end" }} />
+                <button className="btn ghost sm" disabled={task.finalized} title="Add, remove or recolour this task's tags"
+                  onClick={() => setTagPick((v) => !v)}>{(task.tags || []).length ? "edit" : "add"}</button>
+              </div>
+              {tagPick && (
+                <TagMenu task={task} registry={pipeline.tags || {}}
+                  style={{ position: "static", right: "auto", top: "auto", minWidth: 0, width: "100%", marginTop: 8 }}
+                  onToggle={(id) => toggleTag(pipeline.id, task.id, task.tags, id)}
+                  onCreate={(name, color) => createAndAssign(pipeline.id, task.id, task.tags, name, color)}
+                  onRecolor={recolorTag} onClose={() => setTagPick(false)} />
+              )}
+            </div>
             <div className="kv" title="The branch this task's work lands on — forks from it, reviews diff against it, finalize merges into it">
               <span>Target</span>
               <select className="input" style={{ height: 26, fontSize: 12, width: 130 }} value={targetName} disabled={task.finalized}

@@ -15,8 +15,106 @@
     "build",
     "review"
   ],
-  "routing": {},
+  "routing": {
+    "spec": {
+      "tool": "claude",
+      "model": ""
+    },
+    "build": {
+      "tool": "claude",
+      "model": ""
+    },
+    "review": {
+      "tool": "claude",
+      "model": ""
+    }
+  },
   "status": "in-progress",
   "finalized": false,
-  "tracking": {}
+  "tracking": {
+    "spec": {
+      "status": "done",
+      "seconds": 253,
+      "runs": [
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: I should be able to change the color of the tag",
+          "startedAt": "2026-09-20T18:13:14.172Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T18:15:59.046Z",
+          "exit": 0,
+          "files": [
+            "acceptance.md",
+            "spec.md"
+          ],
+          "sessionId": "4cc25446-cdf9-4f10-a199-51a195f40675",
+          "error": null,
+          "log": "-output-format stream-json --verbose --dangerously-skip-permissions --permission-mode acceptEdits --append-system-prompt \"You are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we'll know it works — n…\"\n· model: TOOL DEFAULT (no --model/-m flag — claude's own config decides)\n· claude ready · claude-opus-5[1m] · 26 tools\n· Bash ls && cat .bridza/pipelines/engineering/00000112-i-should-be-able-to-change-the-color-of/…\n· Bash cat .bridza/pipelines/engineering/00000112-i-should-be-able-to-change-the-color-of/contex…\n  ✖ Exit code 1\n· Bash cat .bridza/pipelines/engineering/00000112-i-should-be-able-to-change-the-color-of/spec/p…\n· Bash grep -ril \"tag\" src core server --include=*.ts --include=*.tsx --include=*.js --include=*…\n· Bash grep -ril \"tag\" src core server electron 2>/dev/null | head -60\n· Bash grep -rn \"tag\" core/domain.js | head -60; echo \"=== store ===\"; grep -n \"tag\" server/brid…\n· Bash sed -n '85,140p' core/domain.js; echo \"=== store tags ===\"; sed -n '370,425p' server/brid…\n· Bash grep -n -i \"tag\" src/app/features/board.jsx | head -80\n· Bash echo \"=== plan.jsx ===\"; grep -n -i \"tag\" src/app/features/plan.jsx | head -40; echo \"===…\n· Bash sed -n '105,130p' src/app/features/plan.jsx; echo \"=== selTask panel ===\"; sed -n '640,68…\n· Bash grep -n \"tag\" src/app/bridza.css | head -40; echo \"=== task topbar ===\"; grep -n \"topbar\"…\n· Bash sed -n '355,385p' src/app/features/task.jsx; echo \"=== existing spec.md/acceptance.md at …\n· Bash grep -n \"pnode\\|plan-node\\|<div className=\\\"pn\" src/app/features/plan.jsx | head -20; ech…\n· Bash sed -n '555,600p' src/app/features/plan.jsx\n· Bash sed -n '1,30p' package.json; ls src/app/__tests__ | head -40\n· Bash head -15 src/app/__tests__/plan.test.js; grep -n '\"test\"' package.json\n· Bash git log --oneline -5 -- spec.md acceptance.md; echo \"=== pipeline meta spec stage ===\"; p…\n· Bash grep -n \"PN = \\|PN\\.H\\|const W =\\|hOf\\|wOf\" src/app/features/plan.jsx | head -20; grep -r…\n· Bash cat > spec.md <<'EOF'\nWrote `spec.md` and `acceptance.md` at the repo root (replacing the previous task's, per this pipeline's convention).\n\n**What the intent maps onto, after reading the code:**\n\n1. **\"change the color of the tag\"** — genuinely impossible today. Colour is set once at creation, and `createTag` (`server/bridza-store.js:387`) early-returns the existing entry when the slugged name already exists, ignoring the colour passed in — so retyping the name with a new swatch is a no-op. The only workaround is a duplicate tag under a different name. Spec adds `updateTag` (store → `POST /api/bridza/tag/update` → client) and makes each tag row's dot in the kanban picker expand the existing swatch row.\n\n2. **\"tags should be displayed on the … detail page\"** — one judgment call worth flagging: the **task detail page already renders chips** in its topbar (`src/app/features/task.jsx:364`). The place a task appears *without* its tags is the **plan board** — `plan.jsx:116` builds its task model and drops `t.tags`, so neither the node nor the side panel shows them. Since the intent names the plan board explicitly (\"the tag that I have for card on the plan board or kanban\"), I scoped this half to the plan board: colour dots on the node, full chips in the panel. If you actually meant something else by \"tags detail page\" — a registry/settings screen listing all tags — that's not in the spec and would need one more line of intent.\n\nExplicitly out of scope (not asked for): renaming tags, deleting tags, editing the palette, and a tag picker on the plan board.\n\nThe plan-board node is the one constrained bit: a default node is 50px tall with the title line holding the `~Nh` estimate, the bottom edge holding the progress bar, and the corner holding the resize handle — so the spec puts dots right-aligned on the sub-text line, capped at 4 with all names in the tooltip, and acceptance has a criterion for that collision.\n· done · 20 turns · 164s · $1.3541"
+        }
+      ]
+    },
+    "build": {
+      "status": "done",
+      "seconds": 197,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: I should be able to change the color of the tag\n\nI should be able to change the color of the tag that I have for card on the plan board or kan ban and also the tags should be displayed on the tags detail page as well\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-20T18:16:00.060Z",
+          "status": "running"
+        },
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: I should be able to change the color of the tag\n\nFit check — this task was filed under the \"Feature\" flow. The earlier stages' outputs (research, requirements, design…) are in the worktree — read them, then judge whether this really is a single \"Feature\" task. The pipeline's other flows: \"Full product SDLC\" (Vision → Requirements → Design & Architecture → Sprint Planning → Implementation → Testing → Review & Release); \"Bugfix\" (Reproduce → Fix → Review); \"UI design\" (Spec → Design); \"Feature dissection\" (Dissect). If it belongs in a different flow (e.g. it's a multi-task feature that must be broken down, not implemented in one go), STOP: write flow-fit.md naming the right flow and why — the earlier stages' work stays on this branch — and do NO implementation. If it fits, proceed normally.",
+          "startedAt": "2026-09-20T18:19:54.056Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T18:23:11.251Z",
+          "exit": 0,
+          "files": [
+            "server/bridge.js",
+            "server/bridza-store.js",
+            "src/app/__tests__/board-tags.test.jsx",
+            "src/app/__tests__/bridza-store.test.js",
+            "src/app/api/client.js",
+            "src/app/features/board.jsx",
+            "src/app/features/plan.jsx"
+          ],
+          "sessionId": "882a8a81-e8e3-4bac-ac36-dc85d4550ed9",
+          "error": null,
+          "log": "n.jsx && echo \"=== 680-740 ===\" && sed -n '680,740p…\n· Bash sed -n '640,682p' src/app/features/plan.jsx\n· Bash grep -n \"tag-chips\" -A 4 src/app/features/board.jsx | head -20 && echo \"=== css ===\" && g…\n· Bash cat src/app/__tests__/board-tags.test.jsx && echo \"=== store test tag part ===\" && grep -…\n· Bash sed -n '660,700p' src/app/__tests__/bridza-store.test.js && echo \"== node_modules ==\" && …\nNow implementing. Store first:\n· Bash python3 - <<'EOF'\n· Bash grep -n \"createTag\" server/bridge.js\n· Bash python3 - <<'EOF'\nNow the picker:\n· Bash python3 - <<'PY'\n· Bash grep -n \"proj-menu\" src/app/bridza.css\n· Bash python3 - <<'PY'\nNow the plan board:\n· Bash python3 - <<'PY'\n· Bash grep -n \"PN = \\|PN\\.H\\|Math.max(.*oh\\|hOf\" src/app/features/plan.jsx | head -20 && sed -n…\n· Bash python3 - <<'PY'\nNow tests. Setting up node_modules first:\n· Bash ln -sfn ../../../bridza/node_modules node_modules 2>/dev/null; ls node_modules/.bin/vites…\nNow the tests:\n· Bash python3 - <<'PY'\n· Bash node_modules/.bin/vitest run src/app/__tests__/board-tags.test.jsx src/app/__tests__/brid…\n· Bash node_modules/.bin/vitest run 2>&1 | tail -25\n· Bash node_modules/.bin/eslint . 2>&1 | tail -20 && echo \"LINT=$?\" && node_modules/.bin/vite bu…\n· Bash git status --porcelain && echo \"=== ignored? ===\" && git check-ignore -v node_modules dist\n· Bash cat .gitignore\n· Bash sed -n '120,150p' src/app/__tests__/create-pr.test.js\n· Bash rm -f node_modules && rm -rf dist && git status --porcelain\n**Fit check:** this is a single feature — one store function, one endpoint, a picker interaction, and a display addition on the plan board. It stays in the \"Feature\" flow; no `flow-fit.md` needed.\n\n## Implemented\n\n**Store** — `updateTag(root, { id, color })` in `server/bridza-store.js:405`, beside `createTag`: rejects a colour outside `TAG_PALETTE` (`invalid color`) and an unknown id, otherwise sets `refs.tags[id].color`, writes `refs.json` and commits it as `bridza: recolor tag \"<name>\" (<id>) → <color>`. `refs.taskTags` is never touched.\n\n**Bridge / client** — `POST /api/bridza/tag/update` (`server/bridge.js:300`), `api.updateTag` (`src/app/api/client.js:40`).\n\n**Picker** (`TagMenu`, `src/app/features/board.jsx:33`) — each tag row's dot is now its own button next to the name button; clicking it expands that tag's eight swatches (one row at a time, current colour marked `on`). A swatch collapses the row, calls `updateTag`, and fires the board's `onChange` so chips repaint from the reloaded registry. The name still toggles assignment; the \"new tag…\" row is unchanged.\n\n**Plan board** (`src/app/features/plan.jsx`) — `tags` carried into the task model; up to four dots right-aligned on the sub-text line (`cy=33`, ending at `nw-16` so they clear the 12px resize corner at any node height), with a `<title>` naming every tag; full `.tag-chips` in the task side panel under the pipeline/state line. No new CSS — the circles carry `tag tag-<colour>` to pick up the existing palette `color`.\n\n**Tests** — `updateTag`'s three outcomes with a real refs round-trip plus a clean `git status` (`bridza-store.test.js`), and the recolour flow in the picker: dot click reveals swatches, a second dot replaces the open row, a swatch calls `updateTag`, `setTaskTags` is never called, row collapses (`board-tags.test.jsx`).\n\n## Verification\n\n`pnpm lint` and `pnpm build` pass. Test suite: **294 passed, 1 failed** — the failure is `create-pr.test.js > falls back with the compose URL when gh is not on PATH`, which sets `PATH=/usr/bin:/bin` expecting `gh` to be absent there; on this machine `gh` is in `/usr/bin`, so the call reaches GitHub and returns a different error. Pre-existing and environment-dependent — it touches `server/bridza-run.js`, which this change does not modify.\n\nI ran the suite against a symlinked `node_modules` from the main checkout (the worktree has none) and removed the symlink and `dist/` afterwards; the working tree holds only the seven changed source files.\n· done · 31 turns · 197s · $1.9756"
+        }
+      ]
+    },
+    "review": {
+      "status": "done",
+      "seconds": 466,
+      "runs": [
+        {
+          "tool": "opencode",
+          "model": null,
+          "prompt": "Task: I should be able to change the color of the tag\n\nI should be able to change the color of the tag that I have for card on the plan board or kan ban and also the tags should be displayed on the tags detail page as well\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-20T18:23:12.236Z",
+          "status": "running"
+        },
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: I should be able to change the color of the tag\n\nI should be able to change the color of the tag that I have for card on the plan board or kan ban and also the tags should be displayed on the tags detail page as well\n\nMerge readiness — this task's change will be merged into the branch \"main\" (on finalize Bridza merges this task's branch into it). Make the change READY TO BE MERGED into \"main\": review the task's branch against that branch (`git diff main...HEAD`, `git merge-tree`), resolve or flag conflicts with it, make sure outputs and docs name \"main\" (not \"main\") where a landing branch matters, and state plainly in your review output whether the merge into \"main\" will be clean. A delivered task must be merge-ready into \"main\", not just done.",
+          "startedAt": "2026-09-20T18:27:42.233Z",
+          "status": "done",
+          "finishedAt": "2026-09-20T18:34:03.071Z",
+          "exit": 0,
+          "files": [
+            "review.md"
+          ],
+          "sessionId": "671e9c40-25b4-4f7e-b430-21e2903650ea",
+          "error": null,
+          "log": "=== PN / hOf / resize min ===\";…\n· Bash ls -la node_modules 2>/dev/null | head -3; ls /home/risky/projects/erluxman.com/bridza/no…\n· Bash grep -n '\"resize\"' -A10 src/app/features/plan.jsx | head -20\n· Bash ln -sfn /home/risky/projects/erluxman.com/bridza/node_modules node_modules && ls src/app/…\n· Bash grep -n \"pn-sub\\|pn-est\\|pn-title\" src/app/bridza.css\n· Bash timeout 900 pnpm test 2>&1 | tail -30\n· Bash timeout 600 pnpm lint 2>&1 | tail -20; echo \"=== BUILD ===\"; timeout 900 pnpm build 2>&1 …\n· Bash timeout 300 npx vitest run src/app/__tests__/board-tags.test.jsx src/app/__tests__/bridza…\n· Bash git stash list | head -3; git worktree list | head; echo \"=== check create-pr on main ===…\n· Bash sed -n 150,185p server/bridza-store.js; echo \"=== bridge tests ===\"; ls src/app/__tests__…\n· Bash cd /home/risky/projects/erluxman.com/bridza && timeout 300 npx vitest run src/app/__tests…\n· Bash git fetch -q . 2>/dev/null; echo \"=== merge-tree main...HEAD ===\"; git merge-tree --write…\n· Bash grep -n \"^\\.item\\|\\.item {\\|\\.item:hover\\|proj-menu .item\\|menu .item\" src/app/bridza.css…\n· Bash sed -n 355,375p src/app/features/task.jsx; echo \"=== who passes proj/onChange to Board ==…\n· Bash sed -n 66,72p src/app/bridza.css; grep -n \"\\.proj-menu {\" -A3 src/app/bridza.css\n· Bash sed -n 418,435p server/bridza-store.js; echo \"=== hasOwnProperty usage in repo ===\"; grep…\n· Bash cat > /tmp/probe.mjs <<'EOF'\n  ✖ Exit code 1\n· Bash sed -i 's#\"./server/bridza-store.js\"#\"/home/risky/projects/erluxman.com/bridza.bridza-tas…\n· Bash git diff main...HEAD -- .bridza/ | head -60; echo \"=== grep branch names in outputs ===\";…\n· Bash git status --porcelain | head; echo \"--- ignored? ---\"; git check-ignore -v node_modules …\n· Bash cat .gitignore\nNow writing the review.\n· Bash cat > review.md <<'MD'\n· Bash git log --oneline -3 -- review.md; echo \"=== HEAD version (first 40 lines) ===\"; git show…\n· Bash python3 - <<'PY'\n`review.md` is written. Summary:\n\n**Verdict: approve with fixes.** The implementation matches the spec closely, adds no dependency/abstraction/CSS, and reuses the existing palette classes. `pnpm lint` and `pnpm build` are clean; the two touched test files pass (69 tests).\n\n**Merge into `main`: clean.** `git merge-tree --write-tree main HEAD` exits 0 with a tree and no conflicts. Nothing in the branch's outputs names a landing branch other than `main`.\n\nFindings against acceptance.md:\n\n- **F1 (real acceptance failure, reproduced)** — `updateTag` uses a truthiness check on `refs.tags[id]`, so `id: \"constructor\"` returns `{ ok: true }`, writes `{\"constructor\":{\"color\":\"cyan\"}}` into `refs.json`, and commits `bridza: recolor tag \"Object\" (constructor) → cyan`. The criterion says an unknown id must change nothing on disk. One-line `hasOwnProperty` guard.\n- **F2** — plan-board dots likely overlap the sub-text at the 170px minimum node width with 2+ tags (arithmetic, not a measured render).\n- **F3** — the `<title>` sits on the inner `<g>` of four 3.5px circles, so tag names only appear when hovering a dot, not the node as the criterion words it.\n- **F4** — at the 38px minimum node height the dots cross the progress bar, which the criterion names explicitly for the resized case.\n- **F5** — cosmetic: the dot lost `.item`'s 9px padding and its hover fill.\n\nOver-engineering — three small deletions, nothing structural: drop the `Math.min(t.tags.length, 4)` that re-derives `slice(0,4)`'s length; `updateTag`'s `{ ok, id, color }` echo is never read by its one caller; the three inline style props on the dot button belong in one CSS rule.\n\nTwo notes on the environment: the one `pnpm test` failure (`create-pr.test.js`, \"gh is not on PATH\") is pre-existing — that file is untouched by the diff and the same test fails on `main`, because a real `gh` is installed here. And the root `review.md` is a shared file that each review stage overwrites — the copy I replaced was task #111's review, still available at `git show HEAD:review.md`.\n· done · 36 turns · 380s · $2.1549"
+        }
+      ]
+    }
+  }
 }
