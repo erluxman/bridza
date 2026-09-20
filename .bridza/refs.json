@@ -191,7 +191,8 @@
     "engineering/logo-first-launch-detection": true,
     "engineering/logo-animation-component": true,
     "engineering/create-pr-browser-compose-link": true,
-    "engineering/auto-advance-chain-registry": true
+    "engineering/auto-advance-chain-registry": true,
+    "engineering/categorize-the-tasks-in-milestones": true
   },
   "tags": {
     "complex": {
