@@ -15,7 +15,8 @@
 //   POST /api/bridza/pipeline     create a pipeline
 //   POST /api/bridza/task         create a task (+ its branch)
 //   POST /api/bridza/context      edit task/stage natural-language context
-//   POST /api/bridza/run/stage    run a stage (ndjson timeline stream)
+//   POST /api/bridza/run/stage    run a stage (ndjson timeline stream; + `advance` chain)
+//   POST /api/bridza/run/attach   re-attach to a live run / replay the last one
 //   GET  /api/bridza/timeline     the task branch commit timeline
 //   POST /api/bridza/finalize     merge a task branch into main
 //   POST /api/bridza/conflict/*   open / finish / abort a paused conflict merge
@@ -25,7 +26,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { DATA_DIR, CLI_TOOLS, pipelineFlows } from "../core/domain.js";
 import { readProject, createPipeline, savePipeline, archivePipeline, saveKanbanOrder, deletePipeline, createTask, deleteTask, readContext, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan, assignRefs, readPipelineDef, setTaskArchived, createTag, updateTag, setTaskTags } from "./bridza-store.js";
-import { runStage, automateTask, finalizeTask, finishConflict, abortConflict, openDir, conflictedFiles, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, retargetTask, setTaskReuse, setStageRouting, listModels, termRun, ensureTaskWorktree, recommendPipelines, readTaskFile, saveTaskFile, listBranches, createPR } from "./bridza-run.js";
+import { runStage, runStageAndAdvance, attachRun, automateTask, finalizeTask, finishConflict, abortConflict, openDir, conflictedFiles, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, retargetTask, setTaskReuse, setStageRouting, listModels, termRun, ensureTaskWorktree, recommendPipelines, readTaskFile, saveTaskFile, listBranches, createPR } from "./bridza-run.js";
 
 function resolveDir(raw) {
   if (!raw) return null;
@@ -425,7 +426,18 @@ export async function handleApi(req, res) {
       const body = (await json(req)) || {};
       res.setHeader("Content-Type", "application/x-ndjson");
       res.setHeader("Cache-Control", "no-cache");
-      await runStage(root, body, (obj) => res.write(JSON.stringify(obj) + "\n"));
+      await runStageAndAdvance(root, body, (obj) => res.write(JSON.stringify(obj) + "\n"));
+      res.end(); return true;
+    }
+    // (re)attach to a stage's run: replay + live tail, or the last finished run.
+    // The registry is process-wide, so no project dir is needed.
+    if (M === "POST" && P === "/api/bridza/run/attach") {
+      const b = (await json(req)) || {};
+      res.setHeader("Content-Type", "application/x-ndjson");
+      res.setHeader("Cache-Control", "no-cache");
+      const h = attachRun(b.pipeline, b.task, b.stage, (obj) => { try { res.write(JSON.stringify(obj) + "\n"); } catch (e) { /* client gone */ } });
+      res.on("close", h.detach);
+      await h.done;
       res.end(); return true;
     }
     if (M === "POST" && P === "/api/bridza/automate") {

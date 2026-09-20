@@ -17,7 +17,7 @@ const api = vi.hoisted(() => ({
   createTag: vi.fn(), updateTag: vi.fn(), setTaskTags: vi.fn(),
   getPlan: vi.fn(), savePlan: vi.fn(), getTimeline: vi.fn(), getContext: vi.fn(),
   fetchTime: vi.fn(), getBlast: vi.fn(), getModels: vi.fn(), getBranches: vi.fn(),
-  runStage: vi.fn(), stopRun: vi.fn(), saveTime: vi.fn(), automate: vi.fn(),
+  runStage: vi.fn(), stopRun: vi.fn(), saveTime: vi.fn(), automate: vi.fn(), attachRun: vi.fn(),
   finalize: vi.fn(), openEditor: vi.fn(), createPR: vi.fn(),
 }));
 vi.mock("../api/client.js", () => api);
@@ -118,6 +118,7 @@ describe("the task detail rail", () => {
     api.getBlast.mockResolvedValue({ ok: true, seeds: [], impacted: [], edges: [] });
     api.getModels.mockResolvedValue({ models: [] });
     api.getBranches.mockResolvedValue({ branches: [] });
+    api.attachRun.mockImplementation((_d, _b, onEvent) => { const e = { t: "end", none: true }; onEvent(e); return Promise.resolve(e); });   // nothing live on the server
     act(() => root.render(<TaskDetail dir="/repo" proj={{ pipelines: [pipeline] }} pipeline={pipeline} task={task}
       tools={[{ id: "claude", label: "claude", available: true }]} runningStages={new Set()}
       flash={() => {}} onBack={() => {}} onChange={() => {}} onOpenTask={() => {}} onExpandSide={() => {}} collapsed={false} />));

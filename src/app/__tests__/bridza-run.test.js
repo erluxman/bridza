@@ -20,6 +20,7 @@ import {
   resolveRunnableTool, DEFAULT_STAGE_PROMPT, readTaskFile, saveTaskFile,
   finishConflict, abortConflict, pendingConflict, conflictedFiles,
   taskTarget, listBranches, setStageRouting, stageRouting,
+  attachRun, runStageAndAdvance, listActiveRuns,
 } from "../../../server/bridza-run.js";
 import { rel, CLI_TOOLS } from "../../../core/domain.js";
 
@@ -709,3 +710,81 @@ describe("target branch — where each task's work lands", () => {
 
 // Task archive state moved to the root .bridza/refs.json so it syncs between
 // devices — its tests live in bridza-store.test.js ("task archive state").
+
+// The run is the server's, the page is a window onto it: a refresh mid-run can
+// re-attach (replay + live tail), a run that ended while nobody watched keeps
+// its text + reason, and the auto-advance chain carries on server-side.
+describe("refresh survival: the run lives on the server", () => {
+  const base = { tool: "claude", pipeline: "marketing", task: "task-506" };
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  it("re-attaching to a live run replays what it printed and streams the rest to its end", async () => {
+    stub("echo first; sleep 1; echo second; echo out > OUTPUT.md");
+    const running = run({});                       // not awaited — it's live
+    await sleep(500);
+    expect(listActiveRuns()).toHaveLength(1);
+    expect(Object.keys(listActiveRuns()[0])).toEqual(["pipeline", "task", "stage", "tool", "startedAt"]);   // JSON-safe: no handles leak into /state
+    const got = [];
+    const end = await attachRun("marketing", "task-506", "research", (e) => got.push(e)).done;
+    expect(got[0]).toMatchObject({ t: "replay", live: true, tool: "claude" });
+    expect(got[0].log).toContain("first\n");          // printed before we attached…
+    expect(got[0].log).not.toContain("second\n");     // …this one not yet (the echoed command line mentions it, output doesn't)
+    expect(got.some((e) => e.t === "out" && e.d.includes("second"))).toBe(true);
+    expect(end.status).toBe("done");
+    expect((await running).end.status).toBe("done");
+    expect(listActiveRuns()).toHaveLength(0);
+  });
+
+  it("a run that failed while nobody watched still replays its text and the reason", async () => {
+    stub("echo hello; echo 'quota exceeded' >&2; exit 3");
+    await run({});
+    const got = [];
+    const end = await attachRun("marketing", "task-506", "research", (e) => got.push(e)).done;
+    expect(got[0]).toMatchObject({ t: "replay", live: false });
+    expect(got[0].log).toContain("hello");
+    expect(got[0].log).toContain("quota exceeded");
+    expect(end).toMatchObject({ t: "end", replayed: true, status: "failed", exit: 3 });
+    expect(end.error).toMatch(/exited with code 3/);
+  });
+
+  it("attaching where nothing ever ran ends at once with `none`", async () => {
+    const got = [];
+    const end = await attachRun("marketing", "task-506", "never-ran", (e) => got.push(e)).done;
+    expect(end).toEqual({ t: "end", none: true });
+    expect(got).toHaveLength(1);
+  });
+
+  it("a stage run by hand carries the task on through its `advance` stages — on the server, after the response ended", async () => {
+    stub("echo $RANDOM > OUTPUT-$(date +%s%N).md; echo ok");
+    const events = [];
+    const end = await runStageAndAdvance(root, { ...base, stage: "research", advance: [{ ...base, stage: "draft" }, { ...base, stage: "publish" }] }, (e) => events.push(e));
+    expect(end.status).toBe("done");
+    expect(events.find((e) => e.t === "end").advancing).toBe(2);
+    await vi.waitFor(() => {
+      const stages = taskTimeline(root, "marketing", "task-506").commits.map((c) => c.stage);
+      expect(stages).toEqual(expect.arrayContaining(["research", "draft", "publish"]));
+    }, { timeout: 25000, interval: 200 });
+    await vi.waitFor(() => expect(listActiveRuns()).toHaveLength(0));
+  });
+
+  it("does not chain after a stage that did not end done", async () => {
+    stub("echo nope >&2; exit 1");
+    const events = [];
+    const end = await runStageAndAdvance(root, { ...base, stage: "research", advance: [{ ...base, stage: "draft" }] }, (e) => events.push(e));
+    expect(end.status).toBe("failed");
+    expect(events.find((e) => e.t === "end").advancing).toBeUndefined();
+    await sleep(600);
+    expect(listActiveRuns()).toHaveLength(0);
+    expect(taskTimeline(root, "marketing", "task-506").commits.map((c) => c.stage)).not.toContain("draft");
+  });
+
+  it("refuses a second stage of the same task while one is live", async () => {
+    stub("sleep 1; echo ok");
+    const first = run({});
+    await sleep(300);
+    const { end } = await run({ stage: "draft" });
+    expect(end).toMatchObject({ status: "busy", errorKind: "busy" });
+    expect(end.error).toMatch(/research/);
+    expect((await first).end.status).toBe("done");
+  });
+});

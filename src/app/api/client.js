@@ -11,9 +11,9 @@ async function get(p, dir) {
   try { const r = await fetch(api(p, dir)); return await r.json(); }
   catch (e) { return { ...NO_BRIDGE }; }
 }
-async function post(p, dir, body) {
+async function post(p, dir, body, init = {}) {
   try {
-    const r = await fetch(api(p, dir), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+    const r = await fetch(api(p, dir), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}), ...init });
     return await r.json();
   } catch (e) { return { ...NO_BRIDGE }; }
 }
@@ -61,7 +61,9 @@ export const getWorkingDiff = (dir) => get(`/working-diff`, dir);
 export const getFile = (dir, pipeline, task, path) => get(`/file?pipeline=${encodeURIComponent(pipeline)}&task=${encodeURIComponent(task)}&path=${encodeURIComponent(path)}`, dir);
 export const saveFile = (dir, body) => post("/file/save", dir, body);
 export const fetchTime = (dir, pipeline, task) => get(`/time?pipeline=${encodeURIComponent(pipeline)}&task=${encodeURIComponent(task)}`, dir);
-export const saveTime = (dir, pipeline, task, time) => post("/time", dir, { pipeline, task, time });
+// keepalive: the last flush happens on beforeunload — without it the browser
+// drops the request with the page and up to 10s of tracked time goes missing
+export const saveTime = (dir, pipeline, task, time) => post("/time", dir, { pipeline, task, time }, { keepalive: true });
 export const createPR = (dir, body) => post("/pr", dir, body);
 
 // Stream an ndjson timeline endpoint: parses each event and calls onEvent for
@@ -90,7 +92,14 @@ async function stream(path, dir, body, onEvent, signal) {
 }
 
 // Stream a single stage run. Resolves with the final {t:"end",…} event.
+// `body.advance` (optional) = the run bodies of the stages after it; the server
+// carries the task on through them once this one ends done.
 export const runStage = (dir, body, onEvent) => stream("/run/stage", dir, body, onEvent);
+
+// (Re)attach to a stage's run on the server: a {t:"replay",live,log,…} event
+// first, then the live tail until its end — or the last finished run's text +
+// end (marked `replayed`), or {t:"end",none:true} when there was never one.
+export const attachRun = (dir, body, onEvent, signal) => stream("/run/attach", dir, body, onEvent, signal);
 
 // Stream the Automate flow — every stage of a task, back-to-back. `body.stages`
 // is an ordered array of run/stage bodies. Resolves with the final automate end.

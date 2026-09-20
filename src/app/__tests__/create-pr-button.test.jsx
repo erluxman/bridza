@@ -12,7 +12,7 @@ const api = vi.hoisted(() => ({
   getPlan: vi.fn(), getTimeline: vi.fn(), getContext: vi.fn(), fetchTime: vi.fn(),
   getBlast: vi.fn(), getModels: vi.fn(), getBranches: vi.fn(), automate: vi.fn(),
   runStage: vi.fn(), stopRun: vi.fn(), saveTime: vi.fn(), finalize: vi.fn(), openEditor: vi.fn(),
-  createPR: vi.fn(),
+  createPR: vi.fn(), attachRun: vi.fn(),
 }));
 vi.mock("../api/client.js", () => api);
 vi.mock("../features/term.jsx", () => ({ TermDrawer: () => null }));
@@ -52,6 +52,7 @@ beforeEach(() => {
   api.getBlast.mockResolvedValue({ ok: true, seeds: [], impacted: [], edges: [] });
   api.getModels.mockResolvedValue({ models: [] });
   api.getBranches.mockResolvedValue({ branches: [] });
+  api.attachRun.mockImplementation((_d, _b, onEvent) => { const e = { t: "end", none: true }; onEvent(e); return Promise.resolve(e); });   // nothing live on the server
   window.open = (url) => { opened.push(url); return null; };
 
   host = document.createElement("div");
