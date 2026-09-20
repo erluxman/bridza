@@ -19,6 +19,10 @@
     "build": {
       "tool": "claude",
       "model": ""
+    },
+    "review": {
+      "tool": "claude",
+      "model": ""
     }
   },
   "status": "in-progress",
