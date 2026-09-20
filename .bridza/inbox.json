@@ -1,4 +1,11 @@
 {
   "v": 1,
-  "items": []
+  "items": [
+    {
+      "id": "in-r9xjag",
+      "kind": "idea",
+      "text": "Alright, so, when I do not focus  search text field in dashboard (pipeline kanban view ) with shortcut or click, the focus should stay on whichever element is it at . it should not automatically focus on it (search field) , But to focus on that search either we click on it, or press a shortcut like command + K to to focus on it",
+      "time": "2026-09-20T17:05:20.333Z"
+    }
+  ]
 }
