@@ -182,7 +182,8 @@
     "engineering/task-target-branch-selector": true,
     "engineering/ui-ref-display": true,
     "engineering/plan-agent-categorize-backlog": true,
-    "engineering/plan-backlog-box": true
+    "engineering/plan-backlog-box": true,
+    "engineering/archive-tag-backfill-policy": true
   },
   "tags": {
     "complex": {
