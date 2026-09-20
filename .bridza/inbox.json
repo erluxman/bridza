@@ -1,4 +1,11 @@
 {
   "v": 1,
-  "items": []
+  "items": [
+    {
+      "id": "in-bgugrz",
+      "kind": "idea",
+      "text": "archived should not be just another section in the Kanban view it should be a button on the top bar or title bar where it will open these items from like floating\n dialog from the right but they won't be visible on the pipeline's Kanban view",
+      "time": "2026-09-20T19:42:42.432Z"
+    }
+  ]
 }
