@@ -1,11 +1,4 @@
 {
   "v": 1,
-  "items": [
-    {
-      "id": "in-d8z4hz",
-      "kind": "idea",
-      "text": "Group the tasks into milestones and organize them with similar features and also build their dependencies like if there are any blocking dependencies or blocking milestone for an another also map those things and organize the plan board.",
-      "time": "2026-09-20T14:41:38.866Z"
-    }
-  ]
+  "items": []
 }
