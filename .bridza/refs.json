@@ -171,7 +171,8 @@
     "engineering/merge-method-decision-adr": true,
     "engineering/implement-merge-strategy": true,
     "engineering/conflict-open-in-vscode": true,
-    "engineering/conflict-auto-union-bridza-state": true
+    "engineering/conflict-auto-union-bridza-state": true,
+    "engineering/merge-strategy-goal-ranking": true
   },
   "tags": {
     "complex": {
