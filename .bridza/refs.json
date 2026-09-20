@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 89,
+  "next": 95,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -77,7 +77,13 @@
     "engineering/atlas-shell-and-file-map": 84,
     "engineering/usage-based-design-changes-automatically": 85,
     "engineering/commands-sent-to-claude-are-not": 87,
-    "engineering/organize-the-plan-board-into-milestones": 88
+    "engineering/organize-the-plan-board-into-milestones": 88,
+    "engineering/ai-assisted-conflict-merge": 89,
+    "engineering/conflict-auto-union-bridza-state": 90,
+    "engineering/conflict-open-in-vscode": 91,
+    "engineering/merge-button-gating": 92,
+    "engineering/merge-preflight-check": 93,
+    "engineering/task-target-branch-selector": 94
   },
   "deleted": [
     "engineering/truncation-check-idea",
