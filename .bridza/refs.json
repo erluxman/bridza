@@ -184,7 +184,8 @@
     "engineering/plan-agent-categorize-backlog": true,
     "engineering/plan-backlog-box": true,
     "engineering/archive-tag-backfill-policy": true,
-    "engineering/run-ledger-reachability-contract": true
+    "engineering/run-ledger-reachability-contract": true,
+    "engineering/task-branch-deletion-policy": true
   },
   "tags": {
     "complex": {
