@@ -68,9 +68,6 @@ export function TermDrawer({ dir, pipeline, task, onClose, full }) {
       } catch (e) { /* non-JSON frame */ }
     };
     ws.onerror = () => setDead((d) => d || "couldn't reach the PTY bridge — is the dev server running?");
-    ws.onclose = () => {
-      // Detach is normal, only show dead for real errors/exits
-    };
     const dataSub = term.onData((d) => { if (ws.readyState === 1) ws.send(JSON.stringify({ t: "in", d })); });
     const ro = new ResizeObserver(() => {
       fit.fit();

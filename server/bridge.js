@@ -122,17 +122,48 @@ export async function handleUpgrade(req, socket, head) {
   try {
     const wss = await getWss();
     wss.handleUpgrade(req, socket, head, async (ws) => {
+      // The client speaks (its opening `resize`, then keystrokes) as soon as
+      // the socket opens, but the first attach still has to resolve the
+      // worktree and load node-pty — and a `message` with no listener is
+      // dropped. So listen right away and queue until there is a PTY to feed.
+      let cwd = null, sess = null, closed = false;
+      const pending = [];
+      const apply = (m) => {
+        if (m.t === "in" && typeof m.d === "string") sess.pty.write(m.d);
+        else if (m.t === "resize" && m.cols > 1 && m.rows > 1) sess.pty.resize(m.cols | 0, m.rows | 0);
+        else if (m.t === "kill") { try { sess.pty.kill(); } catch (e) {} SESSIONS.delete(cwd); }
+      };
+      // Detach: the shell keeps running, minus a viewer, until reattached or reaped.
+      const detach = () => {
+        if (sess.ws !== ws) return;             // already taken over by a newer client
+        sess.ws = null;
+        if (SESSIONS.get(cwd) !== sess) return; // killed, or exited on its own — nothing left to reap
+        sess.timer = setTimeout(() => {
+          if (SESSIONS.get(cwd) === sess && !sess.ws) {
+            try { sess.pty.kill(); } catch (e) {}
+            SESSIONS.delete(cwd);
+          }
+        }, REAP_TIMEOUT);
+      };
+      ws.on("message", (buf) => {
+        try {
+          const m = JSON.parse(String(buf));
+          if (sess) apply(m); else pending.push(m);
+        } catch (e) { /* ignore malformed frames */ }
+      });
+      ws.on("close", () => { closed = true; if (sess) detach(); });
+
       const url = new URL(req.url, "http://localhost");
       const root = repoRoot(url.searchParams.get("dir"));
       if (!root) return void ws.close(1008, "no project folder");
-      let cwd = root;
+      cwd = root;
       const pl = url.searchParams.get("pipeline"), tk = url.searchParams.get("task");
       if (pl && tk) {
         const wt = ensureTaskWorktree(root, pl, tk);
         if (wt.ok) cwd = wt.worktree;
       }
 
-      let sess = SESSIONS.get(cwd);
+      sess = SESSIONS.get(cwd);
       if (sess) {
         clearTimeout(sess.timer);
         if (sess.ws && sess.ws.readyState === 1) sess.ws.close();
@@ -162,25 +193,8 @@ export async function handleUpgrade(req, socket, head) {
         });
       }
 
-      ws.on("message", (buf) => {
-        try {
-          const m = JSON.parse(String(buf));
-          if (m.t === "in" && typeof m.d === "string") sess.pty.write(m.d);
-          else if (m.t === "resize" && m.cols > 1 && m.rows > 1) sess.pty.resize(m.cols | 0, m.rows | 0);
-          else if (m.t === "kill") { try { sess.pty.kill(); } catch (e) {} SESSIONS.delete(cwd); }
-        } catch (e) { /* ignore malformed frames */ }
-      });
-      ws.on("close", () => {
-        if (sess.ws === ws) {
-          sess.ws = null;
-          sess.timer = setTimeout(() => {
-            if (SESSIONS.get(cwd) === sess && !sess.ws) {
-              try { sess.pty.kill(); } catch (e) {}
-              SESSIONS.delete(cwd);
-            }
-          }, REAP_TIMEOUT);
-        }
-      });
+      for (const m of pending.splice(0)) apply(m);
+      if (closed) detach(); // client gave up while we were spawning
     });
   } catch (e) { socket.destroy(); }
 }
