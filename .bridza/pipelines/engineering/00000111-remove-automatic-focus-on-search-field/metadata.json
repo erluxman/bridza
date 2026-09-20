@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "remove-automatic-focus-on-search-field",
+  "pipeline": "engineering",
+  "title": "Remove automatic focus on search field in Kanban View.",
+  "ref": 111,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/remove-automatic-focus-on-search-field",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
