@@ -157,6 +157,10 @@
     "complex": {
       "name": "Complex",
       "color": "violet"
+    },
+    "bug": {
+      "name": "bug",
+      "color": "violet"
     }
   },
   "taskTags": {}
