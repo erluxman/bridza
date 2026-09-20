@@ -185,7 +185,8 @@
     "engineering/plan-backlog-box": true,
     "engineering/archive-tag-backfill-policy": true,
     "engineering/run-ledger-reachability-contract": true,
-    "engineering/task-branch-deletion-policy": true
+    "engineering/task-branch-deletion-policy": true,
+    "engineering/atlas-ai-architecture-overview": true
   },
   "tags": {
     "complex": {
