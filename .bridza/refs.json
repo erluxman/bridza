@@ -163,5 +163,9 @@
       "color": "violet"
     }
   },
-  "taskTags": {}
+  "taskTags": {
+    "engineering/should-give-me-output-or-run-the": [
+      "bug"
+    ]
+  }
 }
