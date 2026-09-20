@@ -1,11 +1,4 @@
 {
   "v": 1,
-  "items": [
-    {
-      "id": "in-9uzy0e",
-      "kind": "idea",
-      "text": "When I select an agent for a step in a task, it should persist and use that model only to execute that step in that stage for that task or card. It should be stored somewhere and it should be read from there so that I don't have to go back and check every single time.",
-      "time": "2026-09-20T15:12:03.535Z"
-    }
-  ]
+  "items": []
 }

@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 103,
+  "next": 104,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -90,7 +90,8 @@
     "engineering/plan-board-taxonomy-audit": 99,
     "engineering/plan-board-validation-and-cleanup": 100,
     "engineering/workflow-dependency-mapping": 101,
-    "engineering/terminal-state-restoration-in-task": 102
+    "engineering/terminal-state-restoration-in-task": 102,
+    "engineering/persist-agent-pickup-choice": 103
   },
   "deleted": [
     "engineering/truncation-check-idea",

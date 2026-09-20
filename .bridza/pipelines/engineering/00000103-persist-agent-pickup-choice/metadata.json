@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "persist-agent-pickup-choice",
+  "pipeline": "engineering",
+  "title": "persist agent pickup choice",
+  "ref": 103,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/persist-agent-pickup-choice",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
