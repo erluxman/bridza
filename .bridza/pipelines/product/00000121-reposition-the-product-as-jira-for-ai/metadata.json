@@ -1,0 +1,25 @@
+{
+  "v": 1,
+  "id": "reposition-the-product-as-jira-for-ai",
+  "pipeline": "product",
+  "title": "Reposition the product as Jira for AI Agents",
+  "ref": 121,
+  "type": "idea",
+  "flow": "product-spec",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/product/reposition-the-product-as-jira-for-ai",
+  "target": "main",
+  "stages": [
+    "ps-concept",
+    "ps-requirements",
+    "ps-ux",
+    "ps-architecture",
+    "ps-breakdown",
+    "ps-spec-pdf"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
