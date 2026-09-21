@@ -15,7 +15,12 @@
     "brand-voice",
     "brand-visual"
   ],
-  "routing": {},
+  "routing": {
+    "brand-positioning": {
+      "tool": "claude",
+      "model": ""
+    }
+  },
   "status": "in-progress",
   "finalized": false,
   "tracking": {}
