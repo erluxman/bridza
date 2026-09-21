@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "rebrand-jira-to-aira-for-project",
+  "pipeline": "design-brand",
+  "title": "Rebrand Jira to Aira.. for project management with AI",
+  "ref": 122,
+  "type": "idea",
+  "flow": "brand-identity",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/design-brand/rebrand-jira-to-aira-for-project",
+  "target": "main",
+  "stages": [
+    "brand-positioning",
+    "brand-voice",
+    "brand-visual"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}

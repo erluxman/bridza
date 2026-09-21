@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 122,
+  "next": 123,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -109,7 +109,8 @@
     "engineering/plan-collapse-milestones": 118,
     "engineering/plan-drag-into-milestone": 119,
     "engineering/task-milestone-picker-at-birth": 120,
-    "product/reposition-the-product-as-jira-for-ai": 121
+    "product/reposition-the-product-as-jira-for-ai": 121,
+    "design-brand/rebrand-jira-to-aira-for-project": 122
   },
   "deleted": [
     "engineering/truncation-check-idea",
