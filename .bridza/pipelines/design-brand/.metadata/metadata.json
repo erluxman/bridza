@@ -1,0 +1,150 @@
+{
+  "v": 1,
+  "id": "design-brand",
+  "label": "Design & Brand",
+  "workingDir": ".",
+  "flows": [
+    {
+      "id": "brand-identity",
+      "name": "Brand identity",
+      "stages": [
+        {
+          "id": "brand-positioning",
+          "name": "Positioning",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a brand strategist. From the task intent define the positioning using April Dunford's Obviously Awesome method: competitive alternatives, unique attributes, value (and proof), best-fit customers, and the market category to frame it in — then the personality and one-line promise. Write positioning.md.",
+          "outputs": [
+            {
+              "name": "positioning.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [
+            {
+              "key": "target-age",
+              "value": ""
+            },
+            {
+              "key": "branding",
+              "value": ""
+            }
+          ],
+          "shell": [],
+          "gate": "positioning agreed",
+          "auto": true,
+          "judge": false
+        },
+        {
+          "id": "brand-voice",
+          "name": "Voice & messaging",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are a brand writer. From positioning.md define the voice (tone, do/don't, vocabulary) and the messaging hierarchy (tagline, elevator pitch, proof points) as a StoryBrand BrandScript: the CUSTOMER is the hero, the brand is the guide with a plan. Write voice.md.",
+          "outputs": [
+            {
+              "name": "voice.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "voice approved",
+          "auto": true,
+          "judge": false
+        },
+        {
+          "id": "brand-visual",
+          "name": "Visual brief",
+          "hint": "",
+          "tool": "opencode",
+          "systemPrompt": "You are an art director. From positioning.md and voice.md write the visual identity brief: color direction, typography, imagery style, logo requirements. Write visual-brief.md.",
+          "outputs": [
+            {
+              "name": "visual-brief.md",
+              "type": "doc",
+              "note": ""
+            }
+          ],
+          "specs": [],
+          "shell": [],
+          "gate": "brief approved",
+          "auto": true,
+          "judge": true
+        }
+      ],
+      "next": null
+    }
+  ],
+  "stages": [
+    {
+      "id": "brand-positioning",
+      "name": "Positioning",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a brand strategist. From the task intent define the positioning using April Dunford's Obviously Awesome method: competitive alternatives, unique attributes, value (and proof), best-fit customers, and the market category to frame it in — then the personality and one-line promise. Write positioning.md.",
+      "outputs": [
+        {
+          "name": "positioning.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [
+        {
+          "key": "target-age",
+          "value": ""
+        },
+        {
+          "key": "branding",
+          "value": ""
+        }
+      ],
+      "shell": [],
+      "gate": "positioning agreed",
+      "auto": true,
+      "judge": false
+    },
+    {
+      "id": "brand-voice",
+      "name": "Voice & messaging",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are a brand writer. From positioning.md define the voice (tone, do/don't, vocabulary) and the messaging hierarchy (tagline, elevator pitch, proof points) as a StoryBrand BrandScript: the CUSTOMER is the hero, the brand is the guide with a plan. Write voice.md.",
+      "outputs": [
+        {
+          "name": "voice.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "voice approved",
+      "auto": true,
+      "judge": false
+    },
+    {
+      "id": "brand-visual",
+      "name": "Visual brief",
+      "hint": "",
+      "tool": "opencode",
+      "systemPrompt": "You are an art director. From positioning.md and voice.md write the visual identity brief: color direction, typography, imagery style, logo requirements. Write visual-brief.md.",
+      "outputs": [
+        {
+          "name": "visual-brief.md",
+          "type": "doc",
+          "note": ""
+        }
+      ],
+      "specs": [],
+      "shell": [],
+      "gate": "brief approved",
+      "auto": true,
+      "judge": true
+    }
+  ],
+  "templates": []
+}
