@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Aira">
+  <!-- single-colour mark: inherits currentColor; default Dark Navy -->
+  <g fill="none" stroke="currentColor" color="#0B1120" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 36 C6 54 27 58 30.5 40 L37 11"/>
+    <path d="M37 11 L51 55"/>
+  </g>
+</svg>

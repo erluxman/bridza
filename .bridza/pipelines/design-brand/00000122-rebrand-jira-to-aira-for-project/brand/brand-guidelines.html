@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Aira Brand Guidelines</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --blue:#4F7BFF; --purple:#8B5CF6; --cyan:#06D6A0; --navy:#0B1120; --slate:#64748B; --light:#F8FAFC;
+    --ink:#0B1120; --ink-dim:#475569; --line:#E2E8F0; --surface:#F1F5F9;
+  }
+  @page { size: A4; margin: 14mm 14mm 14mm 14mm; }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#fff;color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:9.8pt;line-height:1.42;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  code,pre,.mono{font-family:"JetBrains Mono",ui-monospace,Menlo,monospace;font-size:9.5pt}
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;white-space:pre-wrap;word-break:break-word}
+  code{background:var(--surface);padding:1px 5px;border-radius:4px}
+  h1{font-size:30pt;font-weight:800;letter-spacing:-0.03em;margin:0 0 6px;line-height:1.1}
+  h2{font-size:19pt;font-weight:700;letter-spacing:-0.02em;margin:0 0 4px;line-height:1.2}
+  h3{font-size:12pt;font-weight:700;margin:14px 0 5px;break-after:avoid}
+  h4{font-size:10.5pt;font-weight:600;margin:14px 0 4px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.06em}
+  p{margin:6px 0}
+  .kicker{font-size:9pt;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--purple);margin-bottom:8px}
+  .lead{font-size:12.5pt;color:var(--ink-dim)}
+  section{page-break-after:always;break-after:page}
+  section:last-of-type{page-break-after:auto}
+  .sec-head{border-bottom:2px solid var(--navy);padding-bottom:8px;margin-bottom:12px}
+  .sec-head .num{font-family:"JetBrains Mono",monospace;font-size:9pt;color:var(--slate)}
+  table{border-collapse:collapse;width:100%;margin:6px 0 10px;font-size:9pt}
+  th,td{border:1px solid var(--line);padding:4px 7px;text-align:left;vertical-align:top}
+  th{background:var(--surface);font-weight:600}
+  .grid{display:grid;gap:12px}
+  .g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}.g4{grid-template-columns:repeat(4,1fr)}.g6{grid-template-columns:repeat(6,1fr)}
+  .card{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff}
+  .card.dark{background:var(--navy);color:var(--light);border-color:#1E293B}
+  .card.soft{background:var(--surface)}
+  .cap{font-size:8.5pt;color:var(--slate);margin-top:6px}
+  img{max-width:100%;display:block}
+  .cover{min-height:245mm;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(135deg,#0B1120 0%,#111a3a 55%,#1b1650 100%);color:var(--light);border-radius:18px;padding:34mm 28mm;margin:0 -2mm}
+  .cover h1{font-size:64pt;color:#fff}
+  .cover .tag{font-size:18pt;color:#c7d2fe;margin-top:4px}
+  .cover .meta{font-size:9.5pt;color:#94a3b8;line-height:1.7}
+  .cover .bar{height:4px;width:64px;background:linear-gradient(90deg,var(--blue),var(--purple));border-radius:2px;margin:18px 0}
+  .swatch{border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+  .swatch .chip{height:44px}
+  .swatch .lbl{padding:8px 10px;font-size:9pt}
+  .swatch .lbl b{display:block;font-size:10pt}
+  .swatch .lbl code{font-size:8.5pt;background:none;padding:0;color:var(--slate)}
+  .do{border-left:4px solid var(--cyan);padding-left:10px}.dont{border-left:4px solid #EF4444;padding-left:10px}
+  .pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:9pt;font-weight:600;margin:2px 4px 2px 0}
+  .btn{display:inline-block;border-radius:8px;padding:8px 16px;font-weight:600;font-size:10pt;margin:4px 6px 4px 0}
+  .btn.primary{background:linear-gradient(90deg,var(--blue),var(--purple));color:#fff}
+  .btn.secondary{border:1px solid var(--line);color:var(--ink)}
+  .btn.link{color:var(--blue)}
+  .type-sample{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:8px 0}
+  .toc li{margin:3px 0}
+  .toc a{color:var(--ink);text-decoration:none}
+  .note{background:#FEF3C7;border:1px solid #FCD34D;border-radius:10px;padding:10px 12px;font-size:9.8pt}
+  .logo-box{display:flex;align-items:center;justify-content:center;min-height:96px;border-radius:12px;border:1px solid var(--line);background:#fff;padding:12px}
+  .logo-box.dark{background:var(--navy);border-color:#1E293B}
+  .logo-box.light{background:var(--light)}
+  .logo-box img{max-height:80px}
+  .two{columns:2;column-gap:20px}
+  .small{font-size:9pt}
+  tr,table,.card,.swatch,.type-sample,.note,.logo-box,pre{break-inside:avoid}
+  h4{break-after:avoid}
+  .hero-mock{background:linear-gradient(160deg,#0B1120,#141b3d 60%,#1e1758);color:#fff;border-radius:14px;padding:26px 28px}
+  .hero-mock .eyebrow{display:inline-block;border:1px solid #4c4f9e;color:#c7d2fe;border-radius:999px;padding:3px 10px;font-size:8.5pt;font-weight:600}
+  .hero-mock h1{font-size:30pt;margin:12px 0 6px;color:#fff}
+  .hero-mock h1 span{background:linear-gradient(90deg,#7c9cff,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero-mock p{color:#cbd5e1;max-width:420px}
+  .hero-mock .btns{margin-top:14px}
+  .hero-mock .btn.secondary{border-color:#334155;color:#e2e8f0}
+</style>
+</head>
+<body>
+
+<!-- ───────────── COVER ───────────── -->
+<section>
+  <div class="cover">
+    <div>
+      <img src="logos/aira-mark.svg" width="120" alt="">
+      <h1 style="margin-top:22px">Aira</h1>
+      <div class="tag">Jira for the AI era.</div>
+      <div class="bar"></div>
+      <div style="font-size:12.5pt;color:#e2e8f0;max-width:420px">Smarter planning. Faster execution. Powered by AI.</div>
+    </div>
+    <div class="meta">
+      Brand Guidelines · v1.0 · 21 September 2026<br>
+      Task #122 · design-brand / rebrand-jira-to-aira-for-project<br>
+      Product: Bridza → Aira (erluxman) · Source of truth for engineering, marketing and design.
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── CONTENTS ───────────── -->
+<section>
+  <div class="sec-head"><div class="kicker">Aira Brand Guidelines</div><h2>Contents</h2></div>
+  <ol class="toc">
+    <li>Brand at a glance</li>
+    <li>Positioning</li>
+    <li>Voice &amp; messaging</li>
+    <li>Logo system</li>
+    <li>Colour</li>
+    <li>Typography</li>
+    <li>UI components &amp; tokens</li>
+    <li>Iconography &amp; illustration</li>
+    <li>Applications: app icon, product UI, landing page</li>
+    <li>Landing page copy (ready to ship)</li>
+    <li>Asset index &amp; file paths</li>
+    <li>Legal notes</li>
+  </ol>
+  <h3>How to use this document</h3>
+  <p class="small">Everything on the reference brand board (<code>reference/aira-brand-board.png</code>) has been transcribed into exact values here: hex codes, typefaces, component styles, logo variants. Engineering should treat section 10 (copy) and section 11 (paths) as the spec for the landing-page rebrand ticket. Design should treat sections 4 to 9 as the visual identity brief.</p>
+  <div class="note"><b>Status of the pipeline.</b> Stage 1 (positioning) is done and is the basis of sections 2 and 3. Stage 2 (voice) is running; when <code>voice.md</code> is approved it supersedes section 3. Stage 3 (visual brief) will point at this document and the assets under <code>brand/</code>.</div>
+</section>
+
+<!-- ───────────── 1 AT A GLANCE ───────────── -->
+<section>
+  <div class="sec-head"><div class="num">01</div><h2>Brand at a glance</h2></div>
+  <div class="grid g2">
+    <div class="card">
+      <h4>Name</h4>
+      <p><b>Aira</b> (pronounced <i>AIR-uh</i>). Reads as "AI" + "era", and as "air": light, clear, nothing hidden.</p>
+      <h4>Category</h4>
+      <p>Project management for work done by AI agents. Framed inside Jira's category, owning one sub-segment.</p>
+      <h4>Former name</h4>
+      <p>Bridza. The rename is complete for brand purposes; internal identifiers (repo, <code>.bridza/</code> folder, branch prefix) are unchanged until a separate migration.</p>
+    </div>
+    <div class="card dark">
+      <h4 style="color:#94a3b8">Promise</h4>
+      <p style="font-size:13pt;font-weight:600">Aira: project management for the AI era. Agents do the work in small git-backed stages. You approve every handoff.</p>
+      <h4 style="color:#94a3b8">Tagline set</h4>
+      <p><b>Frame:</b> Jira for the AI era.<br><b>Marketing line:</b> Smarter planning. Faster execution. Powered by AI.<br><b>Hero line:</b> From ideas to impact.<br><b>Product line:</b> Small stages. Real gates. Git as truth.<br><b>Rhythm:</b> Plan · Track · Ship</p>
+    </div>
+  </div>
+  <h3>Personality in five words</h3>
+  <p><span class="pill" style="background:#EEF2FF;color:#3730A3">Precise</span><span class="pill" style="background:#EEF2FF;color:#3730A3">Grounded</span><span class="pill" style="background:#EEF2FF;color:#3730A3">Quietly confident</span><span class="pill" style="background:#EEF2FF;color:#3730A3">Craft-first</span><span class="pill" style="background:#EEF2FF;color:#3730A3">Honest about control</span></p>
+  <p class="lead">Aira is the calm reviewer's tool, not the hype-driven agent. It shows the record instead of claiming the result.</p>
+</section>
+
+<!-- ───────────── 2 POSITIONING ───────────── -->
+<section>
+  <div class="sec-head"><div class="num">02</div><h2>Positioning</h2></div>
+  <p class="small">Method: April Dunford, <i>Obviously Awesome</i>. Full document: <code>brand-positioning/outputs/positioning.md</code>.</p>
+  <h3>The category sentence</h3>
+  <p class="lead">Aira is project management for the AI era: a board where AI agents do the work in small, git-backed stages and a human approves each handoff.</p>
+  <h3>Competitive alternatives and the gap</h3>
+  <table>
+    <tr><th>Alternative</th><th>Where it breaks</th></tr>
+    <tr><td>Jira / Linear / Asana</td><td>The assignee is a human. No first-class way to hand a ticket to an agent, gate its output, or attribute cost per step.</td></tr>
+    <tr><td>AI coding agents run by hand</td><td>One prompt, one 20-file diff. No stages, no per-step review, no record.</td></tr>
+    <tr><td>Cloud agent platforms</td><td>Code leaves the machine. You review the end result, not each step.</td></tr>
+    <tr><td>AI workflow builders</td><td>Built for API pipelines. No git, no diff review, no human gate by default.</td></tr>
+    <tr><td>Docs + chat</td><td>Zero provenance, zero reuse.</td></tr>
+  </table>
+  <p><b>The gap:</b> everything is either a tracker that doesn't do the work, or an agent that does the work but can't be tracked, gated, or trusted step by step.</p>
+  <h3>Unique attributes (the six that sell)</h3>
+  <div class="grid g3 small">
+    <div class="card soft"><b>Stages are pure functions</b><br>Input is only the previous stage's outputs. One small diff per review.</div>
+    <div class="card soft"><b>Git is the database</b><br>Every task is a branch and a worktree. The timeline is the history.</div>
+    <div class="card soft"><b>Human gate by default</b><br>Supervised until you flip Automate. Failures halt even automated stages.</div>
+    <div class="card soft"><b>Per-stage attribution</b><br>Time, agent, model and cost measured per stage. The bottleneck is visible.</div>
+    <div class="card soft"><b>Bring your own AI CLI</b><br>Claude Code, opencode, anything on PATH. Swap models without rewiring.</div>
+    <div class="card soft"><b>Local-first</b><br>The desktop app is the bridge. Code never leaves the machine.</div>
+  </div>
+  <h3>Best-fit customer</h3>
+  <p class="small"><b>Primary:</b> the solo builder (22 to 45) who already runs AI agents every day, keeps everything in git, and has been burned by an unreviewable mega-diff. <b>Secondary:</b> technical teams of 2 to 10 where the agent is a teammate. <b>Not a fit:</b> enterprise PMOs, non-technical teams without a repo, anyone wanting fully autonomous agents with no review.</p>
+</section>
+
+<!-- ───────────── 3 VOICE ───────────── -->
+<section>
+  <div class="sec-head"><div class="num">03</div><h2>Voice &amp; messaging</h2></div>
+  <p class="small">Tone anchor: <b>a senior reviewer who has read the diff.</b> Short sentences. Nouns from git and boards. This section is the working draft; the approved <code>brand-voice/outputs/voice.md</code> supersedes it.</p>
+  <div class="grid g2">
+    <div class="card"><h4 style="margin-top:0">Do</h4>
+      <p class="do">Say what the product records: "one diff per stage", "every run commits", "you approve each handoff".</p>
+      <p class="do">Use exact product nouns: task, stage, gate, artifact, branch, run, pipeline.</p>
+      <p class="do">Lead with the customer's problem, then the plan: pipeline → stage → gate → ship.</p>
+      <p class="do">Name Jira once, as a frame ("Jira for the AI era"), then move on to what is ours.</p>
+      <p class="do">Keep automation honest: "Automate is a switch you flip per stage."</p>
+    </div>
+    <div class="card"><h4 style="margin-top:0">Don't</h4>
+      <p class="dont">"Revolutionary", "magic", "10x", "autonomous" without a gate in the same sentence.</p>
+      <p class="dont">Imply the AI ships releases on its own.</p>
+      <p class="dont">Feature-parity language against Jira (integrations, permissions, SSO). We don't fight there.</p>
+      <p class="dont">Exclamation marks, emoji in product copy, hype adjectives.</p>
+      <p class="dont">Long paragraphs. If a sentence has two ideas, split it.</p>
+    </div>
+  </div>
+  <h3>Messaging hierarchy</h3>
+  <table>
+    <tr><th style="width:26%">Level</th><th>Copy</th><th style="width:30%">Where</th></tr>
+    <tr><td>Frame (eyebrow)</td><td>Jira for the AI era</td><td>Under the wordmark, hero eyebrow, social bios</td></tr>
+    <tr><td>Hero headline</td><td>From ideas to impact.</td><td>Landing hero H1 ("impact" in gradient)</td></tr>
+    <tr><td>Alt headline</td><td>Project management for the AI era.</td><td>Download page, App Store style listings</td></tr>
+    <tr><td>Subhead / elevator pitch</td><td>Aira is project management for the AI era. Agents do the work in small, git-backed stages. You approve every handoff.</td><td>Hero paragraph, README intro, meta description</td></tr>
+    <tr><td>Marketing triplet</td><td>Smarter planning. Faster execution. Powered by AI.</td><td>Brand board, ads, OG image</td></tr>
+    <tr><td>Rhythm</td><td>Plan · Track · Ship</td><td>Hero footer, section labels, nav</td></tr>
+    <tr><td>Product line</td><td>Small stages. Real gates. Git as truth.</td><td>In-app onboarding, empty states</td></tr>
+    <tr><td>Proof points</td><td>One small diff per stage · Every run commits to a task branch · Human gate by default · Cost and time per stage · Runs Claude Code, opencode or any CLI · Local-first, nothing leaves your machine</td><td>Feature grid, comparison page</td></tr>
+  </table>
+  <h3>Vocabulary</h3>
+  <table class="small">
+    <tr><th>Use</th><th>Instead of</th></tr>
+    <tr><td>stage, handoff, gate</td><td>step, phase, checkpoint, approval flow</td></tr>
+    <tr><td>task, board, pipeline</td><td>ticket, kanban, workflow (except when explaining Jira parity)</td></tr>
+    <tr><td>agent, AI CLI</td><td>bot, copilot, assistant (except "AI Assistant" nav label in product)</td></tr>
+    <tr><td>approve, review, sign off</td><td>validate, confirm, accept</td></tr>
+    <tr><td>on your machine, in git</td><td>locally, offline, secure</td></tr>
+  </table>
+</section>
+
+<!-- ───────────── 4 LOGO ───────────── -->
+<section>
+  <div class="sec-head"><div class="num">04</div><h2>Logo system</h2></div>
+  <p class="small">The mark is an <b>A</b> built from two strokes: a blue leg that hooks at the foot and rises to the apex, and a straight purple leg falling from the apex. It is both a letter and a rising line (ideas → impact). The wordmark is Inter Bold, tracking −3%.</p>
+  <div class="grid g4">
+    <div><div class="logo-box light"><img src="logos/logo-primary-light.png" alt="Primary"></div><div class="cap"><b>Primary (recommended)</b><br>Mark + wordmark, horizontal.</div></div>
+    <div><div class="logo-box light"><img src="logos/logo-mark-only-light.png" alt="Mark only"></div><div class="cap"><b>Mark only</b><br>Favicons, avatars, small UI.</div></div>
+    <div><div class="logo-box light"><img src="logos/logo-app-icon-dark.png" alt="App icon"></div><div class="cap"><b>App icon</b><br>Mark on Dark Navy rounded square.</div></div>
+    <div><div class="logo-box light"><img src="logos/logo-monochrome-light.png" alt="Monochrome"></div><div class="cap"><b>Monochrome</b><br>Stacked, one colour. Print, embossing, favicons on colour.</div></div>
+  </div>
+  <div class="grid g3" style="margin-top:12px">
+    <div><div class="logo-box dark"><img src="logos/brand-in-action-dark.png" alt="Dark mode lockup"></div><div class="cap"><b>On dark</b> wordmark = Light <code>#F8FAFC</code></div></div>
+    <div><div class="logo-box light"><img src="logos/brand-in-action-light.png" alt="Light mode lockup"></div><div class="cap"><b>On light</b> wordmark = Dark Navy <code>#0B1120</code>; tagline under wordmark in Slate</div></div>
+    <div><div class="logo-box light"><img src="logos/aira-lockup-horizontal-on-light.svg" alt="Vector lockup"></div><div class="cap"><b>Vector lockup (SVG)</b> <code>logos/aira-lockup-horizontal-on-light.svg</code></div></div>
+  </div>
+  <h3>Vector files shipped with this document</h3>
+  <table class="small">
+    <tr><th>File</th><th>Use</th></tr>
+    <tr><td><code>logos/aira-mark.svg</code></td><td>Gradient mark, 64×64 viewBox. Inline in HTML or use as <code>&lt;img&gt;</code>.</td></tr>
+    <tr><td><code>logos/aira-mark-mono.svg</code></td><td>Single-colour mark using <code>currentColor</code>. Header on coloured backgrounds, print.</td></tr>
+    <tr><td><code>logos/aira-lockup-horizontal-on-light.svg</code> / <code>-on-dark.svg</code></td><td>Mark + "Aira" wordmark. Text is live (Inter must be loaded).</td></tr>
+    <tr><td><code>logos/aira-app-icon.svg</code> + <code>png/aira-app-icon-{256,512,1024}.png</code></td><td>Desktop app icon (Electron build resources, macOS/Windows/Linux).</td></tr>
+    <tr><td><code>logos/favicon.svg</code> + <code>png/favicon-{32,64,180}.png</code></td><td>Browser favicon, Apple touch icon, PWA icon.</td></tr>
+    <tr><td><code>logos/png/aira-mark-{512,1024}.png</code></td><td>Raster mark on transparent, for social avatars and OG images.</td></tr>
+  </table>
+  <h3>Rules</h3>
+  <div class="grid g2 small">
+    <div class="card">
+      <b>Clear space.</b> Keep a margin equal to the mark's stroke width (≈ 1/6 of mark height) on all sides. Nothing enters this zone.<br><br>
+      <b>Minimum size.</b> Mark: 16 px (favicon). Primary lockup: 24 px high on screen, 8 mm in print. Below that, use mark only.<br><br>
+      <b>Backgrounds.</b> Gradient mark on Light, white, or Dark Navy only. On busy imagery use the monochrome mark in Light or Dark Navy.
+    </div>
+    <div class="card">
+      <b>Never:</b> stretch, rotate, outline, add drop shadows, recolour the gradient, place the mark on Purple or Primary Blue fills, put the wordmark in another typeface, or pair the mark with "Bridza".<br><br>
+      <b>Jira distance.</b> The mark must never mimic Atlassian's blue diamond or the Jira logotype. Keep the hooked left leg; it is the distinguishing feature.
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── 5 COLOUR ───────────── -->
+<section>
+  <div class="sec-head"><div class="num">05</div><h2>Colour</h2></div>
+  <p class="small">Six brand colours from the board. Blue leads, Purple accents, Cyan signals success and "AI is working". Dark Navy is the product's default ground; Light is the marketing ground.</p>
+  <div class="grid g6">
+    <div class="swatch"><div class="chip" style="background:#4F7BFF"></div><div class="lbl"><b>Primary Blue</b><code>#4F7BFF</code></div></div>
+    <div class="swatch"><div class="chip" style="background:#8B5CF6"></div><div class="lbl"><b>Purple</b><code>#8B5CF6</code></div></div>
+    <div class="swatch"><div class="chip" style="background:#06D6A0"></div><div class="lbl"><b>Cyan</b><code>#06D6A0</code></div></div>
+    <div class="swatch"><div class="chip" style="background:#0B1120"></div><div class="lbl"><b>Dark Navy</b><code>#0B1120</code></div></div>
+    <div class="swatch"><div class="chip" style="background:#64748B"></div><div class="lbl"><b>Slate</b><code>#64748B</code></div></div>
+    <div class="swatch"><div class="chip" style="background:#F8FAFC;border-bottom:1px solid #E2E8F0"></div><div class="lbl"><b>Light</b><code>#F8FAFC</code></div></div>
+  </div>
+  <h3>Brand gradient</h3>
+  <div style="height:26px;border-radius:10px;background:linear-gradient(90deg,#4F7BFF,#8B5CF6)"></div>
+  <p class="small"><code>linear-gradient(90deg, #4F7BFF 0%, #8B5CF6 100%)</code>. Used on the primary button, the mark, the hero highlight word, and the wave motif. Angle 135° when applied to large surfaces.</p>
+  <h3>Roles and the CSS token mapping</h3>
+  <p class="small">The app already runs on tokens in <code>src/index.css</code> (Tailwind v4 <code>@theme</code>). Replace the violet values with these. Names stay the same so no component changes.</p>
+  <table class="small" style="font-size:8.3pt">
+    <tr><th>Token</th><th>Dark (default)</th><th>Light (<code>data-theme="light"</code>)</th><th>Role</th></tr>
+    <tr><td><code>--color-base</code></td><td>#0B1120 Dark Navy</td><td>#FFFFFF</td><td>Page background</td></tr>
+    <tr><td><code>--color-surface</code></td><td>#111A2E</td><td>#F8FAFC Light</td><td>Cards, sidebar, inputs</td></tr>
+    <tr><td><code>--color-line</code></td><td>#1E293B</td><td>#E2E8F0</td><td>Borders, dividers</td></tr>
+    <tr><td><code>--color-ink</code></td><td>#F8FAFC Light</td><td>#0B1120 Dark Navy</td><td>Primary text</td></tr>
+    <tr><td><code>--color-ink-dim</code></td><td>#94A3B8</td><td>#475569</td><td>Secondary text</td></tr>
+    <tr><td><code>--color-ink-faint</code></td><td>#64748B Slate</td><td>#94A3B8</td><td>Placeholders, tertiary</td></tr>
+    <tr><td><code>--color-accent</code></td><td>#4F7BFF Primary Blue</td><td>#4F7BFF Primary Blue</td><td>Links, focus ring, active nav</td></tr>
+    <tr><td><code>--color-accent-2</code> (new)</td><td>#8B5CF6 Purple</td><td>#8B5CF6 Purple</td><td>Gradient end, AI highlights</td></tr>
+    <tr><td><code>--color-accent-soft</code></td><td>#1E2A5A</td><td>#DBE4FF</td><td>Chip and pill backgrounds</td></tr>
+    <tr><td><code>--color-on-accent</code></td><td>#FFFFFF</td><td>#FFFFFF</td><td>Text on accent/gradient</td></tr>
+    <tr><td><code>--color-success</code> (new)</td><td>#06D6A0 Cyan</td><td>#06D6A0 Cyan</td><td>Done state, positive deltas, "AI ready"</td></tr>
+  </table>
+  <p class="small"><b>Accessibility.</b> Primary Blue on white is 4.6:1 (AA for text ≥ 14 pt bold or 18 pt). For body-size links on white use <code>#3B63E6</code>. Light on Dark Navy is 17:1. Never set body text in Purple or Cyan.</p>
+  <h3>Semantic tag colours (from the UI components panel)</h3>
+  <p><span class="pill" style="background:#DBE4FF;color:#1D4ED8">AI</span><span class="pill" style="background:#FEE2E2;color:#B91C1C">Bug</span><span class="pill" style="background:#D1FAE5;color:#047857">Feature</span><span class="pill" style="background:#DBEAFE;color:#1D4ED8">Task</span></p>
+  <table class="small">
+    <tr><th>Tag</th><th>Text</th><th>Background</th></tr>
+    <tr><td>AI</td><td>#1D4ED8</td><td>#DBE4FF</td></tr>
+    <tr><td>Bug</td><td>#B91C1C</td><td>#FEE2E2</td></tr>
+    <tr><td>Feature</td><td>#047857</td><td>#D1FAE5</td></tr>
+    <tr><td>Task</td><td>#1D4ED8</td><td>#DBEAFE</td></tr>
+  </table>
+</section>
+
+<!-- ───────────── 6 TYPOGRAPHY ───────────── -->
+<section>
+  <div class="sec-head"><div class="num">06</div><h2>Typography</h2></div>
+  <div class="grid g2">
+    <div class="type-sample">
+      <h4 style="margin-top:0">Headings · Inter</h4>
+      <div style="font-size:26pt;font-weight:700;letter-spacing:-0.02em;line-height:1.1">Inter Bold<br><span style="font-weight:600">Inter Semibold</span></div>
+      <p class="small">Aa Bb Cc Dd Ee Ff Gg Hh Ii Jj Kk Ll Mm Nn Oo Pp Qq Rr Ss Tt Uu Vv Ww Xx Yy Zz 0 1 2 3 4 5 6 7 8 9</p>
+    </div>
+    <div class="type-sample">
+      <h4 style="margin-top:0">Body · Inter</h4>
+      <div style="font-size:14pt;font-weight:400">Inter Regular / Medium</div>
+      <p class="small">Aa Bb Cc Dd Ee Ff Gg Hh Ii Jj Kk Ll Mm Nn Oo Pp Qq Rr Ss Tt Uu Vv Ww Xx Yy Zz 0 1 2 3 4 5 6 7 8 9</p>
+    </div>
+  </div>
+  <div class="type-sample">
+    <h4 style="margin-top:0">Code / UI · JetBrains Mono</h4>
+    <div class="mono" style="font-size:13pt">JetBrains Mono Regular / Medium</div>
+    <p class="mono small">Aa Bb Cc Dd Ee Ff Gg Hh Ii Jj Kk Ll Mm Nn Oo Pp Qq Rr Ss Tt Uu Vv Ww Xx Yy Zz 0 1 2 3 4 5 6 7 8 9</p>
+  </div>
+  <h3>Scale (web, 16 px base)</h3>
+  <table class="small">
+    <tr><th>Role</th><th>Size / line</th><th>Weight</th><th>Tracking</th><th>Tailwind</th></tr>
+    <tr><td>Display (hero H1)</td><td>60 / 64 px (mobile 40 / 44)</td><td>700</td><td>−0.03em</td><td><code>text-6xl font-bold tracking-tight</code></td></tr>
+    <tr><td>H2</td><td>36 / 40</td><td>700</td><td>−0.02em</td><td><code>text-4xl font-bold tracking-tight</code></td></tr>
+    <tr><td>H3</td><td>24 / 32</td><td>600</td><td>−0.01em</td><td><code>text-2xl font-semibold</code></td></tr>
+    <tr><td>Lead</td><td>18 / 28</td><td>400</td><td>0</td><td><code>text-lg text-ink-dim</code></td></tr>
+    <tr><td>Body</td><td>16 / 24</td><td>400</td><td>0</td><td><code>text-base</code></td></tr>
+    <tr><td>Small / caption</td><td>14 / 20 · 12 / 16</td><td>500</td><td>0</td><td><code>text-sm</code> · <code>text-xs</code></td></tr>
+    <tr><td>Eyebrow / label</td><td>12 / 16</td><td>600</td><td>+0.06em uppercase</td><td><code>text-xs font-semibold uppercase tracking-wider</code></td></tr>
+    <tr><td>Code</td><td>13 / 20</td><td>400</td><td>0</td><td><code>font-mono text-[13px]</code></td></tr>
+  </table>
+  <p class="small">Both families are already declared in <code>src/index.css</code> (<code>--font-sans</code>, <code>--font-mono</code>). Load Inter 400/500/600/700 and JetBrains Mono 400/500 from Google Fonts or self-host in <code>public/fonts/</code>. Wordmark uses Inter 700 at −3% tracking.</p>
+</section>
+
+<!-- ───────────── 7 UI COMPONENTS ───────────── -->
+<section>
+  <div class="sec-head"><div class="num">07</div><h2>UI components &amp; tokens</h2></div>
+  <div class="grid g2">
+    <div>
+      <img src="logos/ui-components.png" alt="UI components from the board" style="border:1px solid var(--line);border-radius:12px;max-height:260px;width:auto">
+      <div class="cap">Reference panel from the brand board.</div>
+    </div>
+    <div class="small">
+      <h4 style="margin-top:0">Buttons</h4>
+      <p><span class="btn primary">Create issue →</span><span class="btn secondary">Secondary</span><span class="btn link">Text link →</span></p>
+      <table>
+        <tr><th>Variant</th><th>Spec</th></tr>
+        <tr><td>Primary</td><td>Brand gradient fill, white text, 600 weight, radius 8 px, padding 10×18 px, trailing arrow optional. Hover: +6% brightness. Focus: 2 px Primary Blue ring at 40%.</td></tr>
+        <tr><td>Secondary</td><td>1 px Slate/30 border, transparent fill, ink text. Hover: border Primary Blue.</td></tr>
+        <tr><td>Text link</td><td>Primary Blue, 500 weight, arrow suffix. Underline on hover only.</td></tr>
+      </table>
+      <h4>Inputs</h4>
+      <p>Radius 8 px, 1 px line border, 12 px horizontal padding, 40 px height. Search has a leading magnifier icon. Focus: Primary Blue border + 3 px ring at 25%.</p>
+      <h4>Select, toggle, checkbox, radio</h4>
+      <p>Toggle track 40×22 px, on = Primary Blue. Checkbox 16 px, radius 4 px, checked = Primary Blue with white tick. Radio 16 px, checked = Primary Blue ring.</p>
+      <h4>AI banner</h4>
+      <p>Surface tint <code>#EEF2FF</code> (light) / <code>#141C3A</code> (dark), sparkle icon in Primary Blue, title 600, one line of Slate body, dismiss ×. Copy example: "Let AI plan, assign and move your work forward."</p>
+    </div>
+  </div>
+  <h3>Radii, spacing, elevation</h3>
+  <table class="small">
+    <tr><th>Token</th><th>Value</th></tr>
+    <tr><td>Radius: control / card / modal / pill</td><td>8 px / 12 px / 16 px / 999 px</td></tr>
+    <tr><td>Spacing scale</td><td>4, 8, 12, 16, 24, 32, 48, 64 px</td></tr>
+    <tr><td>Shadow (light only)</td><td><code>0 1px 2px rgb(11 17 32 / .06), 0 8px 24px rgb(11 17 32 / .08)</code>; dark mode uses borders instead of shadows</td></tr>
+    <tr><td>Aura background</td><td>Keep <code>.bg-aura</code>; accent radial becomes Primary Blue → Purple at 20% over base</td></tr>
+  </table>
+</section>
+
+<!-- ───────────── 8 ICONS ───────────── -->
+<section>
+  <div class="sec-head"><div class="num">08</div><h2>Iconography &amp; illustration</h2></div>
+  <div class="grid g2">
+    <div><img src="logos/icons-illustrations.png" alt="Icons and illustrations" style="border:1px solid var(--line);border-radius:12px"><div class="cap">Reference panel from the brand board.</div></div>
+    <div class="small">
+      <h4 style="margin-top:0">Icon style</h4>
+      <p>Outline icons, 1.75 px stroke, round caps and joins, 24 px grid, Dark Navy on light / Light on dark. This matches <b>Lucide</b> almost exactly; use Lucide (<code>lucide-react</code>) as the icon set. Board set: home, list-checks, calendar, search, zap, bell, user, trending-up, settings, sparkles, link, maximize, message-square, file-text, cloud, more-horizontal.</p>
+      <h4>AI signifier</h4>
+      <p>A four-point sparkle (<code>sparkles</code>) in Primary Blue marks anything the agent does. It is the only icon allowed to be filled with brand colour.</p>
+      <h4>Illustration style</h4>
+      <p>Flat, rounded, two-tone: Primary Blue / Purple objects on Light or Dark Navy cards, Cyan for one accent element, subtle 1 px Slate strokes. No gradients inside illustrations except the brand gradient on a single hero object. Subjects: boards, cards, the robot mascot (friendly, rounded, blue face), flow nodes and connectors.</p>
+      <h4>Mascot</h4>
+      <p>The robot is for onboarding, empty states and the "AI Assistant" nav item only. Never on the landing hero, never in the logo lockup.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── 9 APPLICATIONS ───────────── -->
+<section>
+  <div class="sec-head"><div class="num">09</div><h2>Applications</h2></div>
+  <div class="grid g2">
+    <div><img src="logos/product-ui-dark-mode.png" alt="Product UI dark mode" style="border-radius:12px;max-height:150px;width:auto"><div class="cap"><b>Product UI (dark).</b> Sidebar: Home, Projects, AI Assistant, Issues, Reports, Settings. Greeting card with sparkle + "Ask Aira anything…" input. Quick actions: Create new issue, Summarize updates, Plan a sprint. In Aira's real app the nav is Board / Pipelines / Tasks / Plan / Settings; keep the visual treatment, not the labels.</div></div>
+    <div><img src="logos/hero-from-ideas-to-impact-dark.png" alt="Landing hero" style="border-radius:12px;max-height:150px;width:auto"><div class="cap"><b>Landing hero (dark).</b> Mark + wordmark, "From ideas to impact." with "impact" in gradient, "Jira for the AI era", wave motif in blue → purple, footer rhythm Plan · Track · Ship.</div></div>
+  </div>
+  <div class="grid g2" style="margin-top:12px">
+    <div><img src="logos/app-icons-favicons.png" alt="App icons and favicons" style="border:1px solid var(--line);border-radius:12px"><div class="cap"><b>App icons &amp; favicons.</b> Dark Navy tile with gradient mark (default), Light tile with gradient mark (light-mode alternative), Primary Blue tile with white mark (badge), and bare mark for 16 px favicons.</div></div>
+    <div class="small">
+      <h4 style="margin-top:0">Desktop app icon</h4>
+      <p>Use <code>logos/aira-app-icon.svg</code> → export 1024 px PNG → <code>build/icon.png</code> (electron-builder derives .icns and .ico). Corner radius is 22% of the side; macOS applies its own mask.</p>
+      <h4>Favicon</h4>
+      <p><code>logos/favicon.svg</code> replaces <code>public/favicon.svg</code>. Add <code>png/favicon-180.png</code> as <code>apple-touch-icon</code>.</p>
+      <h4>OG / social image (1200×630)</h4>
+      <p>Dark Navy ground, mark + wordmark top-left, "From ideas to impact." as headline, "Jira for the AI era" beneath, wave motif bottom-right. Build from the hero crop until a dedicated export exists.</p>
+      <h4>In-app brand</h4>
+      <p>Sidebar header: 20 px mark + "Aira" in Inter 600. Replace the current <code>⎇ Bridza</code> text brand. Keep the pulse animation on the mark.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────── 10 LANDING COPY ───────────── -->
+<section>
+  <div class="sec-head"><div class="num">10</div><h2>Landing page copy (ready to ship)</h2></div>
+  <p class="small">Exact strings for <code>src/pages/App.tsx</code>, <code>src/pages/Download.tsx</code> and <code>index.html</code>. Copy verbatim; do not paraphrase.</p>
+  <div class="hero-mock">
+    <span class="eyebrow">Jira for the AI era</span>
+    <h1>From ideas to <span>impact</span>.</h1>
+    <p>Aira is project management for the AI era. Agents do the work in small, git-backed stages. You approve every handoff.</p>
+    <div class="btns"><span class="btn primary">Download for macOS</span><span class="btn secondary">Open the app</span></div>
+    <div style="margin-top:14px;font-size:9pt;color:#94a3b8">Plan &nbsp;·&nbsp; Track &nbsp;·&nbsp; Ship</div>
+  </div>
+  <h3>Header</h3>
+  <table class="small">
+    <tr><th style="width:28%">Element</th><th>Copy</th></tr>
+    <tr><td>Brand</td><td>[mark] Aira</td></tr>
+    <tr><td>Nav links</td><td>Download · Open the app · GitHub · by erluxman ↗</td></tr>
+  </table>
+  <h3>Hero</h3>
+  <table class="small">
+    <tr><th style="width:28%">Element</th><th>Copy</th></tr>
+    <tr><td>Eyebrow pill</td><td>Jira for the AI era</td></tr>
+    <tr><td>H1</td><td>From ideas to impact. <i>("impact" gets the gradient text class)</i></td></tr>
+    <tr><td>Subhead</td><td>Aira is project management for the AI era. Agents do the work in small, git-backed stages. You approve every handoff.</td></tr>
+    <tr><td>Primary CTA</td><td>Download for macOS <i>(OS-detected: "Download for Windows", "Download for Linux"; fallback "Download")</i> → <code>/download</code></td></tr>
+    <tr><td>Secondary CTA</td><td>Open the app → <code>/app</code></td></tr>
+    <tr><td>Under CTAs</td><td>macOS · Windows · Linux · Free and open source (MIT)</td></tr>
+    <tr><td>Rhythm strip</td><td>Plan · Track · Ship</td></tr>
+  </table>
+  <h3>Section: How it works (three steps, replaces "Coming soon" + waitlist)</h3>
+  <table class="small">
+    <tr><th style="width:28%">Step</th><th>Copy</th></tr>
+    <tr><td>Section title</td><td>One task. Small stages. Real gates.</td></tr>
+    <tr><td>1 · Plan</td><td><b>Describe the task.</b> Drop an idea in the inbox. Aira gives it a ref, a branch and a pipeline: engineering, brand, video, research, or one you define.</td></tr>
+    <tr><td>2 · Track</td><td><b>Agents run each stage.</b> Every stage reads only the previous stage's outputs, runs your AI CLI under its own prompt, and commits one small diff.</td></tr>
+    <tr><td>3 · Ship</td><td><b>You approve every handoff.</b> Review the diff, flip Automate when you trust a stage, and finalize to merge into main.</td></tr>
+  </table>
+  <h3>Section: Feature grid (six cards, replaces <code>FEATURES</code> in <code>src/data/content.ts</code>)</h3>
+  <table class="small">
+    <tr><th style="width:28%">Title</th><th>Body</th></tr>
+    <tr><td>Stages are pure functions</td><td>A stage's input is only the previous stage's outputs, never the whole brief. Every review is one focused diff.</td></tr>
+    <tr><td>Git is the database</td><td>Each task is a branch and a worktree. Runs commit as they go. Your working tree and HEAD are never touched.</td></tr>
+    <tr><td>Human gate by default</td><td>Every stage waits for you until you flip Automate. Failures halt even automated stages.</td></tr>
+    <tr><td>See where time and money go</td><td>Time, agent, model and cost are tracked per stage, so the bottleneck is visible.</td></tr>
+    <tr><td>Bring your own AI CLI</td><td>Runs Claude Code, opencode, or any tool on your PATH. Swap models without rewiring.</td></tr>
+    <tr><td>On your machine</td><td>Aira is a desktop app that drives git and your local CLIs. Nothing leaves your repo.</td></tr>
+  </table>
+  <h3>Section: Why "Jira for the AI era"</h3>
+  <p class="small">Tickets are still tickets. The difference is who does the work and how a human signs off on it. Aira borrows what Jira taught everyone: tasks, boards, stages, refs and a branch per task. It changes the assignee. An agent does the work in stages you can review, and you gate every handoff.</p>
+  <h3>Final CTA</h3>
+  <table class="small">
+    <tr><th style="width:28%">Element</th><th>Copy</th></tr>
+    <tr><td>Title</td><td>Ship work you can actually review.</td></tr>
+    <tr><td>Body</td><td>Free, open source, runs on macOS, Windows and Linux.</td></tr>
+    <tr><td>CTA</td><td>Download Aira</td></tr>
+  </table>
+  <h3>Footer</h3>
+  <p class="small">© 2026 Aira · a tool by erluxman &nbsp;|&nbsp; GitHub · GitCrystal · erluxman.dev</p>
+  <h3>Download page</h3>
+  <table class="small">
+    <tr><th style="width:28%">Element</th><th>Copy</th></tr>
+    <tr><td>Pill</td><td>Desktop app <i>(or the release tag)</i></td></tr>
+    <tr><td>H1</td><td>Download Aira <i>("Aira" in accent)</i></td></tr>
+    <tr><td>Subhead</td><td>Project management for the AI era, running on your machine, on your repos. Install with a click, or one line in the terminal.</td></tr>
+  </table>
+  <h3>Meta / SEO (<code>index.html</code>)</h3>
+  <pre>&lt;title&gt;Aira — Jira for the AI era&lt;/title&gt;
+&lt;meta name="description" content="Aira is project management for the AI era. AI agents do the work in small, git-backed stages and you approve every handoff. Free, open source, runs on your machine."&gt;
+&lt;meta property="og:title" content="Aira — Jira for the AI era"&gt;
+&lt;meta property="og:description" content="From ideas to impact. Agents do the work in small git-backed stages. You approve every handoff."&gt;
+&lt;meta property="og:image" content="https://bridza.erluxman.dev/og.png"&gt;</pre>
+</section>
+
+<!-- ───────────── 11 ASSET INDEX ───────────── -->
+<section>
+  <div class="sec-head"><div class="num">11</div><h2>Asset index &amp; file paths</h2></div>
+  <p class="small">All paths are relative to the repo root. Everything lives inside the task folder so it travels with the branch.</p>
+  <pre>.bridza/pipelines/design-brand/00000122-rebrand-jira-to-aira-for-project/
+├── brand-positioning/outputs/positioning.md   ← positioning (stage 1, done)
+├── brand-voice/outputs/voice.md               ← voice (stage 2, pending approval)
+└── brand/
+    ├── brand-guidelines.pdf                   ← this document
+    ├── brand-guidelines.html                  ← source of this document
+    ├── README.md                              ← quick index for engineers
+    ├── reference/aira-brand-board.png         ← original brand board (1536×1024)
+    └── logos/
+        ├── aira-mark.svg                      ← gradient mark (vector)
+        ├── aira-mark-mono.svg                 ← single-colour mark (currentColor)
+        ├── aira-lockup-horizontal-on-light.svg
+        ├── aira-lockup-horizontal-on-dark.svg
+        ├── aira-app-icon.svg                  ← desktop icon master
+        ├── favicon.svg                        ← replaces public/favicon.svg
+        ├── png/  aira-mark-{512,1024}.png · aira-app-icon-{256,512,1024}.png · favicon-{32,64,180}.png
+        ├── logo-primary-light.png             ← raster crops from the board
+        ├── logo-mark-only-light.png
+        ├── logo-app-icon-dark.png
+        ├── logo-monochrome-light.png
+        ├── logo-horizontal-lockup-light.png
+        ├── brand-in-action-{dark,light,mark}.png
+        ├── app-icons-favicons.png
+        ├── hero-from-ideas-to-impact-dark.png
+        ├── product-ui-dark-mode.png
+        ├── ui-components.png
+        ├── icons-illustrations.png
+        └── palette-and-type.png</pre>
+  <h3>Where each asset goes in the codebase</h3>
+  <table class="small">
+    <tr><th>Asset</th><th>Destination</th></tr>
+    <tr><td><code>logos/favicon.svg</code></td><td><code>public/favicon.svg</code></td></tr>
+    <tr><td><code>logos/png/favicon-180.png</code></td><td><code>public/apple-touch-icon.png</code> + link tag in <code>index.html</code></td></tr>
+    <tr><td><code>logos/aira-mark.svg</code></td><td>Inline <code>&lt;Logo/&gt;</code> component in <code>src/pages/App.tsx</code>, sidebar brand in <code>src/app/features/nav.jsx</code></td></tr>
+    <tr><td><code>logos/png/aira-app-icon-1024.png</code></td><td><code>build/icon.png</code> (electron-builder)</td></tr>
+    <tr><td><code>logos/png/aira-mark-1024.png</code></td><td>GitHub org/repo avatar, social avatars</td></tr>
+    <tr><td>OG image (to be composed)</td><td><code>public/og.png</code>, 1200×630</td></tr>
+  </table>
+</section>
+
+<!-- ───────────── 12 LEGAL ───────────── -->
+<section>
+  <div class="sec-head"><div class="num">12</div><h2>Legal notes</h2></div>
+  <div class="note">
+    <b>Trademark.</b> "Aira" is one letter from "Jira", in the same product category, paired with a slogan that names Jira. Comparative slogans that mention a competitor are generally permitted; a near-identical name in the same category is a separate and larger risk (likelihood of confusion). "Aira" is also in use by unrelated brands (visual-interpreting service, wireless charging). <b>Recommendation:</b> use "Jira for the AI era" as a positioning frame in conversation, press and comparison pages rather than as a registered tagline, and obtain a trademark clearance opinion before public assets ship. The requester has chosen this direction; this document delivers it and flags the risk once.
+  </div>
+  <h3>Attribution</h3>
+  <p class="small">Jira is a trademark of Atlassian Pty Ltd. Aira is not affiliated with or endorsed by Atlassian. Add this line to the landing page footer and the README when the "Jira for the AI era" frame is used publicly.</p>
+  <h3>Fonts</h3>
+  <p class="small">Inter (SIL Open Font License) and JetBrains Mono (SIL OFL). Both may be self-hosted and redistributed with the app.</p>
+  <h3>Document history</h3>
+  <table class="small">
+    <tr><th>Version</th><th>Date</th><th>Change</th></tr>
+    <tr><td>1.0</td><td>2026-09-21</td><td>Initial guidelines from the brand board and positioning.md.</td></tr>
+  </table>
+</section>
+
+</body>
+</html>
