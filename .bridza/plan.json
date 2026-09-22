@@ -56,6 +56,12 @@
         "engineering/logo-animation-component"
       ],
       "any": []
+    },
+    "engineering/chat-feature-in-task-work-item-details": {
+      "all": [
+        "product/reposition-the-product-as-jira-for-ai"
+      ],
+      "any": []
     }
   },
   "milestones": [
