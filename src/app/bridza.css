@@ -693,3 +693,69 @@ body.uxv-dragging .uxv-node { transition: none; }
 .uxv-detail .stage-run, .uxv-thread-run .stage-run { margin: 4px 0 2px; }
 .uxv-thread-run { border-top: 1px dashed var(--line); padding: 12px 14px; background: #0f131980; }
 .uxv-thread-run .uxv-role { color: var(--txt-3); }
+
+/* ── Chat: the floating bubble + the docked panel ──────────────────────────── */
+/* The bubble is the entry point — fixed to the viewport so it is there in every
+   view, including the full-height terminal, and never scrolls away. */
+.chat-bubble { position: fixed; right: 22px; bottom: 22px; z-index: 36; width: 52px; height: 52px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; background: var(--bg-2); border: 1px solid var(--line-2);
+  box-shadow: 0 10px 28px #000a; cursor: pointer; transition: transform .12s, border-color .12s, box-shadow .12s; }
+.chat-bubble:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 14px 34px #000c; }
+.chat-bubble-ico { font-size: 22px; line-height: 1; }
+/* a turn running anywhere — this window, another one, before a reload */
+.chat-bubble-dot { position: absolute; top: 6px; right: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: chat-pulse 1.4s ease-in-out infinite; }
+.chat-bubble-n { position: absolute; top: 2px; right: 2px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
+  background: var(--bg); border: 1px solid var(--line-2); color: var(--txt-3); font-size: 10px; font-style: normal; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; }
+@keyframes chat-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(.82); } }
+
+/* The panel takes the rail's grid column: the stage timeline on the left stays
+   visible and live, which is the whole reason this is a panel and not a view. */
+.chat-panel { display: flex; flex-direction: column; position: sticky; top: 0; height: calc(100vh - 96px);
+  background: var(--bg-1); border: 1px solid var(--line-2); border-radius: var(--radius); overflow: hidden; }
+.chat-hd { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 14px; border-bottom: 1px solid var(--line); background: var(--bg-2); }
+.chat-hd b { font-size: 13px; }
+.chat-x { background: none; border: none; color: var(--txt-3); font-size: 13px; cursor: pointer; padding: 2px 4px; }
+.chat-x:hover { color: var(--txt); }
+.chat-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 14px; }
+
+/* the stage runs, as the conversation's history: collapsed, because they are
+   what was said before — not what the panel is for */
+.chat-histtog { width: 100%; text-align: left; background: none; border: none; color: var(--txt-3); font-size: 11px;
+  font-weight: 700; letter-spacing: .6px; text-transform: uppercase; padding: 0 0 6px; cursor: pointer; }
+.chat-histtog:hover { color: var(--txt); }
+.chat-hist .uxv-thread { margin-bottom: 10px; }
+
+.chat-turn { display: flex; flex-direction: column; gap: 8px; }
+.chat-bub { border-radius: 12px; padding: 9px 12px; font-size: 13px; line-height: 1.5; word-break: break-word; }
+.chat-bub.you { align-self: flex-end; max-width: 88%; background: var(--accent); color: #07090c; white-space: pre-wrap; border-bottom-right-radius: 4px; }
+.chat-bub.agent { align-self: stretch; background: var(--bg); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+.chat-answer { margin: 0; white-space: pre-wrap; color: var(--txt); }
+.chat-answer.dim { color: var(--txt-3); font-style: italic; }
+.chat-err { margin: 0; color: var(--danger); font-size: 12.5px; }
+/* what it is doing RIGHT NOW — one line, replaced as it advances, so sending a
+   message feels like handing work to someone who visibly picks it up */
+.chat-activity { display: flex; align-items: center; gap: 7px; margin-top: 6px; color: var(--txt-3); font-size: 12px; }
+.chat-pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; animation: chat-pulse 1.4s ease-in-out infinite; }
+.chat-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: 11px; }
+.chat-bub.agent .uxv-files { margin-top: 8px; }
+/* the raw log must not widen the panel — it scrolls inside it */
+.chat-term { margin-top: 8px; max-height: 220px; white-space: pre; overflow: auto; }
+.chat-empty { margin: auto 0; text-align: center; color: var(--txt-2); font-size: 13px; line-height: 1.7; }
+
+.chat-composer { border-top: 1px solid var(--line); padding: 10px 12px 12px; background: var(--bg-2); }
+.chat-input { width: 100%; resize: none; font-size: 13px; }
+.chat-crow { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.chat-agent { margin-top: 8px; flex-wrap: wrap; }
+.chat-hint { margin: 8px 0 0; color: var(--txt-3); font-size: 11.5px; line-height: 1.5; }
+
+/* Narrow: the panel goes full-width over the timeline instead of squeezing it.
+   !important beats the inline grid-template-columns the task screen computes. */
+@media (max-width: 900px) {
+  .content.detail.chat-open { grid-template-columns: 1fr !important; }
+  .content.detail.chat-open .stages { display: none; }
+  .chat-panel { height: calc(100vh - 128px); }
+}
+/* a refused send — a plan gate, a finalized task — reads as a note from the
+   flow, not as the agent failing */
+.chat-note { margin: 0; color: var(--txt-3); font-size: 12.5px; line-height: 1.5; }

@@ -191,7 +191,39 @@ export const rel = {
   stage: (p, t, s) => rel.task(p, t) + "/" + safeRef(s),
   stageContext: (p, t, s) => rel.stage(p, t, s) + "/context.md",
   stageOutputs: (p, t, s) => rel.stage(p, t, s) + "/outputs",
+  // the task's chat: turns live in metadata.json (chat.turns) for the app, and
+  // as prose in thread.md for a person with git and grep — the same split the
+  // stages use between their run records and prompts.md.
+  chat: (p, t) => rel.task(p, t) + "/chat",
+  chatThread: (p, t) => rel.chat(p, t) + "/thread.md",
 };
+
+// The reserved "stage" id a chat turn runs under. It is NOT a stage: it never
+// appears in meta.stages or meta.tracking — it exists so a chat turn takes the
+// same one-live-run-per-task slot in the run registry that a stage does, and so
+// the app can attach to it with the machinery it already has.
+export const CHAT_STAGE = "__chat__";
+
+// The system prompt for a chat turn. Deliberately unlike a stage prompt: a stage
+// produces a document, a chat turn makes the change and says so in a sentence.
+export const CHAT_SYSTEM_PROMPT = [
+  "You are continuing an existing task on its own git branch, in its worktree.",
+  "The person is talking to you in a chat box, in plain language — they are often not an engineer.",
+  "",
+  "Make the change they ask for DIRECTLY in the worktree. Keep it small and targeted:",
+  "do what was asked and nothing more. Do not create plans, specs, reports or summary",
+  "documents unless the person explicitly asks for one.",
+  "",
+  "Then answer in ONE short paragraph of plain language, saying what you changed.",
+  "No markdown headings, no bullet lists, no restating the request back, no next-steps section.",
+].join("\n");
+
+// Tool chatter vs. what the agent actually SAID. Every CLI agent's stream is
+// mapped into `{t:"out"}` lines by the runner; the ones that start with one of
+// these markers are activity (a tool call, a session id, a branch, a shell line,
+// an error), not prose. One rule, used by the server to store a turn's answer
+// and by the app to drive the activity line.
+export const isToolChatter = (line) => /^\s*(\u00b7|\u2716|\u26c1|\u2387|\$|\u2501)/.test(String(line || ""));
 
 // AND/OR dependency gate for the plan network. A task's gate is
 // { all: [taskKey…], any: [taskKey…] } where taskKey = "<pipeline>/<task>".

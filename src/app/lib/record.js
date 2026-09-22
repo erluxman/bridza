@@ -127,3 +127,16 @@ export function buildGraph(records) {
   const edges = records.slice(1).map((r, i) => ({ from: records[i].id, to: r.id }));
   return { nodes, edges };
 }
+
+// ── chat turns ───────────────────────────────────────────────────────────────
+// The same adapter treatment for the task-level conversation: a stored turn
+// (metadata.json → chat.turns) carries plain file PATHS, so the churn and the
+// clickable diff come from the turn's own commit on the timeline. A turn is not
+// a stage — it has no tracking entry and never appears in buildStageRecords.
+export function buildChatTurns(turns, timeline = []) {
+  return (Array.isArray(turns) ? turns : []).map((t) => {
+    const c = timeline.find((x) => x.kind === "chat" && x.turn === t.seq);
+    const commit = t.commit || (c ? c.sha : null);
+    return { ...t, commit, files: buildFiles(t, commit, timeline) };
+  });
+}
