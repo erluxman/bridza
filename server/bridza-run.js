@@ -13,9 +13,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { DATA_DIR, taskBranchName, rel, safeRef, taskDirName, parseTaskDir, CLI_TOOLS, STARTER_PIPELINES, pipelineFlows, gateSatisfied } from "../core/domain.js";
+import { DATA_DIR, taskBranchName, rel, safeRef, taskDirName, parseTaskDir, CLI_TOOLS, STARTER_PIPELINES, pipelineFlows, gateSatisfied, CHAT_STAGE, CHAT_SYSTEM_PROMPT, isToolChatter } from "../core/domain.js";
 
-export { DATA_DIR, taskBranchName };
+export { DATA_DIR, taskBranchName, CHAT_STAGE };
 
 const firstLine = (e) => String((e && e.message) || e).split("\n")[0];
 const nowISO = () => new Date().toISOString();
@@ -756,6 +756,55 @@ export function lastValidCommitBefore(W, order, sid) {
   return null;
 }
 
+// ── one CLI agent's stdout → run events ─────────────────────────────────────
+// Both the stage runner and the chat turn spawn the same agents and read the
+// same schemas, so the mapping lives here once. `st` is the caller's state: the
+// reader fills `st.sessionId` with the id the tool minted (announcing it once)
+// and `st.toolError` with a failure the tool reported IN-BAND — opencode and
+// claude both exit 0 on a provider error, so without this a dead run reads as
+// "done". Returns the stdout handler to hand to the child process.
+function toolStdoutReader(tool, toolId, emit, st) {
+  const session = (id) => { if (id && !st.sessionId) { st.sessionId = id; emit({ t: "session", tool: toolId, sessionId: id }); } };
+  const onJsonEvent = (ev) => {
+    if (!ev || typeof ev !== "object") return;
+    // tools that ship their own event mapper (claude) translate their schema
+    // themselves; everything below is the opencode shape.
+    if (typeof tool.onEvent === "function") {
+      const r = tool.onEvent(ev) || {};
+      session(r.session);
+      if (r.out) emit({ t: "out", d: r.out });
+      if (r.error) { st.toolError = r.error; emit({ t: "out", d: "\u2716 " + r.error + "\n" }); }
+      return;
+    }
+    session(ev.sessionID);
+    const p = ev.part || {};
+    if (ev.type === "text" && typeof p.text === "string") emit({ t: "out", d: p.text + "\n" });
+    else if (ev.type === "tool") emit({ t: "out", d: "\u00b7 " + (p.tool || p.name || "tool") + (p.state && p.state.status ? " (" + p.state.status + ")" : "") + "\n" });
+    else if (ev.type === "step_finish" && p.tokens) emit({ t: "out", d: "\u00b7 step \u00b7 " + p.tokens.total + " tokens\n" });
+    else if (ev.type === "error") {
+      const e = ev.error || {};
+      st.toolError = (e.data && e.data.message) || e.message || e.name || "tool reported an error";
+      emit({ t: "out", d: "\u2716 " + st.toolError + "\n" });
+    }
+  };
+  let jbuf = "";
+  return (d) => {
+    if (tool.stream !== "json") {
+      const text = d.toString();
+      // stdout-id tools (codex): sniff the minted session id from its output
+      if (tool.sessionRe && !st.sessionId) { const m = text.match(tool.sessionRe); if (m) session(m[1]); }
+      return emit({ t: "out", d: text });
+    }
+    jbuf += d.toString();
+    let nl;
+    while ((nl = jbuf.indexOf("\n")) >= 0) {
+      const line = jbuf.slice(0, nl); jbuf = jbuf.slice(nl + 1);
+      if (!line.trim()) continue;
+      try { onJsonEvent(JSON.parse(line)); } catch (e) { emit({ t: "out", d: line + "\n" }); }
+    }
+  };
+}
+
 // Run one stage. Emits NDJSON-shaped events through `emit` and resolves with
 // the final end event (never rejects). The timeline:
 //   1. PROMPT commit — the run record (prompt, tool, model, startedAt) is
@@ -812,7 +861,8 @@ export function runStage(root, body, emit) {
     // chain racing a manual press) would write the same branch from two sides
     for (const r of ACTIVE_RUNS.values()) {
       if (r.pipeline === safeRef(pipeline) && r.task === safeRef(task))
-        return end({ exit: 1, status: "busy", errorKind: "busy", error: "another stage of this task is already running (" + r.stage + ")" });
+        return end({ exit: 1, status: "busy", errorKind: "busy",
+          error: r.stage === CHAT_STAGE ? "a chat turn for this task is still running" : "another stage of this task is already running (" + r.stage + ")" });
     }
     runKey = safeRef(pipeline) + "/" + safeRef(task) + "/" + safeRef(stage) + "#" + Date.now();
     const runEntry = { root: path.resolve(root), pipeline: safeRef(pipeline), task: safeRef(task), stage: safeRef(stage), tool: toolId, startedAt: nowISO(), kill: null,
@@ -836,7 +886,9 @@ export function runStage(root, body, emit) {
     // the task's folder inside the worktree — padded "<ref>-<id>" for tasks
     // born under the naming contract, the bare id for older ones
     const td = taskDirOn(W, pipeline, task);
-    let sessionId = null; // LLM session id: opencode/codex capture it, claude picks it
+    // what the tool's stream hands back: the LLM session id (opencode/codex mint
+    // it, claude is given one) and any error it reported without a non-zero exit
+    const st = { sessionId: null, toolError: null };
     let reuse = false;    // opt-in session reuse (task.reuseSession) for this run
     let sessionModel = model || "";   // only reuse a session when the model matches
     try {
@@ -896,7 +948,7 @@ export function runStage(root, body, emit) {
       // prior done output is tracked/staged and left intact (no data loss).
       if (status !== "done") {
         try { git(W, ["clean", "-fd"]); } catch (e) { /* best-effort scrub */ }
-        return end({ exit, status, errorKind, error, branch: wt.branch, resultCommit: null, files: [], sessionId });
+        return end({ exit, status, errorKind, error, branch: wt.branch, resultCommit: null, files: [], sessionId: st.sessionId });
       }
       try {
         // stage first so the changed-files list (minus scaffolding) can be
@@ -914,7 +966,7 @@ export function runStage(root, body, emit) {
         // metadata reflects what the app shows, not just the agent's runtime).
         track.seconds = Math.max((track.seconds || 0) + Math.round((Date.now() - startMs) / 1000), Math.floor(Number(wallSeconds) || 0));
         const r = track.runs[track.runs.length - 1] || {};
-        Object.assign(r, { finishedAt: nowISO(), exit, status, files, sessionId, error: error || null, log: outTail.trim() || null });
+        Object.assign(r, { finishedAt: nowISO(), exit, status, files, sessionId: st.sessionId, error: error || null, log: outTail.trim() || null });
         writeTaskMeta(W, pipeline, task, meta);
         try { fs.writeFileSync(path.join(W, rel.task(pipeline, td), "README.md"), renderTaskReadme(meta)); } catch (e) { /* readme is best-effort */ }
         const rLines = [
@@ -923,7 +975,7 @@ export function runStage(root, body, emit) {
           "", `Stage: ${stageName || sid}`, `Tool: ${toolId}${model ? " · " + model : ""}`,
         ];
         if (taskTitle) rLines.splice(3, 0, `Task: ${taskTitle}`);
-        if (sessionId) rLines.push(`opencode-session: ${sessionId}`);
+        if (st.sessionId) rLines.push(`opencode-session: ${st.sessionId}`);
         if (prompt && prompt.trim()) rLines.push("", "Prompt:", prompt.trim().slice(0, 2000));
         rLines.push("", files.length ? `Files (${files.length}): ${files.slice(0, 12).join(", ")}${files.length > 12 ? ", …" : ""}` : "No file changes");
         if (error) rLines.push("", "Error: " + error);
@@ -933,8 +985,8 @@ export function runStage(root, body, emit) {
         // amend dance; the UI resolves diffs from the timeline instead)
         if (c.committed) emit({ t: "commit", phase: "result", sha: c.sha });
         // remember this task's session so the next stage can resume it
-        if (reuse && sessionId) setTaskSession(root, pipeline, task, toolId, { id: sessionId, model: sessionModel });
-        end({ exit, status, errorKind, error, branch: wt.branch, resultCommit: c.sha || null, files, sessionId });
+        if (reuse && st.sessionId) setTaskSession(root, pipeline, task, toolId, { id: st.sessionId, model: sessionModel });
+        end({ exit, status, errorKind, error, branch: wt.branch, resultCommit: c.sha || null, files, sessionId: st.sessionId });
       } catch (e) { end({ exit: exit || 1, status: "failed", errorKind: "git", error: "stage commit failed: " + firstLine(e), branch: wt.branch }); }
     };
 
@@ -961,45 +1013,7 @@ export function runStage(root, body, emit) {
     // CRUCIAL: opencode exits 0 even when the run died on a provider error — the
     // failure only appears as a {type:"error"} event. Capture it so the stage is
     // marked failed with the real reason instead of silently "done".
-    let toolError = null;
-    const onJsonEvent = (ev) => {
-      if (!ev || typeof ev !== "object") return;
-      // tools that ship their own event mapper (claude) translate their schema
-      // themselves; everything below is the opencode shape.
-      if (typeof tool.onEvent === "function") {
-        const r = tool.onEvent(ev) || {};
-        if (r.session && !sessionId) { sessionId = r.session; emit({ t: "session", tool: toolId, sessionId }); }
-        if (r.out) emit({ t: "out", d: r.out });
-        if (r.error) { toolError = r.error; emit({ t: "out", d: "\u2716 " + r.error + "\n" }); }
-        return;
-      }
-      if (ev.sessionID && !sessionId) { sessionId = ev.sessionID; emit({ t: "session", tool: toolId, sessionId }); }
-      const p = ev.part || {};
-      if (ev.type === "text" && typeof p.text === "string") emit({ t: "out", d: p.text + "\n" });
-      else if (ev.type === "tool") emit({ t: "out", d: "· " + (p.tool || p.name || "tool") + (p.state && p.state.status ? " (" + p.state.status + ")" : "") + "\n" });
-      else if (ev.type === "step_finish" && p.tokens) emit({ t: "out", d: "· step · " + p.tokens.total + " tokens\n" });
-      else if (ev.type === "error") {
-        const e = ev.error || {};
-        toolError = (e.data && e.data.message) || e.message || e.name || "tool reported an error";
-        emit({ t: "out", d: "✖ " + toolError + "\n" });
-      }
-    };
-    let jbuf = "";
-    const onStdout = (d) => {
-      if (tool.stream !== "json") {
-        const text = d.toString();
-        // stdout-id tools (codex): sniff the minted session id from its output
-        if (tool.sessionRe && !sessionId) { const m = text.match(tool.sessionRe); if (m) { sessionId = m[1]; emit({ t: "session", tool: toolId, sessionId }); } }
-        return emit({ t: "out", d: text });
-      }
-      jbuf += d.toString();
-      let nl;
-      while ((nl = jbuf.indexOf("\n")) >= 0) {
-        const line = jbuf.slice(0, nl); jbuf = jbuf.slice(nl + 1);
-        if (!line.trim()) continue;
-        try { onJsonEvent(JSON.parse(line)); } catch (e) { emit({ t: "out", d: line + "\n" }); }
-      }
-    };
+    const onStdout = toolStdoutReader(tool, toolId, emit, st);
     // focused context (linked tickets) rides along in the prompt — the linked
     // tasks' intent plays a bigger role in shaping this stage's work.
     const focus = focusedContext(root, pipeline, task);
@@ -1017,10 +1031,10 @@ export function runStage(root, body, emit) {
       const prev = getTaskSession(root, pipeline, task, toolId);
       if (prev && prev.id && (prev.model || "") === sessionModel) {
         session = { id: prev.id, mode: "resume" };
-        if (tool.sessionIdSource === "client") sessionId = prev.id;
+        if (tool.sessionIdSource === "client") st.sessionId = prev.id;
       } else if (tool.sessionIdSource === "client") {
-        sessionId = randomUUID();
-        session = { id: sessionId, mode: "start" };
+        st.sessionId = randomUUID();
+        session = { id: st.sessionId, mode: "start" };
       }   // stream tools with no prior id: run fresh, capture the minted id below
       emit({ t: "out", d: "· session reuse ON — " + (session ? session.mode + " " + session.id : "new " + toolId + " session") + "\n" });
     }
@@ -1045,8 +1059,252 @@ export function runStage(root, body, emit) {
     child.on("close", (code) => {
       if (stopRequested) return resultCommit(code || 1, "stopped", "stopped", "stopped by user");
       if (code) return resultCommit(code, "failed", "exit", "tool exited with code " + code);
-      if (toolError) return resultCommit(1, "failed", "tool-error", toolError);
+      if (st.toolError) return resultCommit(1, "failed", "tool-error", st.toolError);
       runShell(0);
+    });
+  });
+}
+
+
+// ── chat: one turn of conversation with the task's agent ────────────────────
+// The agent a chat turn defaults to: whatever this task last ran with. The last
+// chat turn wins (so an agent picked mid-conversation sticks), then the saved
+// pick of the most recently run stage, then that run's own tool/model. Empty
+// means "decide from what's installed" — resolveRunnableTool's job.
+export function chatRouting(root, pipeline, task) {
+  let meta;
+  try { meta = JSON.parse(readTaskField(root, pipeline, task, rel.taskMeta) || "{}"); } catch (e) { return {}; }
+  const turns = ((meta.chat || {}).turns) || [];
+  if (turns.length) { const t = turns[turns.length - 1]; return { tool: t.tool || "", model: t.model || "" }; }
+  let best = null;
+  for (const sid of Object.keys(meta.tracking || {})) {
+    for (const r of ((meta.tracking[sid] || {}).runs || [])) {
+      if (!r.startedAt) continue;
+      if (!best || String(r.startedAt) > String(best.startedAt)) best = { r, sid };
+    }
+  }
+  if (!best) return {};
+  const routed = (meta.routing || {})[best.sid] || {};
+  return { tool: routed.tool || best.r.tool || "", model: routed.model || best.r.model || "" };
+}
+
+// Every output file the task's stages have produced, newest run last — the list
+// is handed to the chat agent so "the spec you wrote" resolves to a real path
+// without the person having to name it.
+function stageOutputFiles(meta) {
+  const seen = new Set();
+  for (const sid of Object.keys(meta.tracking || {}))
+    for (const r of ((meta.tracking[sid] || {}).runs || []))
+      for (const f of (r.files || [])) seen.add(f);
+  return [...seen].slice(0, 40);
+}
+
+// One turn's block in the task's chat/thread.md — the human-readable half of the
+// record, exactly the spirit of a stage's prompts.md: what survives in git and
+// what a person greps.
+function appendThread(W, pipeline, td, taskTitle, turn) {
+  const f = path.join(W, rel.chatThread(pipeline, td));
+  fs.mkdirSync(path.dirname(f), { recursive: true });
+  const block = `## ${turn.at} · turn ${turn.seq} · ${turn.tool}${turn.model ? " · " + turn.model : ""}\n\n`
+    + `**You:** ${turn.message}\n\n`
+    + `**Agent:** ${turn.answer || "_(no answer text captured)_"}\n\n`;
+  if (!fs.existsSync(f))
+    fs.writeFileSync(f, `# Chat — ${taskTitle || safeRef(pipeline)}\n\nOne block per turn, oldest first. Each turn ran the task's agent in the task's\nworktree and landed its own commit. The same text is in the \`chat.turns\`\nrecords in metadata.json and in each turn's commit message.\n\n` + block);
+  else fs.appendFileSync(f, block);
+}
+
+// Run ONE chat turn. A turn is a first-class unit of work — same CLI agent, same
+// worktree, same branch, its own commit — but it is NOT a stage: no soft reset,
+// no outputs/ scaffold, no prompts.md, no tracking[stage] write. The stage
+// timeline keeps reading as the clean sequence of stages it is; chat turns are
+// extra commits after (or between) them.
+// Events are the stage runner's: {t:"meta"} {t:"out",d} {t:"cmd"} {t:"commit"}
+// {t:"end",…}, so the app attaches to a turn with the machinery it already has.
+export function runChatTurn(root, body, emit) {
+  return new Promise((resolve) => {
+    let ended = false;
+    let runKey = null;
+    let outTail = "";
+    let log = "";
+    const listeners = new Set();
+    const rawEmit = emit;
+    emit = (ev) => {
+      if (ev.t === "out" && typeof ev.d === "string") outTail = (outTail + ev.d).slice(-4000);
+      log = (log + runText(ev)).slice(-LOG_CAP);
+      rawEmit(ev);
+      for (const l of listeners) { try { l(ev); } catch (e) { /* a dead attach must not break the turn */ } }
+    };
+    const end = (obj) => {
+      if (ended) return; ended = true;
+      if (runKey) { const r = ACTIVE_RUNS.get(runKey); ACTIVE_RUNS.delete(runKey); if (r) rememberRun(r, obj); }
+      emit({ t: "end", ...obj }); listeners.clear(); resolve(obj);
+    };
+
+    const { pipeline, task, message, taskTitle, workingDir = "." } = body || {};
+    const text = String(message == null ? "" : message).trim();
+    if (!text) return end({ exit: 1, status: "failed", errorKind: "empty", error: "type a message first" });
+    const bad = validRef(pipeline, "pipeline") || validRef(task, "task");
+    if (bad) return end({ exit: 1, errorKind: "bad-ref", error: bad });
+
+    const saved = chatRouting(root, pipeline, task);
+    const picked = resolveRunnableTool((body && body.tool) || saved.tool);
+    if (picked.error) return end({ exit: 1, errorKind: picked.error.startsWith("unknown") ? "unknown-tool" : "no-tool", error: picked.error });
+    const tool = picked.tool;
+    const toolId = picked.toolId;
+    if (picked.fellBackFrom) emit({ t: "out", d: "· " + picked.fellBackFrom + " not installed — falling back to " + toolId + "\n" });
+    const model = (body && body.model) || (saved.tool === toolId ? saved.model : "") || process.env["BRIDZA_" + String(toolId).toUpperCase() + "_MODEL"] || "";
+
+    // the plan gate applies to chat exactly as to a stage: a task wired behind
+    // others can't be worked on at all yet, by any route
+    const blocked = blockedByPlan(root, pipeline, task);
+    if (blocked) return end({ exit: 1, status: "blocked", errorKind: "plan-gate", error: blocked });
+    // one live run per task — a chat turn takes the same slot a stage does
+    for (const r of ACTIVE_RUNS.values()) {
+      if (r.pipeline === safeRef(pipeline) && r.task === safeRef(task))
+        return end({ exit: 1, status: "busy", errorKind: "busy",
+          error: r.stage === CHAT_STAGE ? "a chat turn for this task is still running" : (r.stage + " is running — you can send as soon as it finishes") });
+    }
+
+    let wt;
+    try { wt = ensureTaskWorktree(root, pipeline, task, { workingDir }); }
+    catch (e) { return end({ exit: 1, errorKind: "git", error: firstLine(e) }); }
+    if (!wt.ok) return end({ exit: 1, errorKind: "git", error: wt.error });
+    const W = wt.worktree;
+    const td = taskDirOn(W, pipeline, task);
+    const meta0 = readTaskMeta(W, pipeline, task);
+    if (meta0.finalized)
+      return end({ exit: 1, status: "finalized", errorKind: "finalized", error: "this task is finalized — reopen a stage or create a follow-up task to keep working" });
+
+    runKey = safeRef(pipeline) + "/" + safeRef(task) + "/" + CHAT_STAGE + "#" + Date.now();
+    const runEntry = { root: path.resolve(root), pipeline: safeRef(pipeline), task: safeRef(task), stage: CHAT_STAGE, tool: toolId,
+      startedAt: nowISO(), kill: null, wallSeconds: 0, log: () => log, listeners };
+    ACTIVE_RUNS.set(runKey, runEntry);
+    emit({ t: "meta", branch: wt.branch, worktree: W, pipeline: safeRef(pipeline), task: safeRef(task), stage: CHAT_STAGE });
+
+    let stopRequested = false;
+    const st = { sessionId: null, toolError: null };
+    const startMs = Date.now();
+
+    // What the agent SAID, as opposed to what it did: the runner's out-stream
+    // carries both the assistant's prose and the tool-activity markers, and only
+    // the prose belongs in the turn's answer. One rule (isToolChatter), shared
+    // with the app's activity line. Buffered by line — a chunk can split one.
+    let answer = "", pendingLine = "";
+    const absorb = (d) => {
+      pendingLine += d;
+      let nl;
+      while ((nl = pendingLine.indexOf("\n")) >= 0) {
+        const line = pendingLine.slice(0, nl); pendingLine = pendingLine.slice(nl + 1);
+        if (!isToolChatter(line)) answer += line + "\n";
+      }
+    };
+    const finalAnswer = () => {
+      if (pendingLine && !isToolChatter(pendingLine)) answer += pendingLine;
+      pendingLine = "";
+      return answer.trim().slice(0, 8000);
+    };
+    const chatEmit = (ev) => { if (ev.t === "out" && typeof ev.d === "string") absorb(ev.d); emit(ev); };
+
+    let turnDone = false;
+    const turnCommit = (exit, status, errorKind, error) => {
+      if (turnDone || ended) return;
+      turnDone = true;
+      // same rule as a stage: only a completed turn earns a commit. A failed or
+      // stopped turn is surfaced live and kept in the run registry (so a reattach
+      // still shows it), but nothing is written to the branch — and its untracked
+      // partial output is scrubbed so it can't leak into the next commit.
+      if (status !== "done") {
+        try { git(W, ["clean", "-fd"]); } catch (e) { /* best-effort scrub */ }
+        return end({ exit, status, errorKind, error, branch: wt.branch, resultCommit: null, files: [], sessionId: st.sessionId, answer: finalAnswer(), turn: null });
+      }
+      try {
+        git(W, ["add", "-A"]);
+        const metaRel = rel.taskMeta(pipeline, td);
+        const threadRel = rel.chatThread(pipeline, td);
+        const staged = git(W, ["diff", "--cached", "--name-only"]).trim();
+        // the agent's real changes — the turn's own bookkeeping isn't one of them
+        const files = staged ? staged.split("\n").filter((f) => f !== metaRel && f !== threadRel && !f.endsWith("/README.md") && !f.endsWith(".gitkeep")) : [];
+        const meta = readTaskMeta(W, pipeline, task);
+        if (!meta.chat || typeof meta.chat !== "object") meta.chat = { turns: [] };
+        if (!Array.isArray(meta.chat.turns)) meta.chat.turns = [];
+        const turn = {
+          seq: meta.chat.turns.length + 1, at: nowISO(), tool: toolId, model: model || null,
+          message: text, answer: finalAnswer(), status, exit, files, commit: null,
+          sessionId: st.sessionId, seconds: Math.round((Date.now() - startMs) / 1000), error: null,
+        };
+        meta.chat.turns.push(turn);
+        writeTaskMeta(W, pipeline, task, meta);
+        appendThread(W, pipeline, td, meta.title || taskTitle, turn);
+        const lines = [
+          `bridza(${safeRef(pipeline)}/${safeRef(task)}/chat): turn ${turn.seq} · ${toolId} · exit ${exit}`
+            + (files.length ? ` · ${files.length} file${files.length === 1 ? "" : "s"}` : ""),
+          "", `Task: ${meta.title || taskTitle || safeRef(task)}`, `Tool: ${toolId}${model ? " · " + model : ""}`,
+        ];
+        if (st.sessionId) lines.push(`session: ${st.sessionId}`);
+        lines.push("", "Message:", text.slice(0, 2000));
+        lines.push("", files.length ? `Files (${files.length}): ${files.slice(0, 12).join(", ")}${files.length > 12 ? ", …" : ""}` : "No file changes");
+        const c = commitWorktree(W, lines.join("\n"));
+        if (c.committed) emit({ t: "commit", phase: "chat", sha: c.sha });
+        // a turn that minted a session id stores it under the same (task, tool)
+        // key a stage uses, so a later stage run continues from the chat
+        if (reuse && st.sessionId) setTaskSession(root, pipeline, task, toolId, { id: st.sessionId, model: sessionModel });
+        end({ exit, status, branch: wt.branch, resultCommit: c.sha || null, files, sessionId: st.sessionId,
+          answer: turn.answer, turn: { ...turn, commit: c.sha || null } });
+      } catch (e) {
+        end({ exit: exit || 1, status: "failed", errorKind: "git", error: "chat commit failed: " + firstLine(e), branch: wt.branch, answer: finalAnswer(), turn: null });
+      }
+    };
+
+    // ---- the prompt: the message, with just enough of the task around it -----
+    const brief = (readTaskField(root, pipeline, task, rel.taskContext) || "").trim();
+    const outs = stageOutputFiles(meta0);
+    const focus = focusedContext(root, pipeline, task);
+    const fullPrompt = [
+      (meta0.title || taskTitle) ? "Task: " + (meta0.title || taskTitle) : "",
+      brief ? "## The task's brief\n\n" + brief : "",
+      outs.length ? "## Files the earlier stages produced on this branch\n\n" + outs.map((f) => "- " + f).join("\n") : "",
+      focus,
+      "## The message\n\n" + text,
+    ].filter(Boolean).join("\n\n");
+
+    // session reuse (opt-in per task, same switch the stages use): resuming means
+    // "the button you just changed" resolves without re-explaining it. A turn
+    // never silently turns reuse on.
+    let session = null;
+    const reuse = !!tool.sessionIdSource && !!meta0.reuseSession;
+    const sessionModel = model || "";
+    if (reuse) {
+      const prev = getTaskSession(root, pipeline, task, toolId);
+      if (prev && prev.id && (prev.model || "") === sessionModel) {
+        session = { id: prev.id, mode: "resume" };
+        if (tool.sessionIdSource === "client") st.sessionId = prev.id;
+      } else if (tool.sessionIdSource === "client") {
+        st.sessionId = randomUUID();
+        session = { id: st.sessionId, mode: "start" };
+      }
+      emit({ t: "out", d: "· session reuse ON — " + (session ? session.mode + " " + session.id : "new " + toolId + " session") + "\n" });
+    }
+
+    const args = tool.args({ prompt: fullPrompt, system: CHAT_SYSTEM_PROMPT, model, session });
+    const shownArgs = args.map((a) => {
+      const x = String(a);
+      const short = x.length > 160 ? x.slice(0, 157) + "…" : x;
+      return /\s|"/.test(short) ? JSON.stringify(short) : short;
+    });
+    emit({ t: "cmd", cmd: [tool.bin, ...shownArgs].join(" ") });
+    const onStdout = toolStdoutReader(tool, toolId, chatEmit, st);
+    // detached → own process group, so a stop kills the tool AND its children
+    const child = spawn(tool.bin, args, { cwd: W, env: { ...process.env, PWD: W }, stdio: ["ignore", "pipe", "pipe"], detached: true });
+    runEntry.kill = () => { stopRequested = true; killTree(child); };
+    child.stdout.on("data", onStdout);
+    child.stderr.on("data", (d) => chatEmit({ t: "out", d: d.toString() }));
+    child.on("error", (e) => turnCommit(1, "failed", "spawn", String((e && e.message) || e)));
+    child.on("exit", () => { if (stopRequested) turnCommit(1, "stopped", "stopped", "stopped by user"); });
+    child.on("close", (code) => {
+      if (stopRequested) return turnCommit(code || 1, "stopped", "stopped", "stopped by user");
+      if (code) return turnCommit(code, "failed", "exit", "the agent exited with code " + code);
+      if (st.toolError) return turnCommit(1, "failed", "tool-error", st.toolError);
+      turnCommit(0, "done");
     });
   });
 }
@@ -1686,7 +1944,10 @@ export function taskTimeline(root, pipeline, task) {
     // new model: one commit per stage, subject "…): done|failed · tool · exit N"
     // (old branches may still carry prompt/result pairs — parse those too)
     const sm = subject.match(/^bridza\(([^/)]+)\/([^/)]+)\/([^)]+)\):\s*(prompt|result|done|failed)/);
-    commits.push({ sha, author, subject, date, stage: sm ? sm[3] : null, kind: sm ? sm[4] : null, files, add, del });
+    // a chat turn's own commit — not a stage, so it carries `turn` instead of a
+    // stage id, and the app resolves a turn's diff through it
+    const cm = subject.match(/^bridza\([^)]*\/chat\):\s*turn\s+(\d+)/);
+    commits.push({ sha, author, subject, date, stage: sm ? sm[3] : null, kind: sm ? sm[4] : (cm ? "chat" : null), turn: cm ? +cm[1] : null, files, add, del });
   }
   return { ok: true, branch, commits };
 }

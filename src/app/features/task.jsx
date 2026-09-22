@@ -3,11 +3,11 @@
 // relations (TaskRelations), time-by-stage, and the blast-radius diagram.
 import { useState, useEffect, useCallback, useRef } from "react";
 import * as api from "../api/client.js";
-import { pipelineFlows, specLabel } from "../../../core/domain.js";
+import { pipelineFlows, specLabel, CHAT_STAGE } from "../../../core/domain.js";
 import { slug, runPrompt, fmt, workFiles, base, ago } from "../lib/format.js";
-import { buildStageRecords, lastRunTool, lastRunModel } from "../lib/record.js";
+import { buildStageRecords, buildChatTurns, lastRunTool, lastRunModel } from "../lib/record.js";
 import { logKey, readLog, appendLog as storeLog } from "../lib/autolog.js";
-import { InspectorView, CanvasView, ChatView, StageRunner } from "./views.jsx";
+import { InspectorView, CanvasView, ChatPanel, ChatBubble, StageRunner } from "./views.jsx";
 import { TagMenu, TagChips, useTagActions } from "./tags.jsx";
 import { Hamburger, ColGrip, useColWidth, Kv, Expandable } from "../ui.jsx";
 import { DiffView, FileModal } from "./diff.jsx";
@@ -72,10 +72,18 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   const [showTerm, setShowTerm] = useState(false);   // full-height PTY replaces the stage list
   // task-detail view mode: the classic stacked Stages, or one of the three new
   // read/audit views (Inspector / Canvas / Chat) — all read the unified record.
-  const [view, setView] = useState(() => { const v = localStorage.getItem("bridza.taskView:" + skey); return ["stages", "inspector", "canvas", "chat"].includes(v) ? v : "stages"; });
+  const [view, setView] = useState(() => { const v = localStorage.getItem("bridza.taskView:" + skey); return ["stages", "inspector", "canvas"].includes(v) ? v : "stages"; });
+  // The conversation is NOT a view. It is a floating bubble that docks a panel
+  // on the right — the one surface here aimed at someone who would never open a
+  // terminal, so it can't be the fourth button in an audit-view switcher.
+  // Someone whose last task view was the old Chat tab lands with the panel open.
+  const chatKey = "bridza.chatOpen:" + skey;
+  const [chatOpen, setChatOpen] = useState(() => localStorage.getItem(chatKey) === "1" || localStorage.getItem("bridza.taskView:" + skey) === "chat");
+  const toggleChat = useCallback((on) => { setChatOpen(on); try { localStorage.setItem(chatKey, on ? "1" : "0"); } catch (e) { /* ignore */ } }, [chatKey]);
   const [activeStage, setActiveStage] = useState("");   // selection for inspector/canvas
   const setTaskView = useCallback((v) => { setShowTerm(false); setView(v); try { localStorage.setItem("bridza.taskView:" + skey, v); } catch (e) { /* ignore */ } }, [skey]);
   const [railW, railGrip] = useColWidth("bridza.railW", 332, { min: 240, max: 560, side: "right" });   // #3
+  const [chatW, chatGrip] = useColWidth("bridza.chatW", 380, { min: 300, max: 560, side: "right" });
   const [railHidden, setRailHidden] = useState(() => localStorage.getItem("bridza.railHidden:" + skey) === "1");
   const toggleRail = () => setRailHidden((h) => { const n = !h; try { localStorage.setItem("bridza.railHidden:" + skey, n ? "1" : "0"); } catch (e) { /* ignore */ } return n; });
   const [plan, setPlan] = useState(null);   // project plan: deps (blocks/needs) + focused-context links
@@ -89,6 +97,7 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   // if you left and came back mid-run. Run-related state always resets.
   useEffect(() => {
     setTaskLog(readLog(skey)); setShowTerm(false); setAutomating(false);
+    setChatOpen(localStorage.getItem(chatKey) === "1" || localStorage.getItem("bridza.taskView:" + skey) === "chat");
     setAutoAdvance(localStorage.getItem(autoKey(skey)) !== "0");   // default ON
   }, [skey]);
   // another window flipped THIS task's auto-advance → follow it here, so a stage
@@ -129,6 +138,9 @@ export function TaskDetail({ dir, proj, pipeline, task, tools, runningStages, on
   // while any stage of THIS task runs (here, auto-advance, or another window),
   // keep the change timeline live — prompt/result commits appear as they land.
   const taskLive = runningStages && [...runningStages].some((k) => k.startsWith(pipeline.id + "/" + task.id + "/"));
+  // a chat turn registers under the reserved __chat__ id: live here means the
+  // bubble pulses and the composer waits, wherever the turn was started
+  const chatLive = !!(runningStages && runningStages.has(pipeline.id + "/" + task.id + "/" + CHAT_STAGE));
   useEffect(() => {
     if (!taskLive) return;
     const t = setInterval(loadTimeline, 5000);
@@ -409,11 +421,10 @@ setResolveOpen(false);
           <h1 className="task-title" style={{ marginLeft: 6 }} title={task.title}>{task.ref ? <span className="tref">#{task.ref}</span> : null}{task.title}</h1>
         </div>
         <div className="row">
-          <div className="seg" title="How to view this task's stages. Stages: the classic runner. Inspector / Canvas / Chat: read & audit what each stage did. Terminal: a real shell in this task's worktree.">
+          <div className="seg" title="How to view this task's stages. Stages: the classic runner. Inspector / Canvas: read & audit what each stage did. Terminal: a real shell in this task's worktree. To ASK for a change, use the 💬 bubble.">
             <button className={!showTerm && view === "stages" ? "on" : ""} onClick={() => setTaskView("stages")}>Stages</button>
             <button className={!showTerm && view === "inspector" ? "on" : ""} onClick={() => setTaskView("inspector")}>Inspector</button>
             <button className={!showTerm && view === "canvas" ? "on" : ""} onClick={() => setTaskView("canvas")}>Canvas</button>
-            <button className={!showTerm && view === "chat" ? "on" : ""} onClick={() => setTaskView("chat")}>Chat</button>
             <button className={showTerm ? "on" : ""} onClick={() => setShowTerm(true)}>⌨ Terminal</button>
           </div>
           {taskLive && (
@@ -438,13 +449,15 @@ setResolveOpen(false);
           <button className="btn" onClick={() => finalize()} disabled={task.finalized} title={`Merge this task's branch into ${targetName}`}>{task.finalized ? "Finalized" : `Finalize → ${targetName}`}</button>
         </div>
       </div>
-      <div className="content detail" style={{ gridTemplateColumns: railHidden ? "1fr" : `1fr ${railW}px`, position: "relative" }}>
+      <div className={"content detail" + (chatOpen ? " chat-open" : "")} style={{ gridTemplateColumns: chatOpen ? `1fr ${chatW}px` : railHidden ? "1fr" : `1fr ${railW}px`, position: "relative" }}>
         {/* grip sits on the column split: right-padding (22) + railW + half the
             grid gap (9), minus the 4px from grip width to its hairline. Unlike
             the sidebar grid, .content.detail has padding + gap, so railW-3 alone
             (correct there) lands ~30px into the rail here. */}
-        {!railHidden && <ColGrip side="right" {...railGrip} style={{ right: railW + 27 }} />}
-        <button className="rail-toggle" onClick={toggleRail} title={railHidden ? "Show details panel" : "Hide details panel"}>{railHidden ? "‹" : "›"}</button>
+        {chatOpen
+          ? <ColGrip side="right" {...chatGrip} style={{ right: chatW + 27 }} />
+          : !railHidden && <ColGrip side="right" {...railGrip} style={{ right: railW + 27 }} />}
+        {!chatOpen && <button className="rail-toggle" onClick={toggleRail} title={railHidden ? "Show details panel" : "Hide details panel"}>{railHidden ? "‹" : "›"}</button>}
         {showTerm ? (
           <div className="stages">
             <TermDrawer full dir={dir} pipeline={pipeline.id} task={task.id} onClose={() => setShowTerm(false)} />
@@ -457,9 +470,8 @@ setResolveOpen(false);
               const runner = { dir, pipeline, task, tools, flash, brief: briefBody, onLog: appendLog, onActivity: markActivity, onDone: stageDone, onAttach, advanceFor, runningStages };
               const shared = { onDiff: setDiffCommit, onOpenFile: setFileOpen, runner };
               const activeId = activeStage || openStage || (records[0] && records[0].id);
-              if (view === "inspector") return <InspectorView records={records} activeId={activeId} setActiveId={setActiveStage} {...shared} />;
               if (view === "canvas") return <CanvasView records={records} activeId={activeStage} setActiveId={setActiveStage} {...shared} />;
-              return <ChatView records={records} {...shared} />;
+              return <InspectorView records={records} activeId={activeId} setActiveId={setActiveStage} {...shared} />;
             })()}
           </div>
         ) : (
@@ -482,7 +494,22 @@ setResolveOpen(false);
         </div>
         )}
 
-        {!railHidden && (
+        {chatOpen && (() => {
+          const records = buildStageRecords(pipeline, task, timeline, runningStages, stageTime);
+          const runner = { dir, pipeline, task, tools, flash, brief: briefBody, onLog: appendLog, onActivity: markActivity, onDone: stageDone, onAttach, advanceFor, runningStages };
+          // the stage holding this task's one live-run slot, if it isn't chat —
+          // the composer says which one, instead of failing on send
+          const busy = task.stages.find((sx) => runningStages && runningStages.has(pipeline.id + "/" + task.id + "/" + sx));
+          const busyName = busy ? ((pipeline.stages || []).find((sd) => sd.id === busy) || {}).name || busy : "";
+          return (
+            <ChatPanel dir={dir} pipeline={pipeline} task={task} tools={tools} records={records} runner={runner}
+              turns={buildChatTurns((task.chat || {}).turns, timeline)} live={chatLive} busyStage={busyName}
+              onDiff={setDiffCommit} onOpenFile={setFileOpen} onClose={() => toggleChat(false)} flash={flash}
+              onDone={() => { onChange(); loadTimeline(); }} />
+          );
+        })()}
+
+        {!chatOpen && !railHidden && (
         <aside className="rail">
           {timelineCard}
 
@@ -563,6 +590,10 @@ setResolveOpen(false);
         </aside>
         )}
       </div>
+      {/* the one plain-language way in, in every view including the terminal —
+          and in the finalized and blocked states, where the thread stays
+          readable even though the composer is closed */}
+      {!chatOpen && <ChatBubble onClick={() => toggleChat(true)} live={chatLive} turns={((task.chat || {}).turns || []).length} />}
       {diffCommit && <DiffView dir={dir} commit={diffCommit} commits={timeline} onCommit={setDiffCommit} pipeline={pipeline.id} task={task.id} flash={flash} onEdited={() => { onChange(); loadTimeline(); }} onClose={() => setDiffCommit(null)} />}
       {diffBranch && <DiffView dir={dir} branch pipeline={pipeline.id} task={task.id} flash={flash} onEdited={() => { onChange(); loadTimeline(); }} onClose={() => setDiffBranch(false)} />}
       {resolveOpen && <DiffView dir={dir} working pipeline={pipeline.id} task={task.id} flash={flash} onResolve={(action, m) => finalize(action, m)} onClose={() => setResolveOpen(false)} />}
