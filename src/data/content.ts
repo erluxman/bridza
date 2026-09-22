@@ -1,18 +1,26 @@
 export const FEATURES = [
   {
-    title: "Visual flow builder",
-    body: "Drag, drop, and wire up steps on an infinite canvas. See your whole automation at a glance — no YAML, no guesswork.",
+    title: "Stages are pure functions",
+    body: "A stage's input is only the previous stage's outputs, never the whole brief. Every review is one focused diff.",
   },
   {
-    title: "AI steps, first-class",
-    body: "Drop language models into any node: classify, extract, summarize, or decide. Bring your own keys; swap models without rewiring.",
+    title: "Git is the database",
+    body: "Each task is a branch and a worktree. Runs commit as they go. Your working tree and HEAD are never touched.",
   },
   {
-    title: "Connect everything",
-    body: "Webhooks, HTTP, schedules, and your favorite apps. Trigger flows from anywhere and push results wherever they need to go.",
+    title: "Human gate by default",
+    body: "Every stage waits for you until you flip Automate. Failures halt even automated stages.",
   },
   {
-    title: "Run it reliably",
-    body: "Retries, branching, and full run history. Watch each execution step-by-step so you always know what happened and why.",
+    title: "See where time and money go",
+    body: "Time, agent, model and cost are tracked per stage, so the bottleneck is visible.",
+  },
+  {
+    title: "Bring your own AI CLI",
+    body: "Runs Claude Code, opencode, or any tool on your PATH. Swap models without rewiring.",
+  },
+  {
+    title: "On your machine",
+    body: "Aira is a desktop app that drives git and your local CLIs. Nothing leaves your repo.",
   },
 ];

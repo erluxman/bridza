@@ -67,12 +67,12 @@ export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, fla
   const importRef = useRef(null);
   const downloadFlow = (f) => {
     downloadJSON("bridza-flow-" + (slug(f.name || label) || "flow") + ".json", exportFlow({ ...f, name: f.name || label }));
-    flash("flow exported — import it from any Bridza project's Stage flows screen");
+    flash("flow exported — import it from any Aira project's Stage flows screen");
   };
   const emailFlow = (f, via) => {
     const name = f.name || label;
-    const subject = "Bridza stage flow: " + name;
-    const body = "Stage flow “" + name + "” from the “" + label + "” pipeline.\nSave the JSON below as a .json file and import it from Bridza → Stage flows → Import flow.\n\n" + JSON.stringify(exportFlow({ ...f, name }), null, 2);
+    const subject = "Aira stage flow: " + name;
+    const body = "Stage flow “" + name + "” from the “" + label + "” pipeline.\nSave the JSON below as a .json file and import it from Aira → Stage flows → Import flow.\n\n" + JSON.stringify(exportFlow({ ...f, name }), null, 2);
     if (via === "gmail") window.open("https://mail.google.com/mail/?view=cm&fs=1&su=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body), "_blank", "noopener");
     else window.location.href = "mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
   };
@@ -90,7 +90,7 @@ export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, fla
       const f = parseFlowFile(text);
       if (!f.error) return addImportedFlows([f.flow]);
       const p = parsePipelineFile(text);
-      if (p.error) return flash("not a Bridza stage-flow or pipeline file");
+      if (p.error) return flash("not an Aira stage-flow or pipeline file");
       setPickFrom({ label: p.pipeline.label, flows: p.pipeline.flows, sel: p.pipeline.flows.map((_, i) => i) });
     };
     rd.readAsText(file);
@@ -98,7 +98,7 @@ export function PipelineFlow({ dir, proj, pipeline, tools, onClose, onSaved, fla
   // the WHOLE pipeline (all flows) as one file — importable from New pipeline
   const downloadPipeline = () => {
     downloadJSON("bridza-pipeline-" + (slug(label) || "pipeline") + ".json", exportPipeline({ label, workingDir, flows }));
-    flash("pipeline exported — import it from “＋ New pipeline” in any Bridza project");
+    flash("pipeline exported — import it from “＋ New pipeline” in any Aira project");
   };
   const toggleArchive = async () => {
     const r = await api.archivePipeline(dir, { id: pipeline.id, archived: !pipeline.archived });

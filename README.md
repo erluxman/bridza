@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="public/favicon.svg" width="76" alt="Bridza logo" />
+<img src="public/favicon.svg" width="76" alt="Aira logo" />
 
-# Bridza
+# Aira
 
-### A conveyor belt for knowledge work.
+### Jira for the AI era.
 
 Any project — a feature, a video, a campaign, a research inquiry — moves down a
 pipeline of small, reviewable stages. Each stage reads only the previous stage's
@@ -14,9 +14,9 @@ repos, backed by git.**
 
 <br/>
 
-[![Download](https://img.shields.io/badge/⬇_Download-bridza.erluxman.dev-a78bfa?style=for-the-badge)](https://bridza.erluxman.dev/download)
+[![Download](https://img.shields.io/badge/⬇_Download-bridza.erluxman.dev-4F7BFF?style=for-the-badge)](https://bridza.erluxman.dev/download)
 &nbsp;
-[![Latest release](https://img.shields.io/github/v/release/erluxman/bridza?style=for-the-badge&label=release&color=7c3aed)](https://github.com/erluxman/bridza/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/erluxman/bridza?style=for-the-badge&label=release&color=8B5CF6)](https://github.com/erluxman/bridza/releases/latest)
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 ![Platforms](https://img.shields.io/badge/platforms-macOS%20·%20Windows%20·%20Linux-informational)
@@ -25,17 +25,17 @@ repos, backed by git.**
 
 <br/>
 
-<img src="docs/assets/app-task.png" alt="Bridza — a task's stages, git branch, and time tracking" width="900" />
+<img src="docs/assets/app-task.png" alt="Aira — a task's stages, git branch, and time tracking" width="900" />
 
 </div>
 
 <br/>
 
-## Why Bridza
+## Why Aira
 
 The promise is **minimal change per stage**: a human reviewer sees one small,
 focused diff at each handoff — never a 20-file dump. That's possible because
-Bridza treats work as pure functions over git:
+Aira treats work as pure functions over git:
 
 - 🧩 **Stages are pure functions.** A stage's input is *only* the previous
   stage's named output artifacts — never the original brief. Every handoff is
@@ -54,7 +54,7 @@ Bridza treats work as pure functions over git:
 
 ## Install
 
-Bridza is a desktop app for **macOS, Windows, and Linux** — both a click-to-install
+Aira is a desktop app for **macOS, Windows, and Linux** — both a click-to-install
 download and a one-line terminal install.
 
 ### Download

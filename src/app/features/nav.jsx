@@ -7,6 +7,7 @@ import { pipelineFlows, shortTitle } from "../../../core/domain.js";
 import { base } from "../lib/format.js";
 import { Hamburger, Modal, Field, Expandable } from "../ui.jsx";
 import { SettingsModal } from "./settings.jsx";
+import Logo from "../../components/Logo.tsx";
 
 export function Sidebar({ proj, running, runningTasks, active, activeTask, onPipe, onNewPipe, onClose, onPick, recents, onOpen, onOpenTask, onCollapse, inboxCount, inboxActive, onInbox, planActive, onPlan, dir, onChange, flash, pulseKey = 0 }) {
   const [menu, setMenu] = useState(false);
@@ -45,7 +46,7 @@ export function Sidebar({ proj, running, runningTasks, active, activeTask, onPip
       <div className="side-hd">
         <div className="spread">
           {/* keyed so a new pulseKey remounts the node and restarts the CSS animation */}
-          <div key={pulseKey} className={"brand" + (pulseKey ? " pulse" : "")}>⎇ Bridza</div>
+          <div key={pulseKey} className={"brand" + (pulseKey ? " pulse" : "")}><Logo size={16} /> Aira</div>
           <button className="btn ghost sm" title="Collapse" onClick={onCollapse}>‹</button>
         </div>
         <div className="proj-switch">

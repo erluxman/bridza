@@ -1,21 +1,23 @@
 @import "tailwindcss";
 
-/* ── Bridza — violet accent over the shared erluxman design language ── */
+/* ── Aira — blue→purple accent over the shared erluxman design language ── */
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     Roboto, Helvetica, Arial, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  --color-ink: #ece9f6;
-  --color-ink-dim: #a39db8;
-  --color-ink-faint: #645d7a;
-  --color-base: #0b0a12;
-  --color-surface: #15131f;
-  --color-line: #241f33;
+  --color-ink: #f8fafc;
+  --color-ink-dim: #94a3b8;
+  --color-ink-faint: #64748b;
+  --color-base: #0b1120;
+  --color-surface: #111a2e;
+  --color-line: #1e293b;
 
-  --color-accent: #a78bfa;
-  --color-accent-soft: #3a2d63;
-  --color-on-accent: #0b0a12;
+  --color-accent: #4f7bff;
+  --color-accent-2: #8b5cf6;
+  --color-accent-soft: #1e2a5a;
+  --color-on-accent: #ffffff;
+  --color-success: #06d6a0;
 }
 
 html {
@@ -25,15 +27,17 @@ html {
 /* Light theme — overrides the dark tokens above when <html data-theme="light">. */
 :root[data-theme="light"] {
   color-scheme: light;
-  --color-ink: #1a1726;
-  --color-ink-dim: #5b5470;
-  --color-ink-faint: #948daa;
+  --color-ink: #0b1120;
+  --color-ink-dim: #475569;
+  --color-ink-faint: #94a3b8;
   --color-base: #ffffff;
-  --color-surface: #f5f3fb;
-  --color-line: #e6e1f2;
-  --color-accent: #7c5cf0;
-  --color-accent-soft: #ddd4fb;
+  --color-surface: #f8fafc;
+  --color-line: #e2e8f0;
+  --color-accent: #4f7bff;
+  --color-accent-2: #8b5cf6;
+  --color-accent-soft: #dbe4ff;
   --color-on-accent: #ffffff;
+  --color-success: #06d6a0;
 }
 
 /* Smooth the swap between themes. */
@@ -55,11 +59,26 @@ body {
 .bg-aura {
   background:
     radial-gradient(
-      70rem 45rem at 50% -15%,
+      70rem 45rem at 30% -15%,
       color-mix(in oklab, var(--color-accent) 20%, transparent),
       transparent 60%
     ),
+    radial-gradient(
+      70rem 45rem at 70% -15%,
+      color-mix(in oklab, var(--color-accent-2) 20%, transparent),
+      transparent 60%
+    ),
     var(--color-base);
+}
+
+.btn-gradient {
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-2));
+  color: #ffffff;
+  border-radius: 8px;
+  transition: filter 0.15s ease;
+}
+.btn-gradient:hover {
+  filter: brightness(1.06);
 }
 
 @keyframes float-in {

@@ -39,12 +39,12 @@ export function Welcome({ recents, onPick, onOpen, onForget, error }) {
   return (
     <div className="center">
       <div className="panel">
-        <h2>Bridza</h2>
-        <p className="muted">Agentic project management. Open a repo — its <code>.bridza/</code> is your database.</p>
+        <h2>Aira</h2>
+        <p className="muted">Small stages. Real gates. Git as truth. Open a repo — its <code>.bridza/</code> is your database.</p>
         {error && <p style={{ color: "var(--danger)" }}>{error}</p>}
         {bridge === false ? (
           <div className="no-bridge">
-            <p style={{ margin: "14px 0 6px" }}>🌐 <b>You're on the hosted preview.</b> A web page can't open your file manager or touch your repos — Bridza runs on <i>your</i> machine, where it drives git and your local <code>claude</code>/<code>opencode</code> CLIs.</p>
+            <p style={{ margin: "14px 0 6px" }}>🌐 <b>You're on the hosted preview.</b> A web page can't open your file manager or touch your repos — Aira runs on <i>your</i> machine, where it drives git and your local <code>claude</code>/<code>opencode</code> CLIs.</p>
             <pre className="mono">{"git clone https://github.com/erluxman/bridza\ncd bridza && pnpm install && pnpm dev"}</pre>
             <p className="muted" style={{ fontSize: 12.5 }}>then open <code>http://localhost:5173/app</code> and this screen will pick folders for real.</p>
           </div>
@@ -227,7 +227,7 @@ export function NewPipelineModal({ dir, existing, onClose, onDone, flash }) {
                 <option key={p.id} value={p.id}>{p.label} — {fl.length > 1 ? fl.length + " flows: " + fl.map((f) => f.name).join(", ") : fl[0].stages.map((s) => s.name).join(" → ")}</option>
               ); })}
             </select>
-            <button className="btn ghost sm" onClick={() => importRef.current && importRef.current.click()} title="Import a whole pipeline from a .json file exported by any Bridza project">⤒ Import…</button>
+            <button className="btn ghost sm" onClick={() => importRef.current && importRef.current.click()} title="Import a whole pipeline from a .json file exported by any Aira project">⤒ Import…</button>
             <input ref={importRef} type="file" accept=".json,application/json" style={{ display: "none" }}
               onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) importPipelineFile(f); e.target.value = ""; }} />
           </div>

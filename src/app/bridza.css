@@ -53,7 +53,7 @@ textarea.input { resize: vertical; min-height: 64px; }
 .app { display: grid; grid-template-columns: 264px 1fr; height: 100%; }
 .side { background: var(--bg-1); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .side-hd { padding: 14px 14px 10px; border-bottom: 1px solid var(--line); }
-.brand { font-family: "Space Grotesk", var(--sans); font-weight: 700; letter-spacing: .3px; font-size: 16px; }
+.brand { display: flex; align-items: center; gap: 6px; font-family: "Space Grotesk", var(--sans); font-weight: 700; letter-spacing: .3px; font-size: 16px; }
 @keyframes heartbeat {
   0%, 100% { transform: scale(1); }
   15% { transform: scale(1.15); }
@@ -177,7 +177,7 @@ h1.task-title { flex: 1 1 auto; min-width: 8ch; white-space: nowrap; overflow: h
 .inbox-item { display: flex; align-items: flex-start; gap: 12px; background: var(--bg-1); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
 .inbox-item:hover { border-color: var(--line-2); }
 .inbox-text { flex: 1; font-size: 13.5px; color: var(--txt); min-width: 0; word-break: break-word; }
-.tag.kind-idea { color: #a78bfa; border-color: #7a5ae055; }
+.tag.kind-idea { color: var(--color-accent-2); border-color: color-mix(in oklab, var(--color-accent-2) 33%, transparent); }
 .tag.kind-bug { color: var(--danger); border-color: #e0625f55; }
 .tag.kind-feature { color: var(--accent); border-color: #4f9cf255; }
 .tag { text-transform: capitalize; flex: none; }

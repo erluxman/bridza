@@ -56,7 +56,7 @@ async function startServer() {
   // Windows, where the shell-based picker has none).
   setPickFolder(async () => {
     const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
-    const r = await dialog.showOpenDialog(win, { title: "Open project folder — Bridza", properties: ["openDirectory", "createDirectory"] });
+    const r = await dialog.showOpenDialog(win, { title: "Open project folder — Aira", properties: ["openDirectory", "createDirectory"] });
     if (r.canceled || !r.filePaths[0]) return { canceled: true };
     return { path: r.filePaths[0] };
   });
@@ -75,7 +75,7 @@ async function createWindow() {
   const base = await startServer();
   const win = new BrowserWindow({
     width: 1280, height: 860, minWidth: 900, minHeight: 600,
-    title: "Bridza",
+    title: "Aira",
     backgroundColor: "#0b0b0f",
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   });

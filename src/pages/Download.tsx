@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import ThemeToggle from "../components/ThemeToggle";
+import Logo from "../components/Logo";
+import { detectOS, type OS } from "../lib/os";
 
 // The download page reads the LATEST GitHub Release of erluxman/bridza and lays
 // out per-OS installers + the one-line terminal installers. Both paths are
@@ -9,16 +11,6 @@ const SITE = "https://bridza.erluxman.dev";
 
 type Asset = { name: string; browser_download_url: string; size: number };
 type Release = { tag_name: string; html_url: string; assets: Asset[]; published_at: string };
-
-type OS = "mac" | "win" | "linux" | "other";
-
-function detectOS(): OS {
-  const s = `${navigator.userAgent} ${navigator.platform}`.toLowerCase();
-  if (/mac|iphone|ipad/.test(s)) return "mac";
-  if (/win/.test(s)) return "win";
-  if (/linux|android/.test(s)) return "linux";
-  return "other";
-}
 
 const fmtSize = (n: number) => (n ? `${(n / 1e6).toFixed(1)} MB` : "");
 
@@ -80,8 +72,9 @@ export default function Download() {
     <div className="bg-aura min-h-dvh">
       <div className="mx-auto flex min-h-dvh max-w-4xl flex-col px-6">
         <header className="flex items-center justify-between py-6">
-          <a href="/" className="text-ink text-lg font-semibold tracking-tight">
-            Bridza
+          <a href="/" className="flex items-center gap-2 text-ink text-lg font-semibold tracking-tight">
+            <Logo />
+            Aira
           </a>
           <div className="flex items-center gap-3">
             <a href="/app" className="text-ink-dim hover:text-ink text-sm transition-colors">
@@ -97,10 +90,10 @@ export default function Download() {
               {state === "ready" && rel ? rel.tag_name : "Desktop app"}
             </span>
             <h1 className="text-ink mt-6 max-w-2xl text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-              Download <span className="text-accent">Bridza</span>
+              Download <span className="text-accent">Aira</span>
             </h1>
             <p className="text-ink-dim mt-5 max-w-xl text-balance">
-              A conveyor belt for knowledge work — running on your machine, on your repos.
+              Project management for the AI era, running on your machine, on your repos.
               Install with a click, or one line in the terminal.
             </p>
           </section>
