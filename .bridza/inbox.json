@@ -1,11 +1,4 @@
 {
   "v": 1,
-  "items": [
-    {
-      "id": "in-s3y52e",
-      "kind": "idea",
-      "text": "I see ECU during merging of ref.json or file that every ECU touches. There should be separation of concern that not every ticket should be touching the same file. They should be as independent as possible. So we have to organize the files in that manner.\n Thank you.",
-      "time": "2026-09-22T20:00:21.405Z"
-    }
-  ]
+  "items": []
 }

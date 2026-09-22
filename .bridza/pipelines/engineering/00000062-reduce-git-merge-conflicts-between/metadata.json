@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "reduce-git-merge-conflicts-between",
+  "pipeline": "engineering",
+  "title": "Reduce git merge conflicts between talks due to common files.",
+  "ref": 62,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/reduce-git-merge-conflicts-between",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
