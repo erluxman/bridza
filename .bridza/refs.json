@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 62,
+  "next": 64,
   "refs": {
     "engineering/ai-assisted-conflict-merge": 1,
     "engineering/auto-advance-chain-registry": 2,
@@ -62,7 +62,9 @@
     "engineering/atlas-request-flow-map": 58,
     "engineering/atlas-runtime-container-diagram": 59,
     "engineering/atlas-scan-cache-and-ignore": 60,
-    "engineering/atlas-shell-and-file-map": 61
+    "engineering/atlas-shell-and-file-map": 61,
+    "engineering/the-title-is-taking-a-lot-of-vertical-sp": 62,
+    "engineering/when-i-am-recording-an-idea-in-the-inbox": 63
   },
   "deleted": [],
   "archived": {},
