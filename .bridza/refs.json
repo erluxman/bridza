@@ -201,7 +201,8 @@
     "engineering/remove-automatic-focus-on-search-field": true,
     "engineering/have-a-different-tax-url-so-that-i-can": true,
     "engineering/separate-tags-filled-for-each-org-item": true,
-    "engineering/investigate-state-interference-between": true
+    "engineering/investigate-state-interference-between": true,
+    "design-brand/rebrand-jira-to-aira-for-project": true
   },
   "tags": {
     "complex": {
