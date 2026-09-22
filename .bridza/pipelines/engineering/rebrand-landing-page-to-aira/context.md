@@ -1,9 +1,16 @@
-# Rebrand landing page, download page and app shell from Bridza to Aira
+# Rebrand the whole system — landing page, download page, desktop app UI, and site — from Bridza to Aira
 
-**Why.** Task #122 (design-brand) renamed the product **Bridza → Aira** and positioned it as *"Jira for the AI era."* Brand assets, palette, type and the exact landing-page copy are finished. This ticket applies them to the web surfaces and the visible app chrome. Nothing about how the product works changes.
+**Why.** Task #122 (design-brand) renamed the product **Bridza → Aira** and positioned it as *"Jira for the AI era."* Brand assets, palette, type and the exact copy are finished. This ticket applies them everywhere a user can see the name "Bridza": the landing site, the download page, and the running desktop/web app itself (sidebar, onboarding, toasts, dialogs, window title, error banners) — not just the marketing pages. Nothing about how the product works changes; this is strings, colours and assets only.
 
-**Source of truth (read first).**
-- Brand guidelines PDF: `.bridza/pipelines/design-brand/00000122-rebrand-jira-to-aira-for-project/brand/brand-guidelines.pdf` (HTML source next to it). Section 5 = colour tokens, 6 = type, 10 = landing copy, 11 = where each asset goes.
+**This is a whole-system rebrand, not a landing-page reskin.** Section 6 below lists every user-visible location, including ones outside the landing page (toast messages in `flow.jsx`, the no-bridge error banner in `client.js`, an onboarding tooltip) that are easy to miss with a nav.jsx-only pass. Use `reference/strings-audit.md`'s grep to confirm nothing is left before calling this done.
+
+**Source of truth — copied into this task folder already, no need to open the PDF:**
+- `reference/copy.md` — every exact string to ship (landing, download, in-app, meta), verbatim, extracted from the brand guidelines.
+- `reference/tokens.md` — colour tokens, gradient, type scale, button specs, ready to paste into `src/index.css`.
+- `reference/strings-audit.md` — full repo-wide grep of every "Bridza" occurrence, bucketed into in-scope / out-of-scope-with-reason, plus the acceptance grep.
+
+**Original brand deliverables (for images/logos and full context, not required reading for build):**
+- Brand guidelines PDF: `.bridza/pipelines/design-brand/00000122-rebrand-jira-to-aira-for-project/brand/brand-guidelines.pdf` (HTML source next to it).
 - Asset index: `.bridza/pipelines/design-brand/00000122-rebrand-jira-to-aira-for-project/brand/README.md`
 - Logos: `.bridza/pipelines/design-brand/00000122-rebrand-jira-to-aira-for-project/brand/logos/` (SVG masters + `png/` exports)
 - Positioning: `.bridza/pipelines/design-brand/00000122-rebrand-jira-to-aira-for-project/brand-positioning/outputs/positioning.md`
@@ -67,9 +74,16 @@ Copy is **verbatim from PDF section 10**. Summary:
 ```
 Load fonts: Inter 400/500/600/700 + JetBrains Mono 400/500 (Google Fonts link, or self-host under `public/fonts/`). `--font-sans` / `--font-mono` already point at them.
 
-### 6. Visible product strings (app shell)
-Replace user-facing "Bridza" with "Aira" in: `src/app/features/nav.jsx` (brand), `src/app/features/onboarding.jsx` (heading, hosted-preview note, import tooltip), `electron/main.js` (window title, open-dialog title), `README.md` (title, hero line, "Why" heading; keep repo URLs). Onboarding tagline becomes *"Small stages. Real gates. Git as truth."*
-Do **not** touch code identifiers, comments that name modules, `.bridza/` paths, `bridza/` branch prefix, `com.erluxman.bridza`, `productName`, localStorage keys, or API routes.
+### 6. Visible product strings (the whole running app, not just the shell)
+Full list with exact line refs is `reference/strings-audit.md` (bucket A) — treat it as the checklist. Summary:
+- `src/app/features/nav.jsx:48` — sidebar brand `⎇ Bridza` → mark + `Aira`, keep `pulse` class.
+- `src/app/features/onboarding.jsx` — `<h2>Bridza</h2>` heading (line 42), hosted-preview note (line 47), import-button tooltip "...any Bridza project" (line 230). Onboarding tagline becomes *"Small stages. Real gates. Git as truth."*
+- `src/app/features/flow.jsx` — **5 separate user-visible strings**: the "flow exported" toast (line 70), the mailto subject and body when sharing a stage flow (lines 74-75), the "not a Bridza stage-flow or pipeline file" error toast (line 93), and the "＋ New pipeline" import toast (line 101). All say "Bridza project" / "Bridza stage flow" → "Aira project" / "Aira stage flow".
+- `src/app/api/client.js:8` — the `NO_BRIDGE` banner shown on the hosted preview: rename only the product-name word ("Bridza works on YOUR machine's repos...") → "Aira works..."; **keep** the `clone github.com/erluxman/bridza` command as-is (repo isn't renamed).
+- `electron/main.js` — window title (line 78) and open-folder dialog title (line 59): "Bridza" → "Aira".
+- `README.md` (title, hero line, "Why" heading; keep repo URLs).
+
+Do **not** touch code identifiers, comments that name modules, `.bridza/` paths, `bridza/<pipeline>/<task>` branch prefix, `com.erluxman.bridza`, `productName`, localStorage/sessionStorage key prefixes (`bridza.*`, `bridza-*`), the `/api/bridza/*` route, or the merge-readiness prompt text in `src/app/lib/format.js`. Full rationale for each exclusion is in `reference/strings-audit.md` bucket B/C — read it before assuming something is missing scope vs. deliberately excluded.
 
 ### 7. Tests
 - Update assertions that check visible text: grep `Bridza` in `src/app/__tests__/` and `e2e/`; only change strings that are rendered UI text.
@@ -85,6 +99,6 @@ Do **not** touch code identifiers, comments that name modules, `.bridza/` paths,
 - Given the landing page at `/`, when it loads, then the header shows the Aira mark + "Aira", the eyebrow reads "Jira for the AI era", the H1 reads "From ideas to impact." with "impact" in the blue→purple gradient, and no waitlist form exists.
 - Given `/download`, then the H1 reads "Download Aira" and installers still resolve from the latest GitHub release.
 - Given light and dark themes, then all colours come from the tokens in §2 and contrast for body text on base ≥ 4.5:1.
-- Given the desktop app, then the sidebar brand is the Aira mark + "Aira", the window title is "Aira", and the onboarding heading is "Aira".
-- Given `grep -rn "Bridza" src/pages src/app/features electron/main.js index.html`, then the only hits are code comments or identifiers, never rendered text.
+- Given the desktop app, then the sidebar brand is the Aira mark + "Aira", the window title is "Aira", the onboarding heading is "Aira", and every toast/tooltip/error banner in `flow.jsx`, `onboarding.jsx` and `client.js` says "Aira project" / "Aira stage flow" / "Aira works on YOUR machine's repos" (not "Bridza").
+- Given the acceptance grep in `reference/strings-audit.md` ("Acceptance check for whole system coverage"), then it returns zero unexplained hits.
 - `pnpm lint && pnpm test && pnpm build` pass.
