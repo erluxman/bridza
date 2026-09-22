@@ -8,13 +8,50 @@
   "template": "",
   "outputMode": "docs",
   "target": "main",
-  "stages": ["spec", "build", "review"],
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
   "routing": {
-    "spec": { "tool": "claude", "model": "" },
-    "build": { "tool": "claude", "model": "" },
-    "review": { "tool": "claude", "model": "" }
+    "spec": {
+      "tool": "claude",
+      "model": ""
+    },
+    "build": {
+      "tool": "claude",
+      "model": ""
+    },
+    "review": {
+      "tool": "claude",
+      "model": ""
+    }
   },
   "status": "in-progress",
   "finalized": false,
-  "tracking": {}
+  "tracking": {
+    "spec": {
+      "status": "done",
+      "seconds": 65,
+      "runs": [
+        {
+          "tool": "claude",
+          "model": null,
+          "prompt": "Task: Rebrand landing page, download page and app shell from Bridza to Aira",
+          "startedAt": "2026-09-22T19:04:23.067Z",
+          "status": "done",
+          "finishedAt": "2026-09-22T19:05:27.852Z",
+          "exit": 0,
+          "files": [
+            ".bridza/pipelines/engineering/rebrand-landing-page-to-aira/spec/outputs/acceptance.md",
+            ".bridza/pipelines/engineering/rebrand-landing-page-to-aira/spec/outputs/spec.md"
+          ],
+          "sessionId": "8c2436a9-f9ca-4150-be75-aad560ea8072",
+          "error": null,
+          "log": "$ claude -p \"Task: Rebrand landing page, download page and app shell from Bridza to Aira\" --output-format stream-json --verbose --dangerously-skip-permissions --permission-mode acceptEdits --append-system-prompt \"You are a senior engineer. Write spec.md + acceptance.md from the task intent only. The smallest spec that answers what, why, and how we'll know it works — n…\"\n· model: TOOL DEFAULT (no --model/-m flag — claude's own config decides)\n· claude ready · claude-sonnet-5 · 25 tools\nGonna check existing task/spec folder and repo structure first.\n· Bash find . -maxdepth 6 -not -path '*/node_modules/*' -not -path '*/.git/*' | head -200\n· Bash cat .bridza/pipelines/engineering/rebrand-landing-page-to-aira/metadata.json 2>/dev/null;…\n· Read /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/rebrand-landing-page-t…\n· Read /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/rebrand-landing-page-t…\n· Read /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/rebrand-landing-page-t…\n· Read /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/rebrand-landing-page-t…\n· Read /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/rebrand-landing-page-t…\n· Bash git log --oneline -1 -- spec.md acceptance.md; echo ---; git log --oneline --all -- spec.…\n· Bash cat .gitignore | grep -iE 'spec|acceptance|review|fix|repro' ; echo ---; git check-ignore…\n· Bash git show 5e59a0f..2c3b425 --stat -- .bridza/pipelines/engineering/00000112-i-should-be-ab…\nConfirmed target path pattern: `spec/outputs/spec.md` + `spec/outputs/acceptance.md`. Let me check one example for length/format calibration.\n· Bash git show d42804367231151bd5ffc3f46eedbe2b433133a7:.bridza/pipelines/engineering/00000113-…\n· Write /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/rebrand-landing-page-t…\n· Write /Users/risky/projects/erluxman.com/bridza.bridza-tasks/engineering/rebrand-landing-page-t…\nWritten spec.md + acceptance.md under `.bridza/pipelines/engineering/rebrand-landing-page-to-aira/spec/outputs/` (matching this repo's task-doc convention, not root). Distilled from `context.md`/`reference/*` already in the task folder — scope: landing + download pages, app shell strings/toasts/dialogs, colour tokens, assets; out of scope: package/repo/domain rename and `.bridza/` internals. Acceptance.md is a checkbox list per surface, ending in the strings-audit grep + `pnpm lint/test/build`.\n· done · 14 turns · 63s · $0.3257"
+        }
+      ]
+    }
+  },
+  "branch": "bridza/engineering/rebrand-landing-page-to-aira"
 }
