@@ -25,11 +25,8 @@ export default function App() {
 function Header() {
   return (
     <header className="flex items-center justify-between py-6">
-      <a href="/" className="flex items-center gap-2">
-        <Logo />
-        <span className="text-ink text-lg font-semibold tracking-tight">
-          Aira
-        </span>
+      <a href="/" className="flex items-center">
+        <Logo size={26} className="text-ink" />
       </a>
       <div className="flex items-center gap-3">
         {/* the app answers on the /app PATH of wherever the landing is —

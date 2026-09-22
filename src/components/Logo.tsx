@@ -1,11 +1,30 @@
-// Aira mark, inlined so it scales and themes with currentColor-independent
-// gradient fills. Source: brand/logos/aira-mark.svg (task #122).
+// Aira wordmark: the gradient mark IS the "A" — "ira" runs straight off it
+// as one lockup, not an icon beside a repeated word. Source shape: the old
+// standalone mark (brand/logos/aira-mark.svg, task #122); "ira" set in the
+// same Inter 700 the brand guidelines call for on the wordmark.
 let uid = 0;
 
-export default function Logo({ size = 22 }: { size?: number }) {
+const VIEW_W = 146;
+const VIEW_H = 64;
+
+export default function Wordmark({
+  size = 22,
+  className,
+}: {
+  size?: number;
+  className?: string;
+}) {
   const id = uid++;
+  const width = Math.round((size * VIEW_W) / VIEW_H);
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
+    <svg
+      width={width}
+      height={size}
+      viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+      role="img"
+      aria-label="Aira"
+      className={className}
+    >
       <defs>
         <linearGradient id={`airaLeft-${id}`} x1="0" y1="1" x2="1" y2="0">
           <stop offset="0" stopColor="#4F7BFF" />
@@ -31,6 +50,17 @@ export default function Logo({ size = 22 }: { size?: number }) {
         strokeWidth="11"
         strokeLinecap="round"
       />
+      <text
+        x="60"
+        y="50"
+        fontFamily="Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        fontSize="46"
+        fontWeight="700"
+        letterSpacing="-1"
+        fill="currentColor"
+      >
+        ira
+      </text>
     </svg>
   );
 }

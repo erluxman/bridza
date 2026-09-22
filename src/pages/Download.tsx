@@ -72,9 +72,8 @@ export default function Download() {
     <div className="bg-aura min-h-dvh">
       <div className="mx-auto flex min-h-dvh max-w-4xl flex-col px-6">
         <header className="flex items-center justify-between py-6">
-          <a href="/" className="flex items-center gap-2 text-ink text-lg font-semibold tracking-tight">
-            <Logo />
-            Aira
+          <a href="/" className="flex items-center text-ink">
+            <Logo size={26} />
           </a>
           <div className="flex items-center gap-3">
             <a href="/app" className="text-ink-dim hover:text-ink text-sm transition-colors">

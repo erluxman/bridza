@@ -46,7 +46,7 @@ export function Sidebar({ proj, running, runningTasks, active, activeTask, onPip
       <div className="side-hd">
         <div className="spread">
           {/* keyed so a new pulseKey remounts the node and restarts the CSS animation */}
-          <div key={pulseKey} className={"brand" + (pulseKey ? " pulse" : "")}><Logo size={16} /> Aira</div>
+          <div key={pulseKey} className={"brand" + (pulseKey ? " pulse" : "")}><Logo size={18} /></div>
           <button className="btn ghost sm" title="Collapse" onClick={onCollapse}>‹</button>
         </div>
         <div className="proj-switch">
