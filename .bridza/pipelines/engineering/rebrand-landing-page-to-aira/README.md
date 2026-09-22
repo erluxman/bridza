@@ -1,8 +1,8 @@
-# ⏳ Rebrand the whole system (landing, download, desktop app UI) from Bridza to Aira
+# ✅ Rebrand the whole system (landing, download, desktop app UI) from Bridza to Aira
 
 `bridza/engineering/rebrand-landing-page-to-aira`  ·  pipeline `engineering`
 
-`███████████░░░░░`  **2/3** stages  ·  11m 33s tracked  ·  in-progress
+`████████████████`  **3/3** stages  ·  15m 3s tracked  ·  🎉 all stages done
 
 ## At a glance
 
@@ -10,7 +10,7 @@
 |--:|-------|--------|------|--------|-----:|
 | 1 | spec | ✅ done | 1m 5s | 2 files | 1 |
 | 2 | build | ✅ done | 10m 28s | 19 files | 1 |
-| 3 | review | ⏳ idle | — | — | — |
+| 3 | review | ✅ done | 3m 30s | 1 file | 1 |
 
 ## The story
 
@@ -30,9 +30,13 @@
 
 <sub>claude · session `f37e2f0f-7021-410f-ac8f-2720deb11e93` · exit 0</sub>
 
-### 3. review — ⏳ idle
+### 3. review — ✅ done · 3m 30s
 
-_not run yet_
+**Asked** — Task: Rebrand landing page, download page and app shell from Bridza to Aira **Why.** Task #122 (design-brand) renamed the product **Bridza → Aira** and positioned it as *"Jira for the AI era."* Brand assets, palette, type and the exact copy are finished. This ticket applies them everywhere a user ca
+
+**Output** — `review.md`
+
+<sub>claude · session `568f6585-6d85-4953-9e92-0337cd45ec5e` · exit 0</sub>
 
 ---
 
