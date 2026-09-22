@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "chat-feature-in-task-work-item-details",
+  "pipeline": "engineering",
+  "title": "Chat feature in task/work item details",
+  "ref": 123,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/chat-feature-in-task-work-item-details",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
