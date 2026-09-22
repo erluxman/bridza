@@ -602,6 +602,9 @@ export function readProject(root) {
         ref: refs[pid + "/" + tid] || meta.ref || null,
         type: meta.type || "", template: meta.template || "", flow: meta.flow || meta.template || "",
         status: meta.status || "in-progress", finalized: !!meta.finalized, reuseSession: !!meta.reuseSession,
+        // the task-level conversation: turns the app renders below the stage
+        // threads. Not tracking — a chat turn is never a stage.
+        chat: { turns: Array.isArray((meta.chat || {}).turns) ? meta.chat.turns : [] },
         // root refs.json wins; a legacy flag in the task's own metadata (written
         // by the old branch-local archive) still counts when there's no entry
         archived: archivedFlags[pid + "/" + tid] === undefined ? !!meta.archived : !!archivedFlags[pid + "/" + tid],

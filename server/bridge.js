@@ -17,6 +17,7 @@
 //   POST /api/bridza/context      edit task/stage natural-language context
 //   POST /api/bridza/run/stage    run a stage (ndjson timeline stream; + `advance` chain)
 //   POST /api/bridza/run/attach   re-attach to a live run / replay the last one
+//   POST /api/bridza/chat/send    one chat turn with the task's agent (ndjson)
 //   GET  /api/bridza/timeline     the task branch commit timeline
 //   POST /api/bridza/finalize     merge a task branch into main
 //   POST /api/bridza/conflict/*   open / finish / abort a paused conflict merge
@@ -26,7 +27,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { DATA_DIR, CLI_TOOLS, pipelineFlows } from "../core/domain.js";
 import { readProject, createPipeline, savePipeline, archivePipeline, saveKanbanOrder, deletePipeline, createTask, deleteTask, readContext, saveContext, taskTime, mergeTime, addInbox, promoteInbox, discardInbox, readPlan, savePlan, assignRefs, readPipelineDef, setTaskArchived, createTag, updateTag, setTaskTags } from "./bridza-store.js";
-import { runStage, runStageAndAdvance, attachRun, automateTask, finalizeTask, finishConflict, abortConflict, openDir, conflictedFiles, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, retargetTask, setTaskReuse, setStageRouting, listModels, termRun, ensureTaskWorktree, recommendPipelines, readTaskFile, saveTaskFile, listBranches, createPR } from "./bridza-run.js";
+import { runStage, runStageAndAdvance, runChatTurn, attachRun, automateTask, finalizeTask, finishConflict, abortConflict, openDir, conflictedFiles, taskTimeline, commitDiff, branchDiff, workingDiff, openWorktree, toolAvailable, listActiveRuns, stopRuns, blastRadius, reopenStage, retargetTask, setTaskReuse, setStageRouting, listModels, termRun, ensureTaskWorktree, recommendPipelines, readTaskFile, saveTaskFile, listBranches, createPR } from "./bridza-run.js";
 
 function resolveDir(raw) {
   if (!raw) return null;
@@ -428,6 +429,18 @@ export async function handleApi(req, res) {
       res.setHeader("Content-Type", "application/x-ndjson");
       res.setHeader("Cache-Control", "no-cache");
       await runStageAndAdvance(root, body, (obj) => res.write(JSON.stringify(obj) + "\n"));
+      res.end(); return true;
+    }
+    // One chat turn: the task's agent, in the task's worktree, on its own commit.
+    // Same ndjson shape as /run/stage. The turn lives on the SERVER — closing the
+    // panel or the page must not kill it, so there is deliberately no
+    // res.on("close") handler here (unlike /term/run, where the shell IS the UI).
+    if (M === "POST" && P === "/api/bridza/chat/send") {
+      if (!root) return void need(), true;
+      const body = (await json(req)) || {};
+      res.setHeader("Content-Type", "application/x-ndjson");
+      res.setHeader("Cache-Control", "no-cache");
+      await runChatTurn(root, body, (obj) => { try { res.write(JSON.stringify(obj) + "\n"); } catch (e) { /* client gone — the turn carries on */ } });
       res.end(); return true;
     }
     // (re)attach to a stage's run: replay + live tail, or the last finished run.

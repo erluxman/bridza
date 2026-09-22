@@ -1,91 +1,105 @@
-# Acceptance — Chat with the agent in task details
+# Acceptance — task #123
 
-Unchecked until the build stage verifies each one.
+Checks run against a task that has at least one `done` stage with committed
+output, on a machine with at least one CLI agent installed.
 
-## The tab
+## The chat box exists where a non-technical person will find it
 
-- [ ] The task detail screen has tabs `Stages · Inspector · Canvas · Threads ·
-      Chat`; `Threads` is the former per-stage thread view, unchanged.
-- [ ] `Chat` shows one transcript for the whole task and a composer, with no
-      stage picked and none required.
-- [ ] The composer works when **every stage is `done`**, and when the task is
-      **finalized** — the case the feature exists for.
-- [ ] The tab choice persists per task, as the other views' does.
+- [ ] Task detail shows a floating 💬 bubble in the bottom-right, in every view
+      including `⌨ Terminal`, without scrolling.
+- [ ] The toolbar `.seg` group reads `Stages | Inspector | Canvas | ⌨ Terminal`
+      — no `Chat` button in it.
+- [ ] Clicking the bubble docks the chat panel on the right; the stage timeline
+      stays visible and keeps updating, and the details rail collapses.
+- [ ] Closing the panel with `✕` restores the details rail to the state it had
+      before the panel opened.
+- [ ] The panel is resizable by its grip; the width survives a reload, and so
+      does open/closed state for that task.
+- [ ] The panel shows the stage threads as collapsed history, then the
+      task-level thread, then a composer docked at its bottom.
+- [ ] With no chat turns yet, the empty state invites a plain-language message.
+- [ ] `Enter` sends, `Shift+Enter` makes a newline, the composer clears on send.
+- [ ] The agent/model control is collapsed by default and defaults to the tool
+      and model the task last ran with; a full turn can be sent without ever
+      opening it.
 
-## A turn
+## Sending shows what's happening
 
-- [ ] Sending a message runs the picked agent in the task's worktree and streams
-      its output live into the turn.
-- [ ] A turn that changes files produces **one commit** on the task branch, and
-      the previous turn's commit is still there (`git log` shows both).
-- [ ] The commit names the task and the turn; the turn's files are listed on the
-      turn and each opens its diff.
-- [ ] A turn that fails commits nothing, leaves no untracked partial output, and
-      still appears in the transcript with its error.
-- [ ] `Stop` mid-turn ends it as `stopped`, not `failed`.
-- [ ] Reloading mid-turn re-attaches: the text printed so far replays and the
-      turn streams on. A second window on the same task sees the same turn.
-- [ ] A turn started while a stage of the same task is running is refused with
-      the existing `busy` error — no second process on the worktree.
-- [ ] A task blocked by a plan gate refuses a turn with the same gate error a
-      stage run gives.
+- [ ] The user's message appears as a bubble immediately, before the server
+      answers.
+- [ ] An assistant bubble opens in a `working` state within one render — never
+      a blank pane.
+- [ ] While the agent works, a one-line activity indicator names the current
+      step in plain words ("reading …", "editing …", "running …", "saving the
+      change") and updates as the agent moves on.
+- [ ] `▸ show details` expands the raw agent log; it auto-scrolls and matches
+      what the stage runner would show for the same run.
+- [ ] The assistant's text streams in as it arrives.
+- [ ] On completion the bubble settles into the answer with a file chip row;
+      clicking a chip opens that file's diff for the turn's commit.
 
-## It persists
+## The turn is real work
 
-- [ ] Turns survive a reload and an app restart: `tracking.chat.runs[]` in the
-      task's `metadata.json`, carried by the turn's own commit.
-- [ ] `.bridza/pipelines/<p>/<task>/chat/prompts.md` holds every message sent,
-      oldest first, one entry per turn with its timestamp, tool and model.
-- [ ] `chat` is **not** in `meta.stages`: the Stages, Threads, Inspector and
-      Canvas views, the task's progress percentage and the flow's gates are all
-      identical to before the chat existed.
-- [ ] A turn does not change the task's `status` and does not clear
-      `finalized`.
+- [ ] A turn that changes files produces exactly one commit on the task branch,
+      subject `bridza(<pipeline>/<task>/chat): turn <n> · <tool> · exit 0 · <k> files`.
+- [ ] `git log` for the task shows the stage commits unchanged — no stage commit
+      is rewritten, amended or soft-reset by a chat turn.
+- [ ] No stage's `tracking[*].status`, `outputs/` or `prompts.md` changes as a
+      result of a chat turn.
+- [ ] `.bridza/pipelines/<p>/<task>/chat/thread.md` gains one readable block per
+      turn (timestamp, turn number, tool, the message, the answer), in order.
+- [ ] `metadata.json` gains the matching `chat.turns[]` record with
+      `seq/at/tool/model/message/answer/status/exit/files/commit`.
+- [ ] A failed turn: the bubble shows the reason, the turn is recorded
+      `failed`, nothing is committed, and no partial untracked output is left
+      in the worktree.
 
-## Continuity
+## Session continuity
 
-- [ ] Turn 2 can refer to turn 1 ("rename the function you just added") and the
-      agent knows what is meant — the session is resumed.
-- [ ] Continuity does not depend on the task's `reuseSession` checkbox; with it
-      off, the chat still remembers.
-- [ ] Changing the model starts a fresh session rather than resuming one on the
-      wrong model.
-- [ ] On a tool with no headless resume (`gemini`), each turn carries the task
-      brief instead, and the composer says the conversation is not resumed.
-- [ ] The first turn carries the brief — task title, `context.md`, the done
-      stages and their outputs — so a cold chat on a delivered task knows the
-      task.
+- [ ] With **Reuse LLM session** on, a second message referring to the first
+      ("make that one bigger too") lands correctly — the run resumes the stored
+      session id rather than starting fresh.
+- [ ] With reuse off, a turn still runs and still gets the task brief; reuse is
+      not silently turned on.
+- [ ] A session id minted by a chat turn is reused by the next stage run of the
+      same task and tool.
 
-## Commands
+## One live run per task
 
-- [ ] `/help` lists exactly the five commands with their arguments.
-- [ ] `/run <stage> [text]` runs that stage with the given instructions and the
-      result lands in the stage's own record (not in `tracking.chat`), exactly
-      as a Run from the rail would.
-- [ ] `/agent <stage> <tool> [model]` changes the stage's saved pick; the rail
-      and the Threads view show the new one.
-- [ ] `/stage add <id>` appends a stage the pipeline defines; `/stage add <id>
-      after <other>` inserts it after `<other>`. `git log` is unchanged, every
-      existing stage keeps its tracking, and the new stage is `idle` and
-      runnable.
-- [ ] `/stage add` refuses an id the pipeline does not define, an id the task
-      already carries, and a finalized task — each with the reason, nothing
-      written.
-- [ ] `/reopen <stage>` alone only reports what it would drop; `/reopen <stage>
-      !` performs the rollback.
-- [ ] Every command's outcome — success or the server's error — is echoed as a
-      turn in the transcript.
-- [ ] An unknown `/command` is an error turn listing the five, and no agent
-      process is started.
-- [ ] A message that does not start with `/` is never interpreted as a command,
-      including one that reads like an instruction ("run the build stage
-      again").
+- [ ] Start a stage, then open the chat panel: the composer is disabled and
+      says which stage is running; typed text is preserved.
+- [ ] Start a chat turn, then press a stage's `▸ Run`: it is refused with the
+      busy message naming chat, and no second process spawns.
+- [ ] The toolbar `⏹ Stop` stops a live chat turn; it is recorded `stopped`,
+      nothing is committed, and the composer re-enables.
+
+## Survives navigation
+
+- [ ] Send a message, close the panel, reopen it: the turn is still shown live
+      with its activity line, not restarted.
+- [ ] Send a message, switch to `Stages`, come back: same.
+- [ ] Send a message, reload the page mid-turn, reopen the task: the turn
+      re-attaches, the log replays and the answer lands in the thread when it
+      ends.
+- [ ] Send a message, close the task entirely, come back after it finished: the
+      completed turn is in the thread with its answer, files and commit.
+- [ ] While a chat turn runs with the panel closed, the bubble carries a live
+      dot from the `Stages`, `Inspector`, `Canvas` and `⌨ Terminal` views.
+
+## Guards
+
+- [ ] A finalized task shows the thread read-only with the "finalized" line;
+      no send is possible.
+- [ ] A plan-gate-blocked task refuses the send and shows the gate's own
+      explanation as a note in the thread.
 
 ## Regression
 
-- [ ] Running, re-running and reopening a stage behave exactly as before,
-      including one-commit-per-stage and auto-advance.
-- [ ] `pnpm lint`, `pnpm build` and `pnpm test` clean, with new tests covering:
-      append-only turn commits, `chat` staying out of `task.stages`, the `busy`
-      guard, session resume across turns, command parsing (all five, plus
-      unknown and non-command), and `addTaskStage`'s three refusals.
+- [ ] Stage runs, auto-advance, Automate and the timeline behave exactly as
+      before, including the one-commit-per-stage collapse on re-run.
+- [ ] The existing per-stage "continue / re-run" runner, now inside the panel's
+      collapsed history, still works and still re-runs the stage (not a chat
+      turn).
+- [ ] Inspector, Canvas and the classic Stages view are unchanged.
+- [ ] `pnpm test` and the Playwright suites are green, plus the new
+      `chat-turn` and `chat-view` tests.

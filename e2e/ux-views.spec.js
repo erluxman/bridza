@@ -1,9 +1,10 @@
 import { test, expect } from "@playwright/test";
 import { FIXTURE } from "./global-setup.js";
 
-// End-to-end for the ux-revamp: the three task-detail views (Inspector / Canvas
-// / Chat), the 5 node layouts, the planner node-canvas, and the surrounding UI
-// configs (view switcher, rail hide/show, terminal). Real app, stub tool.
+// End-to-end for the ux-revamp: the task-detail views (Inspector / Canvas), the
+// 5 node layouts, the planner node-canvas, the chat bubble + docked panel, and
+// the surrounding UI configs (view switcher, rail hide/show, terminal). Real
+// app, stub tool.
 // Serial + self-contained: a defensive setup builds its own pipeline + task so
 // this file runs standalone OR after app.spec.js in the shared fixture.
 test.describe.configure({ mode: "serial" });
@@ -62,6 +63,10 @@ const openTask = async (page) => {
 };
 const seg = (page, name) => page.locator(".seg button", { hasText: name });
 const setView = async (page, name) => { await seg(page, name).click(); await expect(seg(page, name)).toHaveClass(/on/); };
+// the conversation is NOT a view: it opens from the floating bubble and docks a
+// panel beside the stages, so it is reached and left on its own terms
+const openChat = async (page) => { await page.locator(".chat-bubble").click(); await expect(page.locator(".chat-panel")).toBeVisible(); };
+const closeChat = async (page) => { await page.locator(".chat-x").click(); await expect(page.locator(".chat-panel")).toHaveCount(0); };
 
 /* ── 1 · setup ─────────────────────────────────────────────────────────────*/
 test("setup: create a task and run a stage (seeds a real run for the views)", async ({ page }) => {
@@ -70,11 +75,14 @@ test("setup: create a task and run a stage (seeds a real run for the views)", as
 });
 
 /* ── 2 · the view switcher ─────────────────────────────────────────────────*/
-test("task view switcher offers Stages / Inspector / Canvas / Chat / Terminal", async ({ page }) => {
+test("task view switcher offers Stages / Inspector / Canvas / Terminal — and NOT Chat", async ({ page }) => {
   await openTask(page);
-  for (const v of ["Stages", "Inspector", "Canvas", "Chat", "Terminal"]) {
+  for (const v of ["Stages", "Inspector", "Canvas", "Terminal"]) {
     await expect(seg(page, v)).toBeVisible();
   }
+  // the switcher is for reading & auditing stages; asking for a change is the
+  // bubble's job, not its fourth button
+  await expect(seg(page, "Chat")).toHaveCount(0);
   await expect(seg(page, "Stages")).toHaveClass(/on/);   // default
 });
 
@@ -205,30 +213,56 @@ test("Canvas: reset positions snaps every stage back to the layout", async ({ pa
   expect(await node.evaluate((el) => el.style.left)).toBe(orig);   // snapped back to the layout
 });
 
-/* ── 5 · Chat ──────────────────────────────────────────────────────────────*/
-test("Chat: the task reads as system / user / assistant turns per run", async ({ page }) => {
+/* ── 5 · Chat: the bubble and the docked panel ─────────────────────────────*/
+test("Chat: a floating bubble opens a panel WITHOUT hiding the stage timeline", async ({ page }) => {
   await openTask(page);
-  await setView(page, "Chat");
-  await expect(page.locator(".uxv-thread")).toHaveCount(3);
+  await expect(page.locator(".chat-bubble")).toBeVisible();
+  await openChat(page);
+  // the point of a panel over a full view — the stages stay on screen behind it
+  await expect(page.locator(".stages")).toBeVisible();
+  await expect(page.locator(".rail")).toHaveCount(0);      // the rail yields its column
+  await closeChat(page);
+  await expect(page.locator(".rail")).toBeVisible();       // …and gets it back
+});
+
+test("Chat: the composer invites plain words and keeps the agent picker collapsed", async ({ page }) => {
+  await openTask(page);
+  await openChat(page);
+  await expect(page.locator(".chat-empty")).toContainText("in plain words");
+  await expect(page.locator(".chat-input")).toBeEnabled();
+  await expect(page.locator(".chat-agent")).toHaveCount(0);
+  await closeChat(page);
+});
+
+test("Chat: the stage runs are there as collapsed history, with their turns", async ({ page }) => {
+  await openTask(page);
+  await openChat(page);
+  await expect(page.locator(".chat-panel .uxv-thread")).toHaveCount(0);   // collapsed
+  await page.locator(".chat-histtog").click();
+  await expect(page.locator(".chat-panel .uxv-thread")).toHaveCount(3);
   await expect(page.locator(".uxv-msg.system").first()).toBeVisible();
   await expect(page.locator(".uxv-msg.user").first()).toBeVisible();
   await expect(page.locator(".uxv-msg.asst").first()).toBeVisible();
-});
-
-test("Chat: the assistant turn carries a summary chip and the changed-files strip", async ({ page }) => {
-  await openTask(page);
-  await setView(page, "Chat");
   await expect(page.locator(".uxv-summary-chip").first()).toBeVisible();
   await expect(page.locator(".uxv-msg.asst .uxv-file").first()).toBeVisible();
+  await closeChat(page);
 });
 
 /* ── 6 · cross-view configs ────────────────────────────────────────────────*/
 test("the selected view persists across re-opening the task", async ({ page }) => {
   await openTask(page);
-  await setView(page, "Chat");
+  await setView(page, "Inspector");
   await openTask(page);
-  await expect(seg(page, "Chat")).toHaveClass(/on/);
+  await expect(seg(page, "Inspector")).toHaveClass(/on/);
   await setView(page, "Stages");   // reset for later tests
+});
+
+test("the chat panel stays open across re-opening the task", async ({ page }) => {
+  await openTask(page);
+  await openChat(page);
+  await openTask(page);
+  await expect(page.locator(".chat-panel")).toBeVisible();
+  await closeChat(page);   // reset for later tests
 });
 
 test("Inspector: the agent is changeable and instructions run in place", async ({ page }) => {
@@ -254,11 +288,13 @@ test("Canvas: the side sheet exposes the same operable runner", async ({ page })
   await expect(runner.locator("textarea")).toBeVisible();
 });
 
-test("Chat: every stage thread has its own continue/run box", async ({ page }) => {
+test("Chat: every stage thread in the history keeps its continue/run box", async ({ page }) => {
   await openTask(page);
-  await setView(page, "Chat");
+  await openChat(page);
+  await page.locator(".chat-histtog").click();
   await expect(page.locator(".uxv-thread-run")).toHaveCount(3);
   await expect(page.locator(".uxv-thread-run .stage-run select.input").first()).toBeVisible();
+  await closeChat(page);
 });
 
 test("Terminal view replaces the stage list with the worktree shell", async ({ page }) => {

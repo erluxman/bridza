@@ -101,6 +101,12 @@ export const runStage = (dir, body, onEvent) => stream("/run/stage", dir, body, 
 // end (marked `replayed`), or {t:"end",none:true} when there was never one.
 export const attachRun = (dir, body, onEvent, signal) => stream("/run/attach", dir, body, onEvent, signal);
 
+// Send one chat message to the task's agent. Streams the same events a stage run
+// does ({t:"out"} carrying the agent's prose AND its tool-use markers, {t:"cmd"},
+// {t:"commit"}), and resolves with the turn's end event — which carries the
+// finished `turn` record when it committed.
+export const sendChat = (dir, body, onEvent) => stream("/chat/send", dir, body, onEvent);
+
 // Stream the Automate flow — every stage of a task, back-to-back. `body.stages`
 // is an ordered array of run/stage bodies. Resolves with the final automate end.
 export const automate = (dir, body, onEvent) => stream("/automate", dir, body, onEvent);
