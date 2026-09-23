@@ -56,6 +56,12 @@
         "engineering/logo-animation-component"
       ],
       "any": []
+    },
+    "engineering/fix-the-regression-issue-in-archive": {
+      "all": [
+        "product/reposition-the-product-as-jira-for-ai"
+      ],
+      "any": []
     }
   },
   "milestones": [

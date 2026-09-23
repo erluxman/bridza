@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "fix-the-regression-issue-in-archive",
+  "pipeline": "engineering",
+  "title": "Fix the regression issue in archive feature, even if the features are archived, they are still shown in the kan ban.",
+  "ref": 62,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/fix-the-regression-issue-in-archive",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
