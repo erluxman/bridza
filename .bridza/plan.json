@@ -298,20 +298,20 @@
       "y": 1318
     },
     "engineering/auto-advance-chain-registry": {
-      "x": 113,
-      "y": 497
+      "x": 776,
+      "y": 259
     },
     "engineering/auto-advance-state-truth-toggle": {
-      "x": 521,
-      "y": 590
+      "x": 1184,
+      "y": 352
     },
     "engineering/auto-advance-progress-badges": {
-      "x": 519,
-      "y": 496
+      "x": 1182,
+      "y": 258
     },
     "engineering/auto-advance-stop-and-resume": {
-      "x": 465,
-      "y": 683
+      "x": 1128,
+      "y": 445
     },
     "engineering/create-pr-browser-compose-link": {
       "x": 46,
