@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "our-application-used-to-show-currently",
+  "pipeline": "engineering",
+  "title": "Our application used to show currently running tasks before but it is…",
+  "ref": 63,
+  "type": "idea",
+  "flow": "bugfix",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/our-application-used-to-show-currently",
+  "target": "main",
+  "stages": [
+    "repro",
+    "fix",
+    "fix-review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}
