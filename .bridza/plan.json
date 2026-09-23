@@ -62,12 +62,6 @@
         "product/reposition-the-product-as-jira-for-ai"
       ],
       "any": []
-    },
-    "engineering/reduce-git-merge-conflicts-between": {
-      "all": [
-        "product/reposition-the-product-as-jira-for-ai"
-      ],
-      "any": []
     }
   },
   "milestones": [
