@@ -152,12 +152,24 @@ pushed and so cannot cross machines).
   "next": 105,
   "refs":     { "engineering/ship-it": 104 },
   "deleted":  ["engineering/old-task"],
-  "archived": { "engineering/ship-it": true },
+  "taskFlags": {
+    "engineering/ship-it": { "archived": { "on": true, "at": "2026-09-24T10:00:00.000Z", "reason": "manual" } },
+    "engineering/ship-it-2": { "archived": { "on": true, "at": "2026-09-24T10:05:00.000Z", "reason": "duplicate", "of": "engineering/ship-it" } }
+  },
   "tags":     { "billing": { "name": "billing", "color": "violet" } },
   "taskTags": { "engineering/ship-it": ["billing", "regression"] }
 }
 ```
 
+- `taskFlags` — `<pipeline>/<task>` → named flags. Each flag is a record, never
+  a bare boolean: `on` (the state), `at` (ISO time it was last set, `null` when
+  unknown), `reason` (`manual` — set in the app; `duplicate` — with `of`, the
+  key it duplicates; `agent` — set by an agent run, `by` names that task;
+  `legacy` — migrated from the old map, origin unknown). Explicit
+  `on: false` is kept so an unarchive outranks a stale `archived: true` in a
+  task's own `metadata.json`. New per-task flags go here beside `archived`.
+  The pre-`taskFlags` shape `"archived": { "<key>": true }` is still read and
+  rewritten into `taskFlags` on the next save.
 - `tags` — the board-wide tag registry. Key is the slug (`safeRef` of the typed
   name); `name` keeps the typed casing for display; `color` is a palette name
   (`violet indigo blue emerald amber rose cyan orange`), never a hex value, so

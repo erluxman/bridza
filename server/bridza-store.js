@@ -384,6 +384,37 @@ function normalizeTags(tags) {
   return out;
 }
 
+// Every task flag is a record, never a bare boolean — `{ on, at, reason }` says
+// what the flag is, when it was set and why. reason: "manual" (set in the app),
+// "agent" (set by an agent run, with `by`: that task),
+// "duplicate" (with `of`: the task it duplicates), "legacy" (migrated from the
+// old `archived: { key: bool }` map, origin unknown).
+const isPlainObject = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+function readTaskFlags(j) {
+  const flags = {};
+  if (j && isPlainObject(j.taskFlags)) {
+    for (const [key, f] of Object.entries(j.taskFlags)) if (isPlainObject(f)) flags[key] = { ...f };
+  }
+  // migrate the pre-taskFlags `archived: { "<p>/<t>": true|false }` map
+  if (j && isPlainObject(j.archived)) {
+    for (const [key, on] of Object.entries(j.archived)) {
+      if (flags[key] && flags[key].archived) continue;
+      flags[key] = { ...flags[key], archived: { on: !!on, at: null, reason: "legacy" } };
+    }
+  }
+  return flags;
+}
+const flagOn = (flags, key, name) => {
+  const f = Object.prototype.hasOwnProperty.call(flags, key) ? flags[key][name] : undefined;
+  return f === undefined ? undefined : !!f.on;
+};
+
+function nextFloor(j) {
+  const stored = (j && Number.isInteger(j.next) && j.next > 0) ? j.next : 1;
+  const used = (j && j.refs && typeof j.refs === "object") ? Object.values(j.refs).filter(Number.isInteger) : [];
+  return Math.max(stored, ...used.map((n) => n + 1));
+}
+
 export function readRefs(root) {
   const j = readJSON(refsFile(root));
   return {
@@ -392,17 +423,22 @@ export function readRefs(root) {
     // over it once wiped every #number, archive flag and tag on the board
     _unreadable: j === null && fs.existsSync(refsFile(root)),
     v: 1,
-    next: (j && Number.isInteger(j.next) && j.next > 0) ? j.next : 1,
+    // `next` only ever grows: it never reads below the highest number already
+    // handed out. A git merge of two devices' refs.json once resolved the
+    // "next" line to the LOWER side, and the following task re-got #62.
+    next: nextFloor(j),
     refs: (j && j.refs && typeof j.refs === "object") ? j.refs : {},
     // tombstones: deleted tasks stay deleted even if their dir still exists on
     // some task branch (branch scanning would otherwise resurrect them)
     deleted: (j && Array.isArray(j.deleted)) ? j.deleted : [],
-    // board-wide archive state, key → bool. Lives HERE (root, base branch) and
-    // not in the task's metadata.json, because a task's metadata is read from
-    // its bridza/* branch tip — which is never pushed, so it can't cross to
-    // another computer. Explicit `false` is kept so that unarchiving also wins
-    // over a legacy `archived: true` left in an old task metadata.json.
-    archived: (j && j.archived && typeof j.archived === "object" && !Array.isArray(j.archived)) ? j.archived : {},
+    // per-task board flags, `<pipeline>/<task>` → { <flag>: { on, at, reason, … } }.
+    // Lives HERE (root, base branch) and not in the task's metadata.json,
+    // because a task's metadata is read from its bridza/* branch tip — which is
+    // never pushed, so it can't cross to another computer. Each flag is a
+    // self-describing record so new flags can be added beside `archived`.
+    // Explicit `on: false` is kept so that unarchiving also wins over a legacy
+    // `archived: true` left in an old task metadata.json.
+    taskFlags: readTaskFlags(j),
     // colours normalize on the way out: a refs.json written before free colours
     // holds "violet", and every renderer downstream now expects "#a78bfa"
     tags: normalizeTags((j && j.tags && typeof j.tags === "object" && !Array.isArray(j.tags)) ? j.tags : {}),
@@ -465,29 +501,40 @@ export function setTaskTags(root, pipeline, task, tagIds) {
 // Archive/restore a task. Board-level display state → committed at the repo
 // root on the base branch (like pipeline archive and kanban order), so a
 // `git push` of that branch carries it to every other device.
-export function setTaskArchived(root, pipeline, task, archived) {
+export function setTaskArchived(root, pipeline, task, archived, { reason = "manual", of } = {}) {
   const bad = validRef(pipeline, "pipeline") || validRef(task, "task");
   if (bad) return { ok: false, error: bad };
   const key = safeRef(pipeline) + "/" + safeRef(task);
   const refs = readRefs(root);
-  refs.archived[key] = !!archived;
+  const flag = { on: !!archived, at: new Date().toISOString(), reason };
+  if (of) flag.of = of;
+  refs.taskFlags[key] = { ...refs.taskFlags[key], archived: flag };
   writeRefs(root, refs);
   const commit = commitPaths(root, [DATA_DIR + "/refs.json"],
-    `bridza: ${archived ? "archive" : "unarchive"} task ${key}`);
+    `bridza: ${archived ? "archive" : "unarchive"} task ${key}` + (archived && reason === "duplicate" && of ? ` — duplicate of ${of}` : ""));
   return { ok: true, archived: !!archived, committed: commit.committed };
 }
 
 // Assign #numbers to the given task keys that don't have one yet. Commits once.
-export function assignRefs(root, keys) {
+// Numbers only increase — never a search for a free slot. `preferred` maps a
+// key to the number its own metadata.json/folder already carries (its entry was
+// lost from refs.json, e.g. in a merge): that number is re-adopted only if it
+// was handed out before (< next) and no other task holds it now; otherwise the
+// task gets a fresh number, so two tasks never share one.
+export function assignRefs(root, keys, preferred = {}) {
   const cur = readRefs(root);
   // runs on every board load: an unreadable refs.json must not be "healed"
   // into a fresh one — hand back no numbers and leave the file alone
   if (cur._unreadable) return {};
+  const used = new Set(Object.values(cur.refs));
   const assigned = [];
   for (const k of keys) {
     if (!KEY_RE.test(k) || cur.refs[k]) continue;
-    cur.refs[k] = cur.next++;
-    assigned.push(`#${cur.refs[k]} → ${k}`);
+    const want = preferred[k];
+    const n = Number.isInteger(want) && want > 0 && want < cur.next && !used.has(want) ? want : cur.next++;
+    cur.refs[k] = n;
+    used.add(n);
+    assigned.push(`#${n} → ${k}` + (Number.isInteger(want) && want !== n ? ` (was #${want}, taken)` : ""));
   }
   if (assigned.length) {
     writeRefs(root, cur);
@@ -587,7 +634,6 @@ export function readProject(root) {
   const refsAll = readRefs(root);
   const refs = refsAll.refs;
   const tombstones = new Set(refsAll.deleted);
-  const archivedFlags = refsAll.archived;
   const base = baseBranchName(root);
   const scan = scanBranches(root);
   const pids = [...new Set([...listDirs(pipelinesRoot), ...scan.found.keys()])];
@@ -612,6 +658,9 @@ export function readProject(root) {
       return {
         id: meta.id || tid, pipeline: pid, title: meta.title || tid,
         ref: refs[pid + "/" + tid] || meta.ref || null,
+        // false: the number above is only the task's own stale copy, not a
+        // refs.json entry — the board-load self-heal re-records or renumbers it
+        refRecorded: !!refs[pid + "/" + tid],
         type: meta.type || "", template: meta.template || "", flow: meta.flow || meta.template || "",
         status: meta.status || "in-progress", finalized: !!meta.finalized, reuseSession: !!meta.reuseSession,
         // the task-level conversation: turns the app renders below the stage
@@ -619,7 +668,8 @@ export function readProject(root) {
         chat: { turns: Array.isArray((meta.chat || {}).turns) ? meta.chat.turns : [] },
         // root refs.json wins; a legacy flag in the task's own metadata (written
         // by the old branch-local archive) still counts when there's no entry
-        archived: archivedFlags[pid + "/" + tid] === undefined ? !!meta.archived : !!archivedFlags[pid + "/" + tid],
+        archived: flagOn(refsAll.taskFlags, pid + "/" + tid, "archived") ?? !!meta.archived,
+        flags: refsAll.taskFlags[pid + "/" + tid] || {},
         // readRefs normalises tags/taskTags to {}, so no guard is needed here; a
         // slug with no registry entry drops out rather than rendering half a chip
         tags: (refsAll.taskTags[pid + "/" + tid] || [])
@@ -819,7 +869,7 @@ function deletePipelineIn(root, { id }) {
   for (const tid of taskIds) {
     const key = pid + "/" + tid;
     if (refs.refs[key] != null) { delete refs.refs[key]; refsTouched = true; }
-    if (refs.archived[key] !== undefined) { delete refs.archived[key]; refsTouched = true; }
+    if (refs.taskFlags[key] !== undefined) { delete refs.taskFlags[key]; refsTouched = true; }
     if (!refs.deleted.includes(key)) { refs.deleted.push(key); refsTouched = true; }
   }
   if (refsTouched) { writeRefs(root, refs); commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: retire #refs of deleted pipeline ${who} — numbers are never reused`); }
@@ -1025,7 +1075,7 @@ function deleteTaskIn(root, { pipeline, task, deleteBranch = false }) {
   //    scanning can't resurrect it from another task's branch tip
   const refs = readRefs(root);
   delete refs.refs[key];
-  delete refs.archived[key];
+  delete refs.taskFlags[key];
   delete refs.taskTags[key];
   if (!refs.deleted.includes(key)) refs.deleted.push(key);
   writeRefs(root, refs);

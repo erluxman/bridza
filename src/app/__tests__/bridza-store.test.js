@@ -155,6 +155,33 @@ describe("zero-padded task folders", () => {
     expect(taskDirs("marketing")).toEqual([]);
   });
 
+  it("#ref numbers only grow: a merge that lowered `next` can't hand out a used number", () => {
+    createPipeline(root, MARKETING);
+    createTask(root, { pipeline: "marketing", id: "a", title: "A" });   // #1
+    createTask(root, { pipeline: "marketing", id: "b", title: "B" });   // #2
+    const f = path.join(root, ".bridza", "refs.json");
+    // what a bad merge resolution of the "next" line left behind
+    fs.writeFileSync(f, JSON.stringify({ ...JSON.parse(fs.readFileSync(f, "utf8")), next: 1 }, null, 2) + "\n");
+    expect(createTask(root, { pipeline: "marketing", id: "c", title: "C" }).ref).toBe(3);
+  });
+
+  it("a task whose refs.json entry was lost keeps its number only if nobody else holds it", () => {
+    createPipeline(root, MARKETING);
+    createTask(root, { pipeline: "marketing", id: "a", title: "A" });   // #1
+    createTask(root, { pipeline: "marketing", id: "b", title: "B" });   // #2
+    const f = path.join(root, ".bridza", "refs.json");
+    const j = JSON.parse(fs.readFileSync(f, "utf8"));
+    // a merge dropped "b", and "a" was renumbered onto b's old #2
+    fs.writeFileSync(f, JSON.stringify({ ...j, refs: { "marketing/a": 2 }, next: 3 }, null, 2) + "\n");
+    const b = readProject(root).pipelines[0].tasks.find((t) => t.id === "b");
+    expect(b).toMatchObject({ ref: 2, refRecorded: false });   // stale copy, not trusted
+    expect(assignRefs(root, ["marketing/b"], { "marketing/b": 2 })["marketing/b"]).toBe(3);
+
+    // but a lost entry whose number is still free is re-adopted, not renumbered
+    fs.writeFileSync(f, JSON.stringify({ ...j, refs: { "marketing/a": 1 }, next: 3 }, null, 2) + "\n");
+    expect(assignRefs(root, ["marketing/b"], { "marketing/b": 2 })["marketing/b"]).toBe(2);
+  });
+
   it("refuses a duplicate id whichever folder form the existing task uses", () => {
     createPipeline(root, MARKETING);
     createTask(root, { pipeline: "marketing", id: "dup", title: "Padded" });
@@ -886,6 +913,39 @@ describe("task archive state", () => {
     createPipeline(root, MARKETING);
     createTask(root, { pipeline: "marketing", id: "t1", title: "reused id" });
     expect(archivedOf(root, "t1")).toBe(false);
+  });
+
+  it("stores archive as a self-describing flag record, with reason and duplicate-of", () => {
+    createPipeline(root, MARKETING);
+    createTask(root, { pipeline: "marketing", id: "t1", title: "original" });
+    createTask(root, { pipeline: "marketing", id: "t2", title: "copy" });
+    setTaskArchived(root, "marketing", "t1", true);
+    setTaskArchived(root, "marketing", "t2", true, { reason: "duplicate", of: "marketing/t1" });
+    const refs = JSON.parse(fs.readFileSync(path.join(root, ".bridza", "refs.json"), "utf8"));
+    expect(refs.archived).toBeUndefined();
+    expect(refs.taskFlags["marketing/t1"].archived).toMatchObject({ on: true, reason: "manual" });
+    expect(refs.taskFlags["marketing/t2"].archived).toMatchObject({ on: true, reason: "duplicate", of: "marketing/t1" });
+    expect(Date.parse(refs.taskFlags["marketing/t2"].archived.at)).not.toBeNaN();
+    expect(git(root, ["log", "-1", "--format=%s", "main"]).trim()).toBe("bridza: archive task marketing/t2 — duplicate of marketing/t1");
+    expect(readProject(root).pipelines[0].tasks.find((t) => t.id === "t2").flags.archived.of).toBe("marketing/t1");
+  });
+
+  it("migrates the legacy `archived: { key: bool }` map into taskFlags", () => {
+    createPipeline(root, MARKETING);
+    createTask(root, { pipeline: "marketing", id: "t1", title: "old archive" });
+    createTask(root, { pipeline: "marketing", id: "t2", title: "old unarchive" });
+    const file = path.join(root, ".bridza", "refs.json");
+    const old = JSON.parse(fs.readFileSync(file, "utf8"));
+    delete old.taskFlags;
+    fs.writeFileSync(file, JSON.stringify({ ...old, archived: { "marketing/t1": true, "marketing/t2": false } }, null, 2) + "\n");
+    expect(archivedOf(root, "t1")).toBe(true);
+    expect(archivedOf(root, "t2")).toBe(false);
+
+    setTaskTags(root, "marketing", "t1", []);   // any refs write persists the migration
+    const refs = JSON.parse(fs.readFileSync(file, "utf8"));
+    expect(refs.archived).toBeUndefined();
+    expect(refs.taskFlags["marketing/t1"]).toEqual({ archived: { on: true, at: null, reason: "legacy" } });
+    expect(refs.taskFlags["marketing/t2"]).toEqual({ archived: { on: false, at: null, reason: "legacy" } });
   });
 
   it("deleting an archived task retires its archive entry too", () => {

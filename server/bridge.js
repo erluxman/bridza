@@ -216,10 +216,12 @@ export async function handleApi(req, res) {
       const proj = readProject(root);
       // self-heal #refs: tasks that arrived without a number (older projects,
       // agent-created tasks on branches) get one now.
-      const missing = proj.pipelines.flatMap((p) => p.tasks.filter((t) => !t.ref).map((t) => ({ t, key: p.id + "/" + t.id })));
+      // A number that only lives in the task's own metadata (its refs.json
+      // entry was lost in a merge) is re-adopted if still free, else replaced.
+      const missing = proj.pipelines.flatMap((p) => p.tasks.filter((t) => !t.refRecorded).map((t) => ({ t, key: p.id + "/" + t.id })));
       if (missing.length) {
-        const refs = assignRefs(root, missing.map((m) => m.key));
-        missing.forEach((m) => { m.t.ref = refs[m.key] || null; });
+        const refs = assignRefs(root, missing.map((m) => m.key), Object.fromEntries(missing.filter((m) => m.t.ref).map((m) => [m.key, m.t.ref])));
+        missing.forEach((m) => { m.t.ref = refs[m.key] || m.t.ref || null; m.t.refRecorded = !!refs[m.key]; });
       }
       res.end(JSON.stringify({ available: true, repo: root, dataDir: path.join(root, DATA_DIR), running: listActiveRuns(root), ...proj }));
       return true;
@@ -292,7 +294,7 @@ export async function handleApi(req, res) {
     if (M === "POST" && P === "/api/bridza/task/archive") {
       if (!root) return void need(), true;
       const b = (await json(req)) || {};
-      res.end(JSON.stringify(setTaskArchived(root, b.pipeline, b.task, !!b.archived))); return true;
+      res.end(JSON.stringify(setTaskArchived(root, b.pipeline, b.task, !!b.archived, { reason: typeof b.reason === "string" && b.reason ? b.reason : "manual", of: typeof b.of === "string" ? b.of : undefined }))); return true;
     }
     if (M === "POST" && P === "/api/bridza/tag/create") {
       if (!root) return void need(), true;
