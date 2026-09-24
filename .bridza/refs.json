@@ -816,6 +816,9 @@
     ],
     "engineering/fix-the-regression-issue-in-archive": [
       "likely-done"
+    ],
+    "engineering/auto-advance-state-truth-toggle": [
+      "likely-done"
     ]
   }
 }
