@@ -192,6 +192,15 @@
         "marketing-growth/a-tiktok-video-about-what-bridza-harness"
       ],
       "needs": []
+    },
+    {
+      "id": "ms-codebase-atlas",
+      "title": "Codebase Atlas — system design lenses + AI copilot",
+      "due": "",
+      "tasks": [
+        "engineering/codebase-atlas"
+      ],
+      "needs": []
     }
   ],
   "pos": {
@@ -337,10 +346,6 @@
       "w": 432,
       "h": 38
     },
-    "engineering/atlas-request-flow-map": {
-      "w": 358,
-      "h": 46
-    },
     "engineering/auto-advance-stop-and-resume": {
       "w": 510,
       "h": 42
@@ -403,7 +408,8 @@
     "engineering/the-time-complexity-for-idea-to-a": 6,
     "engineering/system-design-diagrams-to-understand": 10,
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 6,
-    "engineering/rebrand-landing-page-to-aira": 6
+    "engineering/rebrand-landing-page-to-aira": 6,
+    "engineering/codebase-atlas": 84
   },
   "archive": {
     "x": 1240,

@@ -1,0 +1,17 @@
+{
+  "v": 1,
+  "id": "codebase-atlas",
+  "pipeline": "engineering",
+  "title": "Codebase Atlas — system design diagrams + AI copilot",
+  "type": "subtask",
+  "flow": "feature",
+  "status": "in-progress",
+  "finalized": false,
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "tracking": {},
+  "target": "main"
+}
