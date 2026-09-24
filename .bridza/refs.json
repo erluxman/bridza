@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 126,
+  "next": 127,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -114,7 +114,8 @@
     "engineering/rebrand-landing-page-to-aira": 123,
     "engineering/1when-i-delete-a-pipeline-from-the-left": 124,
     "engineering/fix-the-regression-issue-in-archive": 62,
-    "engineering/our-application-used-to-show-currently": 125
+    "engineering/our-application-used-to-show-currently": 125,
+    "engineering/codebase-atlas": 126
   },
   "deleted": [
     "engineering/truncation-check-idea",
