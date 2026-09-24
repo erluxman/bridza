@@ -67,7 +67,9 @@
     "engineering/our-application-used-to-show-currently": 63
   },
   "deleted": [],
-  "archived": {},
+  "archived": {
+    "engineering/archived-should-not-be-just-another": true
+  },
   "tags": {},
   "taskTags": {}
 }
