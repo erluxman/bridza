@@ -1,6 +1,6 @@
 {
   "v": 1,
-  "next": 127,
+  "next": 130,
   "refs": {
     "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
     "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
@@ -115,7 +115,10 @@
     "engineering/1when-i-delete-a-pipeline-from-the-left": 124,
     "engineering/fix-the-regression-issue-in-archive": 62,
     "engineering/our-application-used-to-show-currently": 125,
-    "engineering/codebase-atlas": 126
+    "engineering/codebase-atlas": 126,
+    "engineering/reduce-git-merge-conflicts-between": 127,
+    "engineering/the-time-complexity-for-idea-to-a": 128,
+    "engineering/chat-feature-in-task-work-item-details": 129
   },
   "deleted": [
     "engineering/truncation-check-idea",
@@ -134,88 +137,605 @@
     "engineering/display-terminal-despite-not-being-in",
     "engineering/tags-or-badges-like-trello-or-github"
   ],
-  "archived": {
-    "engineering/card-archiving-is-not-working-when": true,
-    "engineering/better-merging-strategy-to-reference": true,
-    "engineering/every-stage-floor-should-be-in-auto": true,
-    "engineering/every-task-when-they-are-converted-into": true,
-    "engineering/highlight-selected-task-or-work-item-if": true,
-    "engineering/kanban-archive-issue-cards": true,
-    "engineering/more-conflicts-user-experience-should": true,
-    "engineering/okay-i-just-have-an-idea-that-when-i-ope": true,
-    "engineering/per-day-dismissal": true,
-    "engineering/time-aware-greeting": true,
-    "engineering/welcome-dialog-on-open": true,
-    "engineering/you-just-should-be-able-to-change-the": true,
-    "engineering/kanban-columns-drag-reorder": true,
-    "engineering/when-opening-a-task-or-card-it-should": true,
-    "engineering/auto-advance-seems-to-only-works-at-the": true,
-    "engineering/reduce-the-amount-of-commits-for-the": true,
-    "engineering/highlight-running-task-in-sidebar": true,
-    "engineering/i-should-be-able-to-rearrange-the": true,
-    "engineering/ok-when-i-press-command-and-mouse-will": true,
-    "engineering/number-prefix-contract": true,
-    "engineering/a-shortcut-to-search-among-the-tasks-or": true,
-    "engineering/long-press-and-drag-to-create-a": true,
-    "engineering/when-the-inbox-is-0-show-a-confetti": true,
-    "engineering/create-pr-button-in-task-detail": true,
-    "engineering/animate-the-logo-when-app-starts-for": true,
-    "engineering/verify-merge-strategy": true,
-    "engineering/when-merging-to-main-does-not-happen": true,
-    "engineering/do-not-allow-merge-domain-until-the": true,
-    "engineering/there-should-be-a-separate-step-called": true,
-    "engineering/merge-button-gating": true,
-    "engineering/ai-assisted-conflict-merge": true,
-    "engineering/creating-pr-failed-it-should-take-the": true,
-    "engineering/create-pr-via-gh-cli": true,
-    "engineering/setting-to-hide-columns-in-kanban-that": true,
-    "engineering/vs-code-like-setting-page": true,
-    "engineering/when-app-is-refreshed-or-page-is": true,
-    "engineering/define-merge-strategy": true,
-    "engineering/merge-preflight-check": true,
-    "engineering/finalize-merge-style-surface": true,
-    "engineering/merge-strategy-acceptance-matrix": true,
-    "engineering/merge-method-decision-adr": true,
-    "engineering/implement-merge-strategy": true,
-    "engineering/conflict-open-in-vscode": true,
-    "engineering/conflict-auto-union-bridza-state": true,
-    "engineering/merge-strategy-goal-ranking": true,
-    "engineering/url-path-sync-for-selected-task": true,
-    "engineering/logo-welcome-screen-integration": true,
-    "engineering/migration-existing-tasks": true,
-    "engineering/naming-contract-tests": true,
-    "engineering/task-creation-write-path": true,
-    "engineering/task-enumeration-read-path": true,
-    "engineering/task-target-branch-selector": true,
-    "engineering/ui-ref-display": true,
-    "engineering/plan-agent-categorize-backlog": true,
-    "engineering/plan-backlog-box": true,
-    "engineering/archive-tag-backfill-policy": true,
-    "engineering/run-ledger-reachability-contract": true,
-    "engineering/task-branch-deletion-policy": true,
-    "engineering/atlas-ai-architecture-overview": true,
-    "engineering/atlas-scan-cache-and-ignore": true,
-    "engineering/atlas-ai-chat-thread-citations": true,
-    "engineering/atlas-ask-ai-about-selection": true,
-    "engineering/atlas-docs-knowledge-lens": true,
-    "engineering/atlas-export-and-embed": true,
-    "engineering/atlas-git-history-lens": true,
-    "engineering/atlas-module-dependency-graph": true,
-    "engineering/atlas-request-flow-map": true,
-    "engineering/atlas-runtime-container-diagram": true,
-    "engineering/atlas-shell-and-file-map": true,
-    "engineering/logo-first-launch-detection": true,
-    "engineering/logo-animation-component": true,
-    "engineering/create-pr-browser-compose-link": true,
-    "engineering/auto-advance-chain-registry": true,
-    "engineering/categorize-the-tasks-in-milestones": true,
-    "engineering/archived-should-not-be-just-another": true,
-    "engineering/i-should-be-able-to-change-the-color-of": true,
-    "engineering/remove-automatic-focus-on-search-field": true,
-    "engineering/have-a-different-tax-url-so-that-i-can": true,
-    "engineering/separate-tags-filled-for-each-org-item": true,
-    "engineering/investigate-state-interference-between": true,
-    "design-brand/rebrand-jira-to-aira-for-project": true
+  "taskFlags": {
+    "engineering/card-archiving-is-not-working-when": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T15:47:26.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/better-merging-strategy-to-reference": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T15:47:34.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/every-stage-floor-should-be-in-auto": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T15:47:49.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/every-task-when-they-are-converted-into": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T15:48:08.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/highlight-selected-task-or-work-item-if": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T15:48:21.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/kanban-archive-issue-cards": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T15:48:39.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/more-conflicts-user-experience-should": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T15:48:49.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/okay-i-just-have-an-idea-that-when-i-ope": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T15:49:05.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/per-day-dismissal": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T15:49:13.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/time-aware-greeting": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T15:49:18.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/welcome-dialog-on-open": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T15:49:19.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/you-just-should-be-able-to-change-the": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T15:49:52.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/kanban-columns-drag-reorder": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T15:50:00.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/when-opening-a-task-or-card-it-should": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T15:56:07.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/auto-advance-seems-to-only-works-at-the": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T16:22:51.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/reduce-the-amount-of-commits-for-the": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T16:35:56.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/highlight-running-task-in-sidebar": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T16:48:30.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/i-should-be-able-to-rearrange-the": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T16:49:58.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/ok-when-i-press-command-and-mouse-will": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T16:50:23.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/number-prefix-contract": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T17:57:14.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/a-shortcut-to-search-among-the-tasks-or": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T18:08:35.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/long-press-and-drag-to-create-a": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T19:04:43.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/when-the-inbox-is-0-show-a-confetti": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T19:06:10.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/create-pr-button-in-task-detail": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-19T19:07:44.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/animate-the-logo-when-app-starts-for": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T05:45:56.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/verify-merge-strategy": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T14:39:54.000Z",
+        "reason": "agent",
+        "by": "engineering/organize-the-plan-board-into-milestones"
+      }
+    },
+    "engineering/when-merging-to-main-does-not-happen": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T14:39:54.000Z",
+        "reason": "agent",
+        "by": "engineering/organize-the-plan-board-into-milestones"
+      }
+    },
+    "engineering/do-not-allow-merge-domain-until-the": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T14:39:54.000Z",
+        "reason": "agent",
+        "by": "engineering/organize-the-plan-board-into-milestones"
+      }
+    },
+    "engineering/there-should-be-a-separate-step-called": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T14:39:54.000Z",
+        "reason": "agent",
+        "by": "engineering/organize-the-plan-board-into-milestones"
+      }
+    },
+    "engineering/merge-button-gating": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T14:39:54.000Z",
+        "reason": "agent",
+        "by": "engineering/organize-the-plan-board-into-milestones"
+      }
+    },
+    "engineering/ai-assisted-conflict-merge": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T14:39:54.000Z",
+        "reason": "agent",
+        "by": "engineering/organize-the-plan-board-into-milestones"
+      }
+    },
+    "engineering/creating-pr-failed-it-should-take-the": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T17:09:47.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/create-pr-via-gh-cli": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T17:11:43.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/setting-to-hide-columns-in-kanban-that": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T19:40:49.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/vs-code-like-setting-page": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T19:40:52.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/when-app-is-refreshed-or-page-is": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:11:56.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/define-merge-strategy": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:32:49.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/merge-preflight-check": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:32:53.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/finalize-merge-style-surface": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:32:56.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/merge-strategy-acceptance-matrix": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:32:59.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/merge-method-decision-adr": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:33:02.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/implement-merge-strategy": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:33:03.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/conflict-open-in-vscode": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:33:12.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/conflict-auto-union-bridza-state": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:33:14.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/merge-strategy-goal-ranking": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:33:42.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/url-path-sync-for-selected-task": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:34:36.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/logo-welcome-screen-integration": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:36:42.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/migration-existing-tasks": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:36:47.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/naming-contract-tests": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:36:52.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/task-creation-write-path": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:36:53.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/task-enumeration-read-path": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:36:57.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/task-target-branch-selector": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:37:00.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/ui-ref-display": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:37:08.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/plan-agent-categorize-backlog": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:37:25.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/plan-backlog-box": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:37:32.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/archive-tag-backfill-policy": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:38:18.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/run-ledger-reachability-contract": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:38:23.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/task-branch-deletion-policy": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:38:32.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/atlas-ai-architecture-overview": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:38:36.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/atlas-scan-cache-and-ignore": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:39:06.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/atlas-ai-chat-thread-citations": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-24T16:42:27.000Z",
+        "reason": "agent",
+        "by": "engineering/system-design-diagrams-to-understand"
+      }
+    },
+    "engineering/atlas-ask-ai-about-selection": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-24T16:42:27.000Z",
+        "reason": "agent",
+        "by": "engineering/system-design-diagrams-to-understand"
+      }
+    },
+    "engineering/atlas-docs-knowledge-lens": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-24T16:42:27.000Z",
+        "reason": "agent",
+        "by": "engineering/system-design-diagrams-to-understand"
+      }
+    },
+    "engineering/atlas-export-and-embed": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-24T16:42:27.000Z",
+        "reason": "agent",
+        "by": "engineering/system-design-diagrams-to-understand"
+      }
+    },
+    "engineering/atlas-git-history-lens": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-24T16:42:27.000Z",
+        "reason": "agent",
+        "by": "engineering/system-design-diagrams-to-understand"
+      }
+    },
+    "engineering/atlas-module-dependency-graph": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-24T16:42:27.000Z",
+        "reason": "agent",
+        "by": "engineering/system-design-diagrams-to-understand"
+      }
+    },
+    "engineering/atlas-request-flow-map": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-24T16:42:27.000Z",
+        "reason": "agent",
+        "by": "engineering/system-design-diagrams-to-understand"
+      }
+    },
+    "engineering/atlas-runtime-container-diagram": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-24T16:42:27.000Z",
+        "reason": "agent",
+        "by": "engineering/system-design-diagrams-to-understand"
+      }
+    },
+    "engineering/atlas-shell-and-file-map": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-24T16:42:27.000Z",
+        "reason": "agent",
+        "by": "engineering/system-design-diagrams-to-understand"
+      }
+    },
+    "engineering/logo-first-launch-detection": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:39:30.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/logo-animation-component": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:39:31.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/create-pr-browser-compose-link": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:39:44.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/auto-advance-chain-registry": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:39:49.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/categorize-the-tasks-in-milestones": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:39:54.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/archived-should-not-be-just-another": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-24T16:22:30.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/i-should-be-able-to-change-the-color-of": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:40:05.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/remove-automatic-focus-on-search-field": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:40:09.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/have-a-different-tax-url-so-that-i-can": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:40:16.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/separate-tags-filled-for-each-org-item": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:40:24.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/investigate-state-interference-between": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-20T20:53:14.000Z",
+        "reason": "manual"
+      }
+    },
+    "design-brand/rebrand-jira-to-aira-for-project": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-22T19:03:47.000Z",
+        "reason": "manual"
+      }
+    },
+    "engineering/purchase-the-selected-model-and-display": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-24T16:49:18.925Z",
+        "reason": "duplicate",
+        "of": "engineering/persist-agent-pickup-choice"
+      }
+    },
+    "engineering/organize-the-plan-board-and-categorize": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-24T16:49:18.925Z",
+        "reason": "duplicate",
+        "of": "engineering/organize-the-plan-board-into-milestones"
+      }
+    }
   },
   "tags": {
     "complex": {
