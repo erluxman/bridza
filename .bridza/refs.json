@@ -771,6 +771,9 @@
     ],
     "engineering/always-fork-from-the-reference-branch": [
       "urgent"
+    ],
+    "engineering/codebase-atlas": [
+      "urgent"
     ]
   }
 }
