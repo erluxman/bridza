@@ -735,6 +735,13 @@
         "reason": "duplicate",
         "of": "engineering/organize-the-plan-board-into-milestones"
       }
+    },
+    "engineering/always-fork-from-the-reference-branch": {
+      "archived": {
+        "on": true,
+        "at": "2026-09-24T17:20:13.088Z",
+        "reason": "manual"
+      }
     }
   },
   "tags": {
