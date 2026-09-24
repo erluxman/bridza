@@ -786,6 +786,9 @@
     ],
     "engineering/on-the-plan-board-archived-cards-should": [
       "likely-done"
+    ],
+    "engineering/terminal-state-restoration-in-task": [
+      "likely-done"
     ]
   }
 }
