@@ -749,6 +749,10 @@
     "urgent": {
       "name": "urgent",
       "color": "#e0625f"
+    },
+    "likely-done": {
+      "name": "likely-done",
+      "color": "#1f9d6b"
     }
   },
   "taskTags": {
