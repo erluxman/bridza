@@ -789,6 +789,9 @@
     ],
     "engineering/terminal-state-restoration-in-task": [
       "likely-done"
+    ],
+    "engineering/persist-agent-pickup-choice": [
+      "likely-done"
     ]
   }
 }
