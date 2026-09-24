@@ -365,6 +365,11 @@ export function mergeTime(root, pipeline, task, map) {
 // ("#12"). One committed file (.bridza/refs.json): { v, next, refs: { "<p>/<t>": n } }.
 // Numbers are never reused — deleting a task retires its number.
 const refsFile = (root) => path.join(root, DATA_DIR, "refs.json");
+function writeRefs(root, refs) {
+  if (refs._unreadable) throw new Error(".bridza/refs.json is unreadable (merge conflict?) — refusing to overwrite it; fix the file and retry");
+  const { _unreadable, ...out } = refs;
+  writeJSON(refsFile(root), out);
+}
 
 // Own keys only: a tag id is user input, and `tags["constructor"]` inherited
 // from Object.prototype would otherwise read as a tag that exists.
@@ -382,6 +387,10 @@ function normalizeTags(tags) {
 export function readRefs(root) {
   const j = readJSON(refsFile(root));
   return {
+    // the file is there but won't parse (merge-conflict markers, a torn write):
+    // reads fall back to empty, but writeRefs refuses — saving these defaults
+    // over it once wiped every #number, archive flag and tag on the board
+    _unreadable: j === null && fs.existsSync(refsFile(root)),
     v: 1,
     next: (j && Number.isInteger(j.next) && j.next > 0) ? j.next : 1,
     refs: (j && j.refs && typeof j.refs === "object") ? j.refs : {},
@@ -417,7 +426,7 @@ export function createTag(root, { name, color }) {
   // is truthy on every object, and would report as already created
   if (Object.prototype.hasOwnProperty.call(refs.tags, id)) return { ok: true, id, created: false };
   refs.tags[id] = { name: name.trim(), color: hex };
-  writeJSON(refsFile(root), refs);
+  writeRefs(root, refs);
   commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: create tag "${name.trim()}" (${id})`);
   return { ok: true, id, created: true };
 }
@@ -434,7 +443,7 @@ export function updateTag(root, { id, color }) {
   // only `color` is touched — refs.taskTags is never read here, so a recolour
   // cannot disturb which tasks carry the tag
   refs.tags[id] = { ...tag, color: hex };
-  writeJSON(refsFile(root), refs);
+  writeRefs(root, refs);
   commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: recolor tag "${tag.name}" (${id}) → ${hex}`);
   return { ok: true, id, color: hex };
 }
@@ -448,7 +457,7 @@ export function setTaskTags(root, pipeline, task, tagIds) {
   const validIds = [...new Set(tagIds)].filter((id) => Object.prototype.hasOwnProperty.call(refs.tags, id));
   if (validIds.length === 0) delete refs.taskTags[key];
   else refs.taskTags[key] = validIds;
-  writeJSON(refsFile(root), refs);
+  writeRefs(root, refs);
   commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: set tags on task ${key}`);
   return { ok: true, tags: validIds };
 }
@@ -462,7 +471,7 @@ export function setTaskArchived(root, pipeline, task, archived) {
   const key = safeRef(pipeline) + "/" + safeRef(task);
   const refs = readRefs(root);
   refs.archived[key] = !!archived;
-  writeJSON(refsFile(root), refs);
+  writeRefs(root, refs);
   const commit = commitPaths(root, [DATA_DIR + "/refs.json"],
     `bridza: ${archived ? "archive" : "unarchive"} task ${key}`);
   return { ok: true, archived: !!archived, committed: commit.committed };
@@ -471,6 +480,9 @@ export function setTaskArchived(root, pipeline, task, archived) {
 // Assign #numbers to the given task keys that don't have one yet. Commits once.
 export function assignRefs(root, keys) {
   const cur = readRefs(root);
+  // runs on every board load: an unreadable refs.json must not be "healed"
+  // into a fresh one — hand back no numbers and leave the file alone
+  if (cur._unreadable) return {};
   const assigned = [];
   for (const k of keys) {
     if (!KEY_RE.test(k) || cur.refs[k]) continue;
@@ -478,7 +490,7 @@ export function assignRefs(root, keys) {
     assigned.push(`#${cur.refs[k]} → ${k}`);
   }
   if (assigned.length) {
-    writeJSON(refsFile(root), cur);
+    writeRefs(root, cur);
     commitPaths(root, [DATA_DIR + "/refs.json"],
       `bridza: assign task #ref${assigned.length === 1 ? "" : "s"} ${assigned.slice(0, 6).join(", ")}${assigned.length > 6 ? ` (+${assigned.length - 6} more)` : ""}`);
   }
@@ -810,7 +822,7 @@ function deletePipelineIn(root, { id }) {
     if (refs.archived[key] !== undefined) { delete refs.archived[key]; refsTouched = true; }
     if (!refs.deleted.includes(key)) { refs.deleted.push(key); refsTouched = true; }
   }
-  if (refsTouched) { writeJSON(refsFile(root), refs); commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: retire #refs of deleted pipeline ${who} — numbers are never reused`); }
+  if (refsTouched) { writeRefs(root, refs); commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: retire #refs of deleted pipeline ${who} — numbers are never reused`); }
 
   // 3) unwire from the plan (deps both ways, links, milestones, pos, pipeDeps)
   const plan = readPlan(root);
@@ -867,7 +879,7 @@ function createTaskIn(root, { pipeline, id, title = "", type = "", outputMode = 
   const refsCur = readRefs(root);
   if (refsCur.deleted.includes(pid + "/" + tid)) {
     refsCur.deleted = refsCur.deleted.filter((k) => k !== pid + "/" + tid);
-    writeJSON(refsFile(root), refsCur);
+    writeRefs(root, refsCur);
   }
   const ref = assignRefs(root, [pid + "/" + tid])[pid + "/" + tid];
   // ORDER MATTERS: the folder carries the #ref, so it can only be named once
@@ -1016,7 +1028,7 @@ function deleteTaskIn(root, { pipeline, task, deleteBranch = false }) {
   delete refs.archived[key];
   delete refs.taskTags[key];
   if (!refs.deleted.includes(key)) refs.deleted.push(key);
-  writeJSON(refsFile(root), refs);
+  writeRefs(root, refs);
   commitPaths(root, [DATA_DIR + "/refs.json"], `bridza: retire ${refNum ? "#" + refNum : "the #ref"} of deleted task ${key} — numbers are never reused`);
 
   // 3) unwire it from the plan (deps in BOTH directions, links, milestones, pos)

@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { TAG_PALETTE, LEGACY_TAG_COLORS } from "../../../core/domain.js";
-import { ensureDataDir, readProject, readPlan, savePlan, createPipeline, savePipeline, archivePipeline, saveKanbanOrder, createTask, deleteTask, readContext, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox, setTaskArchived, deletePipeline, createTag, updateTag, setTaskTags } from "../../../server/bridza-store.js";
+import { ensureDataDir, readProject, readPlan, savePlan, createPipeline, savePipeline, archivePipeline, saveKanbanOrder, createTask, deleteTask, readContext, saveContext, mergeTime, taskTime, addInbox, promoteInbox, discardInbox, setTaskArchived, assignRefs, deletePipeline, createTag, updateTag, setTaskTags } from "../../../server/bridza-store.js";
 import { runStage, git, ensureTaskWorktree, taskDirOn } from "../../../server/bridza-run.js";
 import { STARTER_PIPELINES, rel, judgeStageId, pipelineFlows, exportFlow, parseFlowFile, exportPipeline, parsePipelineFile, shortTitle } from "../../../core/domain.js";
 
@@ -845,6 +845,21 @@ describe("task archive state", () => {
     expect(archivedOf(root, "t1")).toBe(false);
     expect(git(root, ["log", "-1", "--format=%s", "main"]).trim()).toBe("bridza: unarchive task marketing/t1");
     expect(setTaskArchived(root, "marketing", "", true).error).toMatch(/task/);
+  });
+
+  // A refs.json that won't parse (conflict markers) once read as empty, and the
+  // board load's #ref self-heal saved that over it — every archive flag gone.
+  it("never overwrites an unreadable refs.json", () => {
+    createPipeline(root, MARKETING);
+    createTask(root, { pipeline: "marketing", id: "t1", title: "ship it" });
+    setTaskArchived(root, "marketing", "t1", true);
+    const file = path.join(root, ".bridza", "refs.json");
+    const broken = "<<<<<<< HEAD\n" + fs.readFileSync(file, "utf8");
+    fs.writeFileSync(file, broken);
+
+    expect(assignRefs(root, ["marketing/t2"])).toEqual({});
+    expect(() => setTaskArchived(root, "marketing", "t1", false)).toThrow(/unreadable/);
+    expect(fs.readFileSync(file, "utf8")).toBe(broken);
   });
 
   it("still honours a legacy flag on the task branch, and unarchive clears it", () => {
