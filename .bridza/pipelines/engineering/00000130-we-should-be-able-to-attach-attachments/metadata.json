@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "id": "we-should-be-able-to-attach-attachments",
+  "pipeline": "engineering",
+  "title": "We should be able to attach attachments and files to a ticket…",
+  "ref": 130,
+  "type": "idea",
+  "flow": "feature",
+  "template": "",
+  "outputMode": "docs",
+  "branch": "bridza/engineering/we-should-be-able-to-attach-attachments",
+  "target": "main",
+  "stages": [
+    "spec",
+    "build",
+    "review"
+  ],
+  "routing": {},
+  "status": "in-progress",
+  "finalized": false,
+  "tracking": {}
+}

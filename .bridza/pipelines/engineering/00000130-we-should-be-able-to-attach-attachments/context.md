@@ -1,0 +1,3 @@
+# We should be able to attach attachments and files to a ticket…
+
+We should be able to attach attachments and files to a ticket from Kanban with a shortcut like Urgency. So, basically when I press L, I can fix the Urgency. Maybe when I press F, I should be able to select attachments and files.
