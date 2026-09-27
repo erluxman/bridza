@@ -1,6 +1,124 @@
 {
-  "v": 2,
-  "next": 131,
+  "v": 1,
+  "next": 188,
+  "refs": {
+    "design-brand/rebrand-jira-to-aira-for-project": 122,
+    "engineering/fix-the-regression-issue-in-archive": 62,
+    "engineering/reduce-git-merge-conflicts-between": 131,
+    "engineering/long-press-and-drag-to-create-a": 63,
+    "engineering/our-application-used-to-show-currently": 132,
+    "engineering/when-the-inbox-is-0-show-a-confetti": 64,
+    "engineering/vs-code-like-setting-page": 69,
+    "engineering/creating-pr-failed-it-should-take-the": 70,
+    "engineering/there-should-be-a-separate-step-called": 72,
+    "engineering/system-design-diagrams-to-understand": 73,
+    "engineering/usage-based-design-changes-automatically": 85,
+    "engineering/commands-sent-to-claude-are-not": 87,
+    "engineering/the-time-complexity-for-idea-to-a": 133,
+    "engineering/organize-the-plan-board-into-milestones": 88,
+    "engineering/on-the-plan-board-archived-cards-should": 95,
+    "engineering/organize-the-plan-board-and-categorize": 96,
+    "engineering/in-the-plan-board-there-should-be-an": 97,
+    "engineering/terminal-state-restoration-in-task": 102,
+    "engineering/persist-agent-pickup-choice": 103,
+    "engineering/separate-tags-filled-for-each-org-item": 104,
+    "engineering/have-a-different-tax-url-so-that-i-can": 105,
+    "engineering/investigate-state-interference-between": 106,
+    "engineering/should-give-me-output-or-run-the": 107,
+    "engineering/make-the-git-history-and-files-less": 108,
+    "engineering/always-fork-from-the-reference-branch": 109,
+    "engineering/when-app-is-refreshed-or-page-is": 110,
+    "engineering/remove-automatic-focus-on-search-field": 111,
+    "engineering/i-should-be-able-to-change-the-color-of": 112,
+    "engineering/archived-should-not-be-just-another": 113,
+    "engineering/categorize-the-tasks-in-milestones": 114,
+    "engineering/chat-feature-in-task-work-item-details": 123,
+    "engineering/we-should-be-able-to-attach-attachments": 130,
+    "engineering/a-shortcut-to-search-among-the-tasks-or": 61,
+    "engineering/ai-assisted-conflict-merge": 134,
+    "engineering/animate-the-logo-when-app-starts-for": 41,
+    "engineering/auto-advance-chain-registry": 135,
+    "engineering/auto-advance-progress-badges": 136,
+    "engineering/auto-advance-seems-to-only-works-at-the": 22,
+    "engineering/auto-advance-state-truth-toggle": 137,
+    "engineering/auto-advance-stop-and-resume": 138,
+    "engineering/better-merging-strategy-to-reference": 23,
+    "engineering/card-archiving-is-not-working-when": 36,
+    "engineering/codebase-atlas": 139,
+    "engineering/conflict-auto-union-bridza-state": 140,
+    "engineering/conflict-open-in-vscode": 141,
+    "engineering/create-pr-browser-compose-link": 142,
+    "engineering/create-pr-button-in-task-detail": 46,
+    "engineering/create-pr-via-gh-cli": 143,
+    "engineering/define-merge-strategy": 144,
+    "engineering/do-not-allow-merge-domain-until-the": 50,
+    "engineering/every-stage-floor-should-be-in-auto": 13,
+    "engineering/every-task-when-they-are-converted-into": 17,
+    "engineering/highlight-running-task-in-sidebar": 145,
+    "engineering/highlight-selected-task-or-work-item-if": 21,
+    "engineering/i-should-be-able-to-change-any-details": 51,
+    "engineering/i-should-be-able-to-rearrange-the": 16,
+    "engineering/implement-merge-strategy": 146,
+    "engineering/kanban-archive-issue-cards": 147,
+    "engineering/kanban-columns-drag-reorder": 148,
+    "engineering/logo-animation-component": 149,
+    "engineering/logo-first-launch-detection": 150,
+    "engineering/logo-welcome-screen-integration": 151,
+    "engineering/merge-button-gating": 152,
+    "engineering/merge-preflight-check": 153,
+    "engineering/migration-existing-tasks": 154,
+    "engineering/more-conflicts-user-experience-should": 15,
+    "engineering/naming-contract-tests": 155,
+    "engineering/number-prefix-contract": 156,
+    "engineering/ok-when-i-press-command-and-mouse-will": 20,
+    "engineering/okay-i-just-have-an-idea-that-when-i-ope": 4,
+    "engineering/only-claude-can-auto-advance-opencode": 60,
+    "engineering/per-day-dismissal": 157,
+    "engineering/purchase-the-selected-model-and-display": 38,
+    "engineering/rebrand-landing-page-to-aira": 158,
+    "engineering/reduce-the-amount-of-commits-for-the": 37,
+    "engineering/setting-to-hide-columns-in-kanban-that": 40,
+    "engineering/task-creation-write-path": 159,
+    "engineering/task-enumeration-read-path": 160,
+    "engineering/task-target-branch-selector": 161,
+    "engineering/time-aware-greeting": 162,
+    "engineering/ui-ref-display": 163,
+    "engineering/url-path-sync-for-selected-task": 164,
+    "engineering/verify-merge-strategy": 165,
+    "engineering/welcome-dialog-on-open": 166,
+    "engineering/when-merging-to-main-does-not-happen": 49,
+    "engineering/when-opening-a-task-or-card-it-should": 39,
+    "engineering/you-just-should-be-able-to-change-the": 14,
+    "engineering/1when-i-delete-a-pipeline-from-the-left": 167,
+    "engineering/display-terminal-despite-not-being-in": 71,
+    "engineering/plan-agent-categorize-backlog": 168,
+    "engineering/plan-backlog-box": 169,
+    "engineering/plan-bulk-assign-selection": 170,
+    "engineering/plan-collapse-milestones": 171,
+    "engineering/plan-drag-into-milestone": 172,
+    "engineering/task-milestone-picker-at-birth": 173,
+    "engineering/commands-sent-to-cloud-are-not": 86,
+    "engineering/create-a-setting-page-on-the-bottom-of": 65,
+    "engineering/archive-tag-backfill-policy": 174,
+    "engineering/finalize-merge-style-surface": 175,
+    "engineering/merge-method-decision-adr": 176,
+    "engineering/merge-strategy-acceptance-matrix": 177,
+    "engineering/merge-strategy-goal-ranking": 178,
+    "engineering/run-ledger-reachability-contract": 179,
+    "engineering/task-branch-deletion-policy": 180,
+    "engineering/milestone-grouping-and-sequencing": 181,
+    "engineering/plan-board-taxonomy-audit": 182,
+    "engineering/plan-board-validation-and-cleanup": 183,
+    "engineering/workflow-dependency-mapping": 184,
+    "engineering/review-ui-and-ux": 185,
+    "engineering/tags-or-badges-like-trello-or-github": 186,
+    "engineering/this-is-a-test-issue-and-i-think-it": 187,
+    "marketing-growth/a-tiktok-video-about-what-bridza-harness": 2,
+    "product/reposition-the-product-as-jira-for-ai": 121,
+    "product/this-is-a-test-idea-i-am-just-threading": 52
+  },
+  "deleted": [],
+  "taskFlags": {},
   "tags": {
     "complex": {
       "name": "Complex",
@@ -19,938 +137,5 @@
       "color": "#1f9d6b"
     }
   },
-  "tasks": {
-    "design-brand/rebrand-jira-to-aira-for-project": {
-      "ref": 122,
-      "archived": {
-        "on": true,
-        "at": "2026-09-22T19:03:47.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/1when-i-delete-a-pipeline-from-the-left": {
-      "deleted": {
-        "at": null
-      }
-    },
-    "engineering/a-shortcut-to-search-among-the-tasks-or": {
-      "ref": 61,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T18:08:35.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/ai-assisted-conflict-merge": {
-      "ref": 89,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T14:39:54.000Z",
-        "reason": "agent",
-        "by": "engineering/organize-the-plan-board-into-milestones"
-      }
-    },
-    "engineering/always-fork-from-the-reference-branch": {
-      "ref": 109,
-      "archived": {
-        "on": true,
-        "at": "2026-09-24T17:20:13.088Z",
-        "reason": "manual"
-      },
-      "tags": [
-        "urgent"
-      ]
-    },
-    "engineering/animate-the-logo-when-app-starts-for": {
-      "ref": 41,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T05:45:56.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/archive-tag-backfill-policy": {
-      "ref": 53,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:38:18.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/archived-should-not-be-just-another": {
-      "ref": 113,
-      "archived": {
-        "on": true,
-        "at": "2026-09-24T16:22:30.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/atlas-ai-architecture-overview": {
-      "ref": 74,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:38:36.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/atlas-ai-chat-thread-citations": {
-      "ref": 75,
-      "archived": {
-        "on": true,
-        "at": "2026-09-24T16:42:27.000Z",
-        "reason": "agent",
-        "by": "engineering/system-design-diagrams-to-understand"
-      }
-    },
-    "engineering/atlas-ask-ai-about-selection": {
-      "ref": 76,
-      "archived": {
-        "on": true,
-        "at": "2026-09-24T16:42:27.000Z",
-        "reason": "agent",
-        "by": "engineering/system-design-diagrams-to-understand"
-      }
-    },
-    "engineering/atlas-docs-knowledge-lens": {
-      "ref": 77,
-      "archived": {
-        "on": true,
-        "at": "2026-09-24T16:42:27.000Z",
-        "reason": "agent",
-        "by": "engineering/system-design-diagrams-to-understand"
-      }
-    },
-    "engineering/atlas-export-and-embed": {
-      "ref": 78,
-      "archived": {
-        "on": true,
-        "at": "2026-09-24T16:42:27.000Z",
-        "reason": "agent",
-        "by": "engineering/system-design-diagrams-to-understand"
-      }
-    },
-    "engineering/atlas-git-history-lens": {
-      "ref": 79,
-      "archived": {
-        "on": true,
-        "at": "2026-09-24T16:42:27.000Z",
-        "reason": "agent",
-        "by": "engineering/system-design-diagrams-to-understand"
-      }
-    },
-    "engineering/atlas-module-dependency-graph": {
-      "ref": 80,
-      "archived": {
-        "on": true,
-        "at": "2026-09-24T16:42:27.000Z",
-        "reason": "agent",
-        "by": "engineering/system-design-diagrams-to-understand"
-      }
-    },
-    "engineering/atlas-request-flow-map": {
-      "ref": 81,
-      "archived": {
-        "on": true,
-        "at": "2026-09-24T16:42:27.000Z",
-        "reason": "agent",
-        "by": "engineering/system-design-diagrams-to-understand"
-      }
-    },
-    "engineering/atlas-runtime-container-diagram": {
-      "ref": 82,
-      "archived": {
-        "on": true,
-        "at": "2026-09-24T16:42:27.000Z",
-        "reason": "agent",
-        "by": "engineering/system-design-diagrams-to-understand"
-      }
-    },
-    "engineering/atlas-scan-cache-and-ignore": {
-      "ref": 83,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:39:06.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/atlas-shell-and-file-map": {
-      "ref": 84,
-      "archived": {
-        "on": true,
-        "at": "2026-09-24T16:42:27.000Z",
-        "reason": "agent",
-        "by": "engineering/system-design-diagrams-to-understand"
-      }
-    },
-    "engineering/auto-advance-chain-registry": {
-      "ref": 42,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:39:49.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/auto-advance-progress-badges": {
-      "ref": 43
-    },
-    "engineering/auto-advance-seems-to-only-works-at-the": {
-      "ref": 22,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T16:22:51.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/auto-advance-state-truth-toggle": {
-      "ref": 44,
-      "tags": [
-        "likely-done"
-      ]
-    },
-    "engineering/auto-advance-stop-and-resume": {
-      "ref": 45
-    },
-    "engineering/better-merging-strategy-to-reference": {
-      "ref": 23,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T15:47:34.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/card-archiving-is-not-working-when": {
-      "ref": 36,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T15:47:26.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/categorize-the-tasks-in-milestones": {
-      "ref": 114,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:39:54.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/chat-feature-in-task-work-item-details": {
-      "ref": 129,
-      "tags": [
-        "likely-done"
-      ]
-    },
-    "engineering/codebase-atlas": {
-      "ref": 126,
-      "tags": [
-        "urgent"
-      ]
-    },
-    "engineering/commands-sent-to-claude-are-not": {
-      "ref": 87,
-      "tags": [
-        "likely-done"
-      ]
-    },
-    "engineering/commands-sent-to-cloud-are-not": {
-      "deleted": {
-        "at": null
-      }
-    },
-    "engineering/conflict-auto-union-bridza-state": {
-      "ref": 90,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:33:14.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/conflict-open-in-vscode": {
-      "ref": 91,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:33:12.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/create-a-setting-page-on-the-bottom-of": {
-      "deleted": {
-        "at": null
-      }
-    },
-    "engineering/create-pr-browser-compose-link": {
-      "ref": 47,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:39:44.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/create-pr-button-in-task-detail": {
-      "ref": 46,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T19:07:44.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/create-pr-via-gh-cli": {
-      "ref": 48,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T17:11:43.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/creating-pr-failed-it-should-take-the": {
-      "ref": 70,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T17:09:47.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/define-merge-strategy": {
-      "ref": 24,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:32:49.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/display-terminal-despite-not-being-in": {
-      "deleted": {
-        "at": null
-      }
-    },
-    "engineering/do-not-allow-merge-domain-until-the": {
-      "ref": 50,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T14:39:54.000Z",
-        "reason": "agent",
-        "by": "engineering/organize-the-plan-board-into-milestones"
-      }
-    },
-    "engineering/every-stage-floor-should-be-in-auto": {
-      "ref": 13,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T15:47:49.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/every-task-when-they-are-converted-into": {
-      "ref": 17,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T15:48:08.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/fadfasdfa": {
-      "deleted": {
-        "at": null
-      }
-    },
-    "engineering/finalize-merge-style-surface": {
-      "ref": 54,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:32:56.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/fix-the-regression-issue-in-archive": {
-      "ref": 62,
-      "tags": [
-        "likely-done"
-      ]
-    },
-    "engineering/have-a-different-tax-url-so-that-i-can": {
-      "ref": 105,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:40:16.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/here-of-now-it-seems-little-bit-confusin": {
-      "deleted": {
-        "at": null
-      }
-    },
-    "engineering/highlight-running-task-in-sidebar": {
-      "ref": 33,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T16:48:30.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/highlight-selected-task-or-work-item-if": {
-      "ref": 21,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T15:48:21.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/i-should-be-able-to-change-any-details": {
-      "ref": 51
-    },
-    "engineering/i-should-be-able-to-change-the-color-of": {
-      "ref": 112,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:40:05.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/i-should-be-able-to-rearrange-the": {
-      "ref": 16,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T16:49:58.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/implement-merge-strategy": {
-      "ref": 25,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:33:03.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/in-the-plan-board-there-should-be-an": {
-      "ref": 97,
-      "tags": [
-        "bug",
-        "complex"
-      ]
-    },
-    "engineering/investigate-state-interference-between": {
-      "ref": 106,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:53:14.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/kanban-archive-issue-cards": {
-      "ref": 18,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T15:48:39.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/kanban-columns-drag-reorder": {
-      "ref": 19,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T15:50:00.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/logo-animation-component": {
-      "ref": 66,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:39:31.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/logo-first-launch-detection": {
-      "ref": 67,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:39:30.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/logo-welcome-screen-integration": {
-      "ref": 68,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:36:42.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/long-press-and-drag-to-create-a": {
-      "ref": 63,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T19:04:43.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/make-the-git-history-and-files-less": {
-      "ref": 108,
-      "tags": [
-        "urgent"
-      ]
-    },
-    "engineering/merge-button-gating": {
-      "ref": 92,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T14:39:54.000Z",
-        "reason": "agent",
-        "by": "engineering/organize-the-plan-board-into-milestones"
-      }
-    },
-    "engineering/merge-method-decision-adr": {
-      "ref": 55,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:33:02.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/merge-preflight-check": {
-      "ref": 93,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:32:53.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/merge-strategy-acceptance-matrix": {
-      "ref": 56,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:32:59.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/merge-strategy-goal-ranking": {
-      "ref": 57,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:33:42.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/migration-existing-tasks": {
-      "ref": 27,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:36:47.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/milestone-grouping-and-sequencing": {
-      "ref": 98,
-      "tags": [
-        "likely-done"
-      ]
-    },
-    "engineering/more-conflicts-user-experience-should": {
-      "ref": 15,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T15:48:49.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/naming-contract-tests": {
-      "ref": 28,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:36:52.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/number-prefix-contract": {
-      "ref": 29,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T17:57:14.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/ok-when-i-press-command-and-mouse-will": {
-      "ref": 20,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T16:50:23.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/okay-i-just-have-an-idea-that-when-i-ope": {
-      "ref": 4,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T15:49:05.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/on-the-plan-board-archived-cards-should": {
-      "ref": 95,
-      "tags": [
-        "likely-done"
-      ]
-    },
-    "engineering/only-claude-can-auto-advance-opencode": {
-      "ref": 60
-    },
-    "engineering/organize-the-plan-board-and-categorize": {
-      "ref": 96,
-      "archived": {
-        "on": true,
-        "at": "2026-09-24T16:49:18.925Z",
-        "reason": "duplicate",
-        "of": "engineering/organize-the-plan-board-into-milestones"
-      }
-    },
-    "engineering/organize-the-plan-board-into-milestones": {
-      "ref": 88,
-      "tags": [
-        "likely-done"
-      ]
-    },
-    "engineering/our-application-used-to-show-currently": {
-      "ref": 125
-    },
-    "engineering/per-day-dismissal": {
-      "ref": 10,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T15:49:13.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/persist-agent-pickup-choice": {
-      "ref": 103,
-      "tags": [
-        "likely-done"
-      ]
-    },
-    "engineering/plan-agent-categorize-backlog": {
-      "ref": 115,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:37:25.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/plan-backlog-box": {
-      "ref": 116,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:37:32.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/plan-board-taxonomy-audit": {
-      "ref": 99,
-      "tags": [
-        "likely-done"
-      ]
-    },
-    "engineering/plan-board-validation-and-cleanup": {
-      "ref": 100,
-      "tags": [
-        "likely-done"
-      ]
-    },
-    "engineering/plan-bulk-assign-selection": {
-      "ref": 117
-    },
-    "engineering/plan-collapse-milestones": {
-      "ref": 118
-    },
-    "engineering/plan-drag-into-milestone": {
-      "ref": 119
-    },
-    "engineering/purchase-the-selected-model-and-display": {
-      "ref": 38,
-      "archived": {
-        "on": true,
-        "at": "2026-09-24T16:49:18.925Z",
-        "reason": "duplicate",
-        "of": "engineering/persist-agent-pickup-choice"
-      }
-    },
-    "engineering/rebrand-landing-page-to-aira": {
-      "ref": 123,
-      "tags": [
-        "likely-done"
-      ]
-    },
-    "engineering/reduce-git-merge-conflicts-between": {
-      "ref": 127,
-      "archived": {
-        "on": true,
-        "at": "2026-09-24T17:20:41.776Z",
-        "reason": "manual"
-      },
-      "tags": [
-        "urgent"
-      ]
-    },
-    "engineering/reduce-the-amount-of-commits-for-the": {
-      "ref": 37,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T16:35:56.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/remove-automatic-focus-on-search-field": {
-      "ref": 111,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:40:09.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/review-ui-and-ux": {
-      "deleted": {
-        "at": null
-      }
-    },
-    "engineering/run-ledger-reachability-contract": {
-      "ref": 58,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:38:23.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/separate-tags-filled-for-each-org-item": {
-      "ref": 104,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:40:24.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/setting-to-hide-columns-in-kanban-that": {
-      "ref": 40,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T19:40:49.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/should-give-me-output-or-run-the": {
-      "ref": 107,
-      "tags": [
-        "bug"
-      ]
-    },
-    "engineering/system-design-diagrams-to-understand": {
-      "ref": 73,
-      "tags": [
-        "likely-done"
-      ]
-    },
-    "engineering/tags-or-badges-like-trello-or-github": {
-      "deleted": {
-        "at": null
-      }
-    },
-    "engineering/task-branch-deletion-policy": {
-      "ref": 59,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:38:32.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/task-creation-write-path": {
-      "ref": 30,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:36:53.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/task-enumeration-read-path": {
-      "ref": 31,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:36:57.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/task-milestone-picker-at-birth": {
-      "ref": 120
-    },
-    "engineering/task-target-branch-selector": {
-      "ref": 94,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:37:00.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/terminal-state-restoration-in-task": {
-      "ref": 102,
-      "tags": [
-        "likely-done"
-      ]
-    },
-    "engineering/the-time-complexity-for-idea-to-a": {
-      "ref": 128,
-      "tags": [
-        "likely-done"
-      ]
-    },
-    "engineering/the-title-is-taking-a-lot-of-vertical-sp": {
-      "deleted": {
-        "at": null
-      }
-    },
-    "engineering/there-should-be-a-separate-step-called": {
-      "ref": 72,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T14:39:54.000Z",
-        "reason": "agent",
-        "by": "engineering/organize-the-plan-board-into-milestones"
-      }
-    },
-    "engineering/this-is-a-test-issue-and-i-think-it": {
-      "deleted": {
-        "at": null
-      }
-    },
-    "engineering/time-aware-greeting": {
-      "ref": 11,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T15:49:18.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/truncation-check-idea": {
-      "deleted": {
-        "at": null
-      }
-    },
-    "engineering/ui-ref-display": {
-      "ref": 32,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:37:08.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/url-path-sync-for-selected-task": {
-      "ref": 34,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:34:36.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/usage-based-design-changes-automatically": {
-      "ref": 85
-    },
-    "engineering/verify-merge-strategy": {
-      "ref": 26,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T14:39:54.000Z",
-        "reason": "agent",
-        "by": "engineering/organize-the-plan-board-into-milestones"
-      }
-    },
-    "engineering/vs-code-like-setting-page": {
-      "ref": 69,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T19:40:52.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/we-should-be-able-to-attach-attachments": {
-      "ref": 130
-    },
-    "engineering/welcome-dialog-on-open": {
-      "ref": 12,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T15:49:19.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/when-app-is-refreshed-or-page-is": {
-      "ref": 110,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T20:11:56.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/when-i-am-recording-an-idea-in-the-inbox": {
-      "deleted": {
-        "at": null
-      }
-    },
-    "engineering/when-merging-to-main-does-not-happen": {
-      "ref": 49,
-      "archived": {
-        "on": true,
-        "at": "2026-09-20T14:39:54.000Z",
-        "reason": "agent",
-        "by": "engineering/organize-the-plan-board-into-milestones"
-      }
-    },
-    "engineering/when-opening-a-task-or-card-it-should": {
-      "ref": 39,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T15:56:07.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/when-the-inbox-is-0-show-a-confetti": {
-      "ref": 64,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T19:06:10.000Z",
-        "reason": "manual"
-      }
-    },
-    "engineering/workflow-dependency-mapping": {
-      "ref": 101,
-      "tags": [
-        "likely-done"
-      ]
-    },
-    "engineering/you-just-should-be-able-to-change-the": {
-      "ref": 14,
-      "archived": {
-        "on": true,
-        "at": "2026-09-19T15:49:52.000Z",
-        "reason": "manual"
-      }
-    },
-    "marketing-growth/a-tiktok-video-about-what-bridza-harness": {
-      "ref": 2
-    },
-    "product/reposition-the-product-as-jira-for-ai": {
-      "ref": 121
-    },
-    "product/so-this-is-just-an-idea-that-i-am-trying": {
-      "deleted": {
-        "at": null
-      }
-    },
-    "product/test-idea-for-screenshot-verification": {
-      "deleted": {
-        "at": null
-      }
-    },
-    "product/this-is-a-test-idea-i-am-just-threading": {
-      "deleted": {
-        "at": null
-      }
-    }
-  }
+  "taskTags": {}
 }
