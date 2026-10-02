@@ -195,3 +195,44 @@ describe("board card tag picker", () => {
     expect(host.textContent).not.toContain("for flow");
   });
 });
+
+describe("board tag filter", () => {
+  const two = () => pipeline({
+    tags: { urgent: { name: "urgent", color: ROSE }, bug: { name: "bug", color: CYAN } },
+    tasks: [
+      task({ id: "a", title: "alpha", tags: [{ id: "urgent", name: "urgent", color: ROSE }] }),
+      task({ id: "b", title: "beta", tags: [{ id: "bug", name: "bug", color: CYAN }] }),
+      task({ id: "c", title: "gamma" }),
+    ],
+  });
+  const titles = () => [...host.querySelectorAll(".kcard b")].map((b) => b.title);
+  const chip = (name) => [...host.querySelectorAll(".tag-filter-chip")].find((b) => b.textContent === name);
+  beforeEach(() => { try { localStorage.clear(); } catch (e) { /* none */ } });
+
+  it("shows every card until a tag is picked, then only cards carrying a picked tag", () => {
+    mount(two());
+    expect(titles()).toEqual(["alpha", "beta", "gamma"]);
+    act(() => chip("urgent").click());
+    expect(titles()).toEqual(["alpha"]);
+    act(() => chip("bug").click());
+    expect(titles()).toEqual(["alpha", "beta"]);
+    act(() => chip("urgent").click());
+    act(() => chip("bug").click());
+    expect(titles()).toEqual(["alpha", "beta", "gamma"]);
+  });
+
+  it("remembers the filter per pipeline across remounts", () => {
+    mount(two());
+    act(() => chip("urgent").click());
+    act(() => root.unmount());
+    root = createRoot(host);
+    mount(two());
+    expect(chip("urgent").getAttribute("aria-pressed")).toBe("true");
+    expect(titles()).toEqual(["alpha"]);
+  });
+
+  it("renders no filter row when the pipeline has no tags", () => {
+    mount(pipeline());
+    expect(host.querySelector(".tag-filter")).toBeNull();
+  });
+});

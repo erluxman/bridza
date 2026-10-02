@@ -13,7 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFileSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { DATA_DIR, taskBranchName, rel, safeRef, taskDirName, parseTaskDir, CLI_TOOLS, STARTER_PIPELINES, pipelineFlows, gateSatisfied, CHAT_STAGE, CHAT_SYSTEM_PROMPT, isToolChatter } from "../core/domain.js";
+import { DATA_DIR, taskBranchName, rel, safeRef, taskDirName, parseTaskDir, CLI_TOOLS, STARTER_PIPELINES, pipelineFlows, gateSatisfied, CHAT_STAGE, CHAT_SYSTEM_PROMPT, isToolChatter, refOfKey } from "../core/domain.js";
 
 export { DATA_DIR, taskBranchName, CHAT_STAGE };
 
@@ -117,7 +117,7 @@ function taskDirsIn(names, id) {
 }
 
 function refFromDisk(treeRoot, key) {
-  try { return (JSON.parse(fs.readFileSync(path.join(treeRoot, DATA_DIR, "refs.json"), "utf8")).refs || {})[key] || null; }
+  try { return refOfKey(JSON.parse(fs.readFileSync(path.join(treeRoot, DATA_DIR, "refs.json"), "utf8")), key); }
   catch (e) { return null; }
 }
 
@@ -571,13 +571,14 @@ export function focusedContext(root, pipeline, task) {
   try { plan = JSON.parse(fs.readFileSync(path.join(root, rel.plan()), "utf8")); } catch (e) { return ""; }
   const links = (plan && plan.links && plan.links[safeRef(pipeline) + "/" + safeRef(task)]) || [];
   if (!Array.isArray(links) || !links.length) return "";
-  let refs = {};
-  try { refs = JSON.parse(fs.readFileSync(path.join(root, DATA_DIR, "refs.json"), "utf8")).refs || {}; } catch (e) { /* none yet */ }
+  let refsJson = null;
+  try { refsJson = JSON.parse(fs.readFileSync(path.join(root, DATA_DIR, "refs.json"), "utf8")); } catch (e) { /* none yet */ }
   const blocks = [];
   for (const key of links.slice(0, 8)) {
     const [lp, lt] = String(key).split("/");
     if (!lp || !lt) continue;
-    let title = lt, ref = refs[key] ? "#" + refs[key] + " " : "";
+    const n = refOfKey(refsJson, key);
+    let title = lt, ref = n ? "#" + n + " " : "";
     try {
       const m = JSON.parse(readTaskField(root, lp, lt, rel.taskMeta) || "{}");
       if (m.title) title = m.title;
@@ -1621,7 +1622,7 @@ export function finalizeTask(root, pipeline, task, { style = "squash", into, res
     const key = safeRef(pipeline) + "/" + safeRef(task);
     let title = "", refNum = null;
     try { const m = JSON.parse(git(root, ["show", branch + ":" + rel.taskMeta(pipeline, taskDirAt(root, branch, pipeline, task))])); if (m.title && m.title !== safeRef(task)) title = m.title; } catch (e) { /* no metadata */ }
-    try { refNum = (JSON.parse(fs.readFileSync(path.join(root, DATA_DIR, "refs.json"), "utf8")).refs || {})[key] || null; } catch (e) { /* no refs yet */ }
+    try { refNum = refOfKey(JSON.parse(fs.readFileSync(path.join(root, DATA_DIR, "refs.json"), "utf8")), key); } catch (e) { /* no refs yet */ }
     const msg = [
       `bridza: finalize ${key}${refNum ? ` · #${refNum}` : ""}${title ? ` "${title.slice(0, 50)}"` : ""} → ${target}`,
       "",

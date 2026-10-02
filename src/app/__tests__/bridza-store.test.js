@@ -106,7 +106,7 @@ describe("zero-padded task folders", () => {
     // the folder is the ONLY thing that carries the padding
     expect(r).toMatchObject({ id: "task-506", branch: "bridza/marketing/task-506" });
     const refs = JSON.parse(fs.readFileSync(path.join(root, ".bridza", "refs.json"), "utf8"));
-    expect(refs.refs).toEqual({ "marketing/task-506": 1 });
+    expect(refs.tasks).toEqual({ "marketing/task-506": { ref: 1 } });
     const task = readProject(root).pipelines[0].tasks[0];
     expect(task).toMatchObject({ id: "task-506", ref: 1, branch: "bridza/marketing/task-506" });
     expect(JSON.parse(fs.readFileSync(path.join(root, T.meta("marketing", "task-506")), "utf8")).id).toBe("task-506");
@@ -172,13 +172,13 @@ describe("zero-padded task folders", () => {
     const f = path.join(root, ".bridza", "refs.json");
     const j = JSON.parse(fs.readFileSync(f, "utf8"));
     // a merge dropped "b", and "a" was renumbered onto b's old #2
-    fs.writeFileSync(f, JSON.stringify({ ...j, refs: { "marketing/a": 2 }, next: 3 }, null, 2) + "\n");
+    fs.writeFileSync(f, JSON.stringify({ ...j, tasks: { "marketing/a": { ref: 2 } }, next: 3 }, null, 2) + "\n");
     const b = readProject(root).pipelines[0].tasks.find((t) => t.id === "b");
     expect(b).toMatchObject({ ref: 2, refRecorded: false });   // stale copy, not trusted
     expect(assignRefs(root, ["marketing/b"], { "marketing/b": 2 })["marketing/b"]).toBe(3);
 
     // but a lost entry whose number is still free is re-adopted, not renumbered
-    fs.writeFileSync(f, JSON.stringify({ ...j, refs: { "marketing/a": 1 }, next: 3 }, null, 2) + "\n");
+    fs.writeFileSync(f, JSON.stringify({ ...j, tasks: { "marketing/a": { ref: 1 } }, next: 3 }, null, 2) + "\n");
     expect(assignRefs(root, ["marketing/b"], { "marketing/b": 2 })["marketing/b"]).toBe(2);
   });
 
@@ -761,7 +761,7 @@ describe("task tags", () => {
 
     expect(updateTag(root, { id: "billing", color: ROSE })).toMatchObject({ ok: true, id: "billing", color: ROSE });
     expect(refsJson(root).tags.billing).toEqual({ name: "Billing", color: ROSE });
-    expect(refsJson(root).taskTags["marketing/t1"]).toEqual(["billing"]);
+    expect(refsJson(root).tasks["marketing/t1"].tags).toEqual(["billing"]);
     expect(tagsOf(root, "t1")).toEqual([{ id: "billing", name: "Billing", color: ROSE }]);
     expect(git(root, ["status", "--porcelain"]).trim()).toBe("");
 
@@ -810,10 +810,10 @@ describe("task tags", () => {
 
     expect(setTaskTags(root, "marketing", "t1", ["billing", "billing", "ghost", "regression"]))
       .toEqual({ ok: true, tags: ["billing", "regression"] });
-    expect(refsJson(root).taskTags["marketing/t1"]).toEqual(["billing", "regression"]);
+    expect(refsJson(root).tasks["marketing/t1"].tags).toEqual(["billing", "regression"]);
 
     expect(setTaskTags(root, "marketing", "t1", []).tags).toEqual([]);
-    expect(refsJson(root).taskTags["marketing/t1"]).toBeUndefined();
+    expect(refsJson(root).tasks["marketing/t1"].tags).toBeUndefined();
     expect(setTaskTags(root, "marketing", "", ["billing"]).error).toMatch(/task/);
   });
 
@@ -826,21 +826,22 @@ describe("task tags", () => {
 
     // a hand-edited refs.json naming a tag the registry lost: ignored, no crash
     const f = path.join(root, ".bridza", "refs.json");
-    const j = refsJson(root); j.taskTags["marketing/t1"] = ["billing", "ghost"];
+    const j = refsJson(root); j.tasks["marketing/t1"].tags = ["billing", "ghost"];
     fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");
     expect(tagsOf(root, "t1")).toEqual([{ id: "billing", name: "Billing", color: VIOLET }]);
   });
 
   it("a refs.json predating tags reads as no tags, and deleting a task drops its entry", () => {
     const f = path.join(root, ".bridza", "refs.json");
-    const j = refsJson(root); delete j.tags; delete j.taskTags;
+    const j = refsJson(root); delete j.tags; delete j.tasks["marketing/t1"].tags;
     fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");
     expect(tagsOf(root, "t1")).toEqual([]);
 
     createTag(root, { name: "billing", color: VIOLET });
     setTaskTags(root, "marketing", "t1", ["billing"]);
     deleteTask(root, { pipeline: "marketing", task: "t1" });
-    expect(refsJson(root).taskTags["marketing/t1"]).toBeUndefined();
+    // the whole entry collapses to a tombstone: ref, tags and flags go with it
+    expect(refsJson(root).tasks["marketing/t1"]).toEqual({ deleted: { at: expect.any(String) } });
     expect(refsJson(root).tags.billing).toBeTruthy();   // registry is never auto-pruned
   });
 });
@@ -923,20 +924,19 @@ describe("task archive state", () => {
     setTaskArchived(root, "marketing", "t2", true, { reason: "duplicate", of: "marketing/t1" });
     const refs = JSON.parse(fs.readFileSync(path.join(root, ".bridza", "refs.json"), "utf8"));
     expect(refs.archived).toBeUndefined();
-    expect(refs.taskFlags["marketing/t1"].archived).toMatchObject({ on: true, reason: "manual" });
-    expect(refs.taskFlags["marketing/t2"].archived).toMatchObject({ on: true, reason: "duplicate", of: "marketing/t1" });
-    expect(Date.parse(refs.taskFlags["marketing/t2"].archived.at)).not.toBeNaN();
+    expect(refs.tasks["marketing/t1"].archived).toMatchObject({ on: true, reason: "manual" });
+    expect(refs.tasks["marketing/t2"].archived).toMatchObject({ on: true, reason: "duplicate", of: "marketing/t1" });
+    expect(Date.parse(refs.tasks["marketing/t2"].archived.at)).not.toBeNaN();
     expect(git(root, ["log", "-1", "--format=%s", "main"]).trim()).toBe("bridza: archive task marketing/t2 — duplicate of marketing/t1");
     expect(readProject(root).pipelines[0].tasks.find((t) => t.id === "t2").flags.archived.of).toBe("marketing/t1");
   });
 
-  it("migrates the legacy `archived: { key: bool }` map into taskFlags", () => {
+  it("migrates the legacy `archived: { key: bool }` map into the task entries", () => {
     createPipeline(root, MARKETING);
     createTask(root, { pipeline: "marketing", id: "t1", title: "old archive" });
     createTask(root, { pipeline: "marketing", id: "t2", title: "old unarchive" });
     const file = path.join(root, ".bridza", "refs.json");
     const old = JSON.parse(fs.readFileSync(file, "utf8"));
-    delete old.taskFlags;
     fs.writeFileSync(file, JSON.stringify({ ...old, archived: { "marketing/t1": true, "marketing/t2": false } }, null, 2) + "\n");
     expect(archivedOf(root, "t1")).toBe(true);
     expect(archivedOf(root, "t2")).toBe(false);
@@ -944,8 +944,32 @@ describe("task archive state", () => {
     setTaskTags(root, "marketing", "t1", []);   // any refs write persists the migration
     const refs = JSON.parse(fs.readFileSync(file, "utf8"));
     expect(refs.archived).toBeUndefined();
-    expect(refs.taskFlags["marketing/t1"]).toEqual({ archived: { on: true, at: null, reason: "legacy" } });
-    expect(refs.taskFlags["marketing/t2"]).toEqual({ archived: { on: false, at: null, reason: "legacy" } });
+    expect(refs.tasks["marketing/t1"]).toEqual({ ref: 1, archived: { on: true, at: null, reason: "legacy" } });
+    expect(refs.tasks["marketing/t2"]).toEqual({ ref: 2, archived: { on: false, at: null, reason: "legacy" } });
+  });
+
+  it("folds a v1 refs.json (parallel refs/taskFlags/taskTags/deleted maps) into one entry per task", () => {
+    createPipeline(root, MARKETING);
+    createTask(root, { pipeline: "marketing", id: "t1", title: "v1 task" });
+    const file = path.join(root, ".bridza", "refs.json");
+    fs.writeFileSync(file, JSON.stringify({
+      v: 1, next: 3, tags: { bug: { name: "bug", color: "#4f9cf2" } },
+      refs: { "marketing/t1": 1 },
+      taskFlags: { "marketing/t1": { archived: { on: true, at: "2026-01-01T00:00:00.000Z", reason: "manual" } } },
+      taskTags: { "marketing/t1": ["bug"] },
+      deleted: ["marketing/gone"],
+    }, null, 2) + "\n");
+    const t = readProject(root).pipelines[0].tasks.find((x) => x.id === "t1");
+    expect(t).toMatchObject({ ref: 1, archived: true, tags: [{ id: "bug", name: "bug", color: "#4f9cf2" }] });
+
+    setTaskTags(root, "marketing", "t1", ["bug"]);   // any write persists v2
+    const refs = JSON.parse(fs.readFileSync(file, "utf8"));
+    expect(Object.keys(refs).sort()).toEqual(["next", "tags", "tasks", "v"]);
+    expect(refs.v).toBe(2);
+    expect(refs.tasks).toEqual({
+      "marketing/gone": { deleted: { at: null } },
+      "marketing/t1": { ref: 1, archived: { on: true, at: "2026-01-01T00:00:00.000Z", reason: "manual" }, tags: ["bug"] },
+    });
   });
 
   it("deleting an archived task retires its archive entry too", () => {

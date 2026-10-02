@@ -90,6 +90,16 @@ export function taskSlug(title, max = 40) {
 // 8 digits covers 1 … 99,999,999, comfortably past the ~10 million target.
 export const REF_WIDTH = 8;
 
+// A task's #number straight from a parsed .bridza/refs.json, for readers that
+// don't go through the store: v2 keeps it in the task's entry (`tasks[key].ref`),
+// a v1 file (still on an old task branch) in the flat `refs` map.
+export function refOfKey(j, key) {
+  if (!j || typeof j !== "object") return null;
+  const own = (o) => !!o && typeof o === "object" && Object.prototype.hasOwnProperty.call(o, key);
+  if (own(j.tasks)) { const e = j.tasks[key]; return (e && !e.deleted && Number.isInteger(e.ref)) ? e.ref : null; }
+  return own(j.refs) && Number.isInteger(j.refs[key]) ? j.refs[key] : null;
+}
+
 // ── task tags ────────────────────────────────────────────────────────────────
 // Colour VALUES (#rrggbb), not names. A tag's colour is freely pickable, so it
 // cannot be a CSS class any more — chips, dots and plan-board circles carry it

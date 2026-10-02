@@ -7,7 +7,7 @@ import { lsGet, lsSet } from "../lib/format.js";
 import { Hamburger } from "../ui.jsx";
 import { TermDrawer } from "./term.jsx";
 import { applyKanbanOrder } from "./kanban-order.js";
-import { TagMenu, TagChips, useTagActions } from "./tags.jsx";
+import { TagMenu, TagChips, useTagActions, tagStyle } from "./tags.jsx";
 
 const DONE_COL = "__done__";
 
@@ -74,10 +74,20 @@ export function Board({ dir, pipeline, runningTasks, onOpen, onNewTask, onFlow, 
   (pipeline.tasks || []).filter(t => !t.archived).forEach((t) => { const c = currentStage(t); (byCol[c] || byCol[DONE_COL]).push(t); });
   const q = searchQuery.toLowerCase();
   const filtered = q ? { title: q, ref: q.replace(/^#/, ""), branch: q } : null;
-  const matches = (t) => !filtered ||
+  // tag filter: a card shows when it carries ANY selected tag; the choice is
+  // per pipeline, like "Show all columns". Ids no longer in the registry drop out.
+  const tagFilterKey = "bridza.tagFilter." + pipeline.id;
+  const [tagFilterRaw, setTagFilterRaw] = useState(() => { try { return JSON.parse(lsGet(tagFilterKey, "[]")) || []; } catch (e) { return []; } });
+  const tagFilter = tagFilterRaw.filter((id) => Object.prototype.hasOwnProperty.call(pipeline.tags || {}, id));
+  const toggleTagFilter = (id) => {
+    const next = tagFilter.includes(id) ? tagFilter.filter((x) => x !== id) : [...tagFilter, id];
+    setTagFilterRaw(next); lsSet(tagFilterKey, next.length ? JSON.stringify(next) : null);
+  };
+  const matchesTags = (t) => !tagFilter.length || (t.tags || []).some((g) => tagFilter.includes(g.id));
+  const matches = (t) => matchesTags(t) && (!filtered ||
     t.title.toLowerCase().includes(filtered.title) ||
     (t.ref && String(t.ref).includes(filtered.ref)) ||
-    (t.branch && t.branch.toLowerCase().includes(filtered.branch));
+    (t.branch && t.branch.toLowerCase().includes(filtered.branch)));
   const filteredByCol = {};
   Object.entries(byCol).forEach(([c, ts]) => { filteredByCol[c] = ts.filter(matches); });
   // a pipeline's stage union is wide and mostly empty, so only columns holding
@@ -173,6 +183,15 @@ const changeFlow = async (t, nf) => {
           ) : (
             <button className="btn ghost" onClick={() => setSearchOpen(true)} title="Search tasks (press /)">🔍</button>
           )}
+          {Object.keys(pipeline.tags || {}).length > 0 && (
+            <div className="tag-filter" role="group" aria-label="Filter by tag">
+              {Object.entries(pipeline.tags).map(([id, g]) => (
+                <button key={id} className={"tag tag-filter-chip" + (tagFilter.includes(id) ? " on" : "")} style={tagStyle(g.color)}
+                  aria-pressed={tagFilter.includes(id)} onClick={() => toggleTagFilter(id)} title={"Show only tasks tagged " + g.name}>{g.name}</button>
+              ))}
+              {tagFilter.length > 0 && <button className="btn ghost sm" onClick={() => { setTagFilterRaw([]); lsSet(tagFilterKey, null); }} title="Clear tag filter">✕</button>}
+            </div>
+          )}
           <label className="muted col-toggle" title="Show every column, or only the ones holding a card">
             <input type="checkbox" checked={showAllColumns} onChange={(e) => toggleShowAll(e.target.checked)} />
             Show all columns
@@ -236,7 +255,7 @@ const changeFlow = async (t, nf) => {
               </div>
             </div>
           ))}
-          {q && Object.values(filteredByCol).every((ts) => !ts.length) && (
+          {(q || tagFilter.length > 0) && Object.values(filteredByCol).every((ts) => !ts.length) && (
             <div className="muted" style={{ padding: 40, textAlign: "center" }}>No matching tasks</div>
           )}
         </div>

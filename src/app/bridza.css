@@ -187,6 +187,10 @@ h1.task-title { flex: 1 1 auto; min-width: 8ch; white-space: nowrap; overflow: h
    `borderColor` (see tagStyle in features/tags.jsx) rather than one of eight
    .tag-<name> rules. Everything below reads it through currentColor. */
 .tag-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.tag-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.tag-filter-chip { background: none; cursor: pointer; opacity: 0.5; }
+.tag-filter-chip:hover { opacity: 0.8; }
+.tag-filter-chip.on { opacity: 1; background: color-mix(in srgb, currentColor 16%, transparent); }
 .tag-dot { display: inline-block; width: 7px; height: 7px; border-radius: 999px; margin-right: 6px; background: currentColor; border: 0; padding: 0; cursor: pointer; }
 .tag-menu .item { display: flex; align-items: center; }
 .tag-swatches { display: flex; align-items: center; gap: 4px; margin-bottom: 5px; }

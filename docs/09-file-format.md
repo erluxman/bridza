@@ -147,39 +147,53 @@ Task state the *board* owns, kept at the repo root on the base branch (not in a
 task's `metadata.json`, which lives on a `bridza/*` branch tip that is never
 pushed and so cannot cross machines).
 
+One entry per task: everything the board keeps about a task lives inside that
+task's object, never in a parallel map keyed the same way.
+
 ```json
 {
+  "v": 2,
   "next": 105,
-  "refs":     { "engineering/ship-it": 104 },
-  "deleted":  ["engineering/old-task"],
-  "taskFlags": {
-    "engineering/ship-it": { "archived": { "on": true, "at": "2026-09-24T10:00:00.000Z", "reason": "manual" } },
-    "engineering/ship-it-2": { "archived": { "on": true, "at": "2026-09-24T10:05:00.000Z", "reason": "duplicate", "of": "engineering/ship-it" } }
-  },
-  "tags":     { "billing": { "name": "billing", "color": "violet" } },
-  "taskTags": { "engineering/ship-it": ["billing", "regression"] }
+  "tags": { "billing": { "name": "billing", "color": "#a78bfa" } },
+  "tasks": {
+    "engineering/old-task": { "deleted": { "at": "2026-09-20T09:00:00.000Z" } },
+    "engineering/ship-it": {
+      "ref": 104,
+      "archived": { "on": true, "at": "2026-09-24T10:00:00.000Z", "reason": "manual" },
+      "tags": ["billing", "regression"]
+    },
+    "engineering/ship-it-2": {
+      "ref": 103,
+      "archived": { "on": true, "at": "2026-09-24T10:05:00.000Z", "reason": "duplicate", "of": "engineering/ship-it" }
+    }
+  }
 }
 ```
 
-- `taskFlags` — `<pipeline>/<task>` → named flags. Each flag is a record, never
-  a bare boolean: `on` (the state), `at` (ISO time it was last set, `null` when
-  unknown), `reason` (`manual` — set in the app; `duplicate` — with `of`, the
-  key it duplicates; `agent` — set by an agent run, `by` names that task;
-  `legacy` — migrated from the old map, origin unknown). Explicit
-  `on: false` is kept so an unarchive outranks a stale `archived: true` in a
-  task's own `metadata.json`. New per-task flags go here beside `archived`.
-  The pre-`taskFlags` shape `"archived": { "<key>": true }` is still read and
-  rewritten into `taskFlags` on the next save.
-- `tags` — the board-wide tag registry. Key is the slug (`safeRef` of the typed
-  name); `name` keeps the typed casing for display; `color` is a palette name
-  (`violet indigo blue emerald amber rose cyan orange`), never a hex value, so
-  chips theme in light and dark.
-- `taskTags` — `<pipeline>/<task>` → the slugs assigned to it. An empty set
-  removes the key. Deleting a task drops its entry; registry entries are never
-  auto-pruned.
-- Both default to `{}`: a `refs.json` predating tags reads as "no tags", and a
-  slug with no registry entry is dropped from the projection rather than
-  rendered.
+- `next` — the next `#number` to hand out. It only ever grows (never reads below
+  the highest `ref` in `tasks`), so numbers are never reused.
+- `tags` — the board-wide tag registry. Key is the slug (`safeRef` of the typed,
+  lowercased name); `name` keeps the typed casing for display; `color` is a
+  `#rrggbb` value (a legacy palette name like `violet` is mapped on read).
+  Registry entries are never auto-pruned.
+- `tasks` — `<pipeline>/<task>` → that task's entry, keys sorted on write:
+  - `ref` — its `#number`.
+  - `tags` — the slugs assigned to it; an empty set drops the field. A slug with
+    no registry entry is dropped from the projection rather than rendered.
+  - flags (`archived`, and any future one) — each a record, never a bare
+    boolean: `on` (the state), `at` (ISO time it was last set, `null` when
+    unknown), `reason` (`manual` — set in the app; `duplicate` — with `of`, the
+    key it duplicates; `agent` — set by an agent run, `by` names that task;
+    `legacy` — migrated from an old file, origin unknown). Explicit `on: false`
+    is kept so an unarchive outranks a stale `archived: true` in a task's own
+    `metadata.json`.
+  - `deleted` — tombstone. Deleting a task replaces its whole entry with
+    `{ "deleted": { "at" } }`, so branch scanning can't resurrect it and its
+    number stays retired. Recreating the same id lifts it (new `#number`).
+- **v1** files (parallel `refs`, `taskFlags`, `taskTags`, `deleted` maps, and the
+  older `archived: { "<key>": true }`) are still read, folded into `tasks`, and
+  saved as v2 on the next write. Code outside the store reads a `#number` via
+  `refOfKey(json, key)` (`core/domain.js`), which understands both shapes.
 
 ## Project enumeration & state
 
